@@ -1,0 +1,95 @@
+# ============================
+# Dependencies
+# ============================
+node_modules/
+.pnp
+.pnp.js
+
+# ============================
+# Environment Variables (NEVER commit these)
+# ============================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.production
+.env.staging
+backend/.env
+dashboard/.env
+
+# ============================
+# Build Outputs
+# ============================
+/build
+/dist
+dashboard/build/
+backend/dist/
+extension/dist/
+
+# ============================
+# Logs
+# ============================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# ============================
+# Runtime / OS
+# ============================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ============================
+# IDE / Editor
+# ============================
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ============================
+# Testing
+# ============================
+/coverage
+*.lcov
+.nyc_output/
+
+# ============================
+# Prisma
+# ============================
+# Keep schema but ignore migrations output (optional, remove if you want migrations tracked)
+# prisma/migrations/   ← DO NOT ignore — migrations should be committed
+
+# ============================
+# Chrome Extension packed output
+# ============================
+*.zip
+avalisa-extension.zip
+
+# ============================
+# Misc
+# ============================
+.cache/
+.parcel-cache/
+.next/
+.nuxt/
+.vuepress/dist
+.serverless/
+.fusebox/
+.dynamodb/
+.tern-port
+*.pem
+*.key
+*.cert

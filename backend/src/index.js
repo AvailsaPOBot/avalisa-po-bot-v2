@@ -1,0 +1,69 @@
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+
+const authRoutes = require('./routes/auth');
+const licenseRoutes = require('./routes/license');
+const tradeRoutes = require('./routes/trades');
+const settingsRoutes = require('./routes/settings');
+const supportRoutes = require('./routes/support');
+const webhookRoutes = require('./routes/webhooks');
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+// CORS — allow dashboard + extension
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'https://pocketoption.com',
+  'https://po.cash',
+  'chrome-extension://', // handled by wildcard below
+].filter(Boolean);
+
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true); // allow non-browser / server-to-server
+    if (
+      allowedOrigins.some(o => origin.startsWith(o)) ||
+      origin.startsWith('chrome-extension://')
+    ) {
+      return cb(null, true);
+    }
+    cb(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+}));
+
+// Webhook route BEFORE express.json() — needs raw body for HMAC verification
+app.use('/api/webhooks', webhookRoutes);
+
+// JSON body parser for all other routes
+app.use(express.json({ limit: '1mb' }));
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString(), version: '2.0.0' });
+});
+
+// API routes
+app.use('/api/auth', authRoutes);
+app.use('/api/license', licenseRoutes);
+app.use('/api/trades', tradeRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/support', supportRoutes);
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ error: `Route ${req.method} ${req.path} not found` });
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
+app.listen(PORT, () => {
+  console.log(`✅ Avalisa PO Bot API running on port ${PORT}`);
+  console.log(`   AI provider: ${process.env.ANTHROPIC_API_KEY ? 'Claude (Anthropic)' : 'Gemini (Google)'}`);
+});
