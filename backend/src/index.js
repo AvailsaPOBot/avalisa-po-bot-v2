@@ -10,7 +10,7 @@ const supportRoutes = require('./routes/support');
 const webhookRoutes = require('./routes/webhooks');
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 
 // CORS — allow dashboard + extension
 const allowedOrigins = [
@@ -63,7 +63,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Avalisa PO Bot API running on port ${PORT}`);
   console.log(`   AI provider: ${process.env.ANTHROPIC_API_KEY ? 'Claude (Anthropic)' : 'Gemini (Google)'}`);
 });
