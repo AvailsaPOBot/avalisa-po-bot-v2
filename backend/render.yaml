@@ -5,8 +5,8 @@ services:
     region: oregon
     plan: free
     rootDir: .
-    buildCommand: npm install && npx prisma generate
-    startCommand: npx prisma migrate deploy && node src/index.js
+    buildCommand: npm install && npx prisma migrate deploy && npx prisma generate
+    startCommand: node src/index.js
     envVars:
       - key: NODE_ENV
         value: production
