@@ -6,6 +6,7 @@ services:
     plan: free
     rootDir: .
     buildCommand: npm install && npx prisma migrate deploy && npx prisma generate
+    # migrate runs at build time; start is clean node process only
     startCommand: node src/index.js
     envVars:
       - key: NODE_ENV

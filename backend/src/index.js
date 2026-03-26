@@ -14,6 +14,7 @@ process.on('unhandledRejection', (reason) => {
 
 const express = require('express');
 const cors = require('cors');
+const { PrismaClient } = require('@prisma/client');
 
 const authRoutes = require('./routes/auth');
 const licenseRoutes = require('./routes/license');
@@ -24,6 +25,7 @@ const webhookRoutes = require('./routes/webhooks');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const prisma = new PrismaClient();
 
 // CORS — allow dashboard + extension
 const allowedOrigins = [
@@ -76,7 +78,19 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ Avalisa PO Bot API running on port ${PORT}`);
-  console.log(`   AI provider: ${process.env.ANTHROPIC_API_KEY ? 'Claude (Anthropic)' : 'Gemini (Google)'}`);
-});
+// Start server with DB connectivity check
+async function startServer() {
+  try {
+    await prisma.$executeRaw`SELECT 1`;
+    console.log('✅ Database connected');
+  } catch (err) {
+    console.error('❌ Database connection failed:', err.message);
+  }
+
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`✅ Avalisa PO Bot API running on port ${PORT}`);
+    console.log(`   AI provider: ${process.env.ANTHROPIC_API_KEY ? 'Claude (Anthropic)' : 'Gemini (Google)'}`);
+  });
+}
+
+startServer();
