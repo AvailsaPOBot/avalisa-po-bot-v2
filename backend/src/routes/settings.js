@@ -1,9 +1,8 @@
 const express = require('express');
-const { PrismaClient } = require('@prisma/client');
 const { authMiddleware } = require('../middleware/auth');
+const prisma = require('../lib/prisma');
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 const VALID_TIMEFRAMES = ['M1', 'M3', 'M5', 'M30', 'H1', 'H4'];
 const VALID_DIRECTIONS = ['alternating', 'call', 'put'];

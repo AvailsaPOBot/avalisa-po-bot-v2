@@ -1,9 +1,8 @@
 const express = require('express');
 const crypto = require('crypto');
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../lib/prisma');
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // POST /api/webhooks/lemonsqueezy
 // Use raw body for signature verification — mount BEFORE express.json()

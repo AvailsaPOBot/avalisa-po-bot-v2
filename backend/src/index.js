@@ -14,7 +14,7 @@ process.on('unhandledRejection', (reason) => {
 
 const express = require('express');
 const cors = require('cors');
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('./lib/prisma');
 
 const authRoutes = require('./routes/auth');
 const licenseRoutes = require('./routes/license');
@@ -25,7 +25,6 @@ const webhookRoutes = require('./routes/webhooks');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const prisma = new PrismaClient();
 
 // CORS — allow dashboard + extension
 const allowedOrigins = [
