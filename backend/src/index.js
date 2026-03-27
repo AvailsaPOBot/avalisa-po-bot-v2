@@ -78,10 +78,22 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-// Start server with DB connectivity check
+// Start server: run migrations, check DB, then bind port
 async function startServer() {
   try {
-    await prisma.$executeRaw`SELECT 1`;
+    const { execSync } = require('child_process');
+    console.log('Running database migrations...');
+    execSync('npx prisma migrate deploy', {
+      stdio: 'inherit',
+      cwd: __dirname + '/..',
+    });
+    console.log('✅ Migrations complete');
+  } catch (err) {
+    console.error('Migration error:', err.message);
+  }
+
+  try {
+    await prisma.$queryRaw`SELECT 1`;
     console.log('✅ Database connected');
   } catch (err) {
     console.error('❌ Database connection failed:', err.message);
@@ -89,7 +101,7 @@ async function startServer() {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ Avalisa PO Bot API running on port ${PORT}`);
-    console.log(`   AI provider: ${process.env.ANTHROPIC_API_KEY ? 'Claude (Anthropic)' : 'Gemini (Google)'}`);
+    console.log(`   AI provider: ${process.env.ANTHROPIC_API_KEY ? 'Claude' : 'Gemini (Google)'}`);
   });
 }
 
