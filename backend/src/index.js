@@ -89,7 +89,9 @@ async function startServer() {
     });
     console.log('✅ Migrations complete');
   } catch (err) {
-    console.error('Migration error:', err.message);
+    console.error('Migration error details:', err.message);
+    console.error('Migration error code:', err.code);
+    console.error('Migration full error:', JSON.stringify(err, null, 2));
   }
 
   try {
