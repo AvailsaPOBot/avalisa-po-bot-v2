@@ -152,6 +152,77 @@ function setTradeAmount(amount) {
   return true;
 }
 
+// Maps our timeframe values to wait duration in ms
+function getTimeframeMs(timeframe) {
+  const map = {
+    S15: 15000, S30: 30000,
+    M1: 60000, M3: 180000, M5: 300000, M30: 1800000, H1: 3600000,
+  };
+  return map[timeframe] || 60000;
+}
+
+async function setTimeframe(timeframe) {
+  console.log('[Avalisa] Setting timeframe to:', timeframe);
+
+  // Log every candidate element so we can see what PO uses
+  const candidateSelectors = [
+    '[class*="timeframe"]', '[class*="time-frame"]',
+    '[data-timeframe]', '[data-period]',
+    '.chart-timeframes button', '.chart-timeframes li', '.chart-timeframes a',
+    '.timeframe-selector button', '.timeframe-selector li',
+  ];
+  const seen = new Set();
+  candidateSelectors.forEach(sel => {
+    document.querySelectorAll(sel).forEach(el => {
+      if (!seen.has(el)) {
+        seen.add(el);
+        console.log('[Avalisa] TF candidate:', el.tagName, '|class:', el.className,
+          '|text:', el.textContent.trim().substring(0, 20),
+          '|data-timeframe:', el.dataset.timeframe || '',
+          '|data-period:', el.dataset.period || '');
+      }
+    });
+  });
+  console.log('[Avalisa] Total TF candidates found:', seen.size);
+
+  // What text labels PO might use for each timeframe
+  const tfLabels = {
+    S15: ['15s', '15S', '0:15', '15', 'S15'],
+    S30: ['30s', '30S', '0:30', '30', 'S30'],
+    M1:  ['1m', '1M', '1:00', '01:00', '1', 'M1'],
+    M3:  ['3m', '3M', '3:00', '3', 'M3'],
+    M5:  ['5m', '5M', '5:00', '5', 'M5'],
+    M30: ['30m', '30M', '30:00', '30', 'M30'],
+    H1:  ['1h', '1H', '60m', '60', 'H1'],
+  };
+  const targets = tfLabels[timeframe] || [timeframe];
+
+  // 1. Try data-timeframe / data-period attributes
+  for (const t of targets) {
+    const el = document.querySelector(`[data-timeframe="${t}"], [data-period="${t}"]`);
+    if (el) {
+      console.log('[Avalisa] Clicking TF via data attr:', t, el.className);
+      el.click(); return true;
+    }
+  }
+
+  // 2. Try visible button/li/a matching text content exactly
+  const clickables = document.querySelectorAll('button, li, a, span[role="button"]');
+  for (const el of clickables) {
+    const text = el.textContent.trim();
+    if (targets.some(t => text === t || text.toLowerCase() === t.toLowerCase())) {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) {
+        console.log('[Avalisa] Clicking TF via text content:', text, el.className);
+        el.click(); return true;
+      }
+    }
+  }
+
+  console.warn('[Avalisa] setTimeframe: no element found for', timeframe, '— page keeps current TF');
+  return false;
+}
+
 function clickCall() {
   const btn = document.querySelector('a.btn.btn-call');
   if (btn) { btn.click(); return true; }
@@ -179,90 +250,32 @@ function waitForTradeOpen(timeoutMs = 5000) {
 }
 
 /**
- * Wait for most recent pending trade to close and return win/loss.
- * Watches for closed deal elements and reads result class/text.
+ * Wait for trade expiry then determine win/loss from balance change.
+ * @param {number|null} balanceBefore  Balance recorded before trade was placed
+ * @param {number}      timeframeMs    Timeframe duration in ms (e.g. 60000 for M1)
  */
-function waitForTradeClose(timeoutMs = 120000) {
-  return new Promise((resolve, reject) => {
-    const start = Date.now();
+async function waitForTradeResult(balanceBefore, timeframeMs) {
+  const waitMs = timeframeMs + 3000; // expiry + 3s buffer
+  console.log(`[Avalisa] Trade placed. Waiting ${waitMs / 1000}s for expiry (TF ${timeframeMs / 1000}s + 3s buffer)...`);
+  updateStatus('running', `Waiting ${Math.round(waitMs / 1000)}s for result…`);
 
-    function checkElement(el) {
-      const classes = Array.from(el.classList);
-      console.log('[Avalisa] Checking closed deal element. Classes:', classes.join(' '));
+  await sleep(waitMs);
 
-      // Check all known win class patterns
-      const isWin =
-        classes.some(c => /win|positive|profit|success/i.test(c)) ||
-        el.classList.contains('c-green') ||
-        el.classList.contains('status-win') ||
-        el.classList.contains('deals-list__item--win') ||
-        el.querySelector('[class*="win"], [class*="positive"], [class*="profit"], .c-green') !== null;
+  const balanceAfter = getBalance();
+  console.log(`[Avalisa] Balance BEFORE: ${balanceBefore} | Balance AFTER: ${balanceAfter}`);
 
-      // Check all known loss class patterns
-      const isLoss =
-        classes.some(c => /loss|negative|fail/i.test(c)) ||
-        el.classList.contains('c-red') ||
-        el.classList.contains('status-loss') ||
-        el.classList.contains('deals-list__item--loss') ||
-        el.querySelector('[class*="loss"], [class*="negative"], .c-red') !== null;
+  if (balanceBefore === null || balanceAfter === null) {
+    console.warn('[Avalisa] Could not read balance — defaulting to LOSS');
+    return 'loss';
+  }
 
-      // Text content fallbacks
-      const resultEl = el.querySelector('.deals-list__item-result, .result, .deal-result, [class*="result"]');
-      const resultText = resultEl?.textContent?.trim()?.toLowerCase() || '';
-      console.log('[Avalisa] Result element text:', resultText || '(none)');
-
-      if (isWin || resultText === 'win' || resultText === '+' || resultText.includes('win')) {
-        console.log('[Avalisa] Detected: WIN');
-        return 'win';
-      }
-      if (isLoss || resultText === 'loss' || resultText === '-' || resultText.includes('loss')) {
-        console.log('[Avalisa] Detected: LOSS');
-        return 'loss';
-      }
-
-      return null;
-    }
-
-    const observer = new MutationObserver(() => {
-      // Try all closed deal selectors
-      const selectors = [
-        '.deals-list__item--closed',
-        '.deal--closed',
-        '.deals-list__item.closed',
-        '[class*="deal"][class*="closed"]',
-      ];
-
-      let closedItems = [];
-      for (const sel of selectors) {
-        const found = document.querySelectorAll(sel);
-        if (found.length > 0) { closedItems = Array.from(found); break; }
-      }
-
-      if (closedItems.length === 0) return;
-
-      const latest = closedItems[closedItems.length - 1];
-      console.log('[Avalisa] Closed deal found. Full classList:', latest.className);
-
-      const result = checkElement(latest);
-      if (result) {
-        observer.disconnect();
-        return resolve(result);
-      }
-
-      if (Date.now() - start > timeoutMs) {
-        observer.disconnect();
-        return reject(new Error('Trade close timeout'));
-      }
-    });
-
-    observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
-
-    // Timeout fallback
-    setTimeout(() => {
-      observer.disconnect();
-      reject(new Error('Trade close timeout'));
-    }, timeoutMs);
-  });
+  if (balanceAfter > balanceBefore) {
+    console.log('[Avalisa] Balance increased → WIN');
+    return 'win';
+  } else {
+    console.log('[Avalisa] Balance same or decreased → LOSS');
+    return 'loss';
+  }
 }
 
 function sleep(ms) {
@@ -303,6 +316,9 @@ async function runTradeCycle() {
 
   updateStatus('running', `Trade #${state.tradesCount + 1} — ${direction.toUpperCase()} $${amount.toFixed(2)}`);
 
+  // Set timeframe on page
+  await setTimeframe(state.settings.timeframe);
+
   // Set amount on page
   if (!setTradeAmount(amount)) {
     updateStatus('error', 'Could not set trade amount — page may have changed');
@@ -310,6 +326,7 @@ async function runTradeCycle() {
   }
 
   const balanceBefore = getBalance();
+  console.log('[Avalisa] Balance before trade:', balanceBefore);
 
   // Place trade
   const placed = direction === 'call' ? clickCall() : clickPut();
@@ -329,17 +346,8 @@ async function runTradeCycle() {
   await incrementTrade();
   updateTradeCounter();
 
-  // Wait for result
-  let result;
-  try {
-    result = await waitForTradeClose(120000);
-  } catch {
-    updateStatus('error', 'Could not detect trade result — manual check required');
-    state.running = false;
-    updateUI();
-    return;
-  }
-
+  // Wait for expiry then read balance change
+  const result = await waitForTradeResult(balanceBefore, getTimeframeMs(state.settings.timeframe));
   const balanceAfter = getBalance();
 
   // Log trade to backend
