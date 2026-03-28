@@ -124,8 +124,27 @@ function getBalance() {
 }
 
 function setTradeAmount(amount) {
-  const input = document.querySelector('input.value__val');
-  if (!input) return false;
+  const selectors = [
+    'input[data-testid="trade-amount"]',
+    '.value__val input',
+    'input.value__val',
+    '.trade-amount input',
+    'input[name="amount"]',
+  ];
+
+  let input = null;
+  let matchedSelector = null;
+  for (const sel of selectors) {
+    const el = document.querySelector(sel);
+    if (el) { input = el; matchedSelector = sel; break; }
+  }
+
+  if (!input) {
+    console.warn('[Avalisa] setTradeAmount: no input found. Tried:', selectors);
+    return false;
+  }
+
+  console.log('[Avalisa] setTradeAmount: using selector:', matchedSelector);
   const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
   nativeInputValueSetter.call(input, amount.toFixed(2));
   input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -533,6 +552,7 @@ function getOverlayCSS() {
     .av-btn-green { background: #059669; color: #fff; }
     .av-btn-red { background: #dc2626; color: #fff; }
     .av-btn-sm { padding: 4px 10px; font-size: 11px; flex: none; }
+    #av-logout-btn { background: #dc2626; color: #ffffff; }
     .av-status { font-size: 12px; color: #a78bfa; margin-bottom: 4px; }
     .av-status.error { color: #f87171; }
     .av-status.running { color: #34d399; }
