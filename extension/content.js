@@ -11,6 +11,7 @@ const DASHBOARD_URL = 'https://avalisa-po-bot-v2.vercel.app';
 // ─── State ────────────────────────────────────────────────────────────────────
 const state = {
   running: false,
+  isTradeOpen: false,
   currentAmount: 0,
   martingaleStep: 0,
   tradesCount: 0,
@@ -295,6 +296,15 @@ function getNextDirection() {
 async function runTradeCycle() {
   if (state.stopRequested) return;
 
+  // Guard: don't place a new trade while one is still open
+  if (state.isTradeOpen) {
+    console.log('[Avalisa] Trade already open, waiting...');
+    updateStatus('running', 'Trade already open, waiting...');
+    await sleep(3000);
+    if (state.running && !state.stopRequested) runTradeCycle();
+    return;
+  }
+
   // License check
   const license = await checkLicense();
   if (!license.allowed) {
@@ -342,12 +352,26 @@ async function runTradeCycle() {
     return;
   }
 
+  state.isTradeOpen = true;
+  console.log('[Avalisa] Trade confirmed open. isTradeOpen = true');
+
+  // Safety: auto-clear isTradeOpen after 3 minutes max
+  const tradeGuardTimeout = setTimeout(() => {
+    if (state.isTradeOpen) {
+      console.warn('[Avalisa] 3-min safety timeout — clearing isTradeOpen');
+      state.isTradeOpen = false;
+    }
+  }, 180000);
+
   state.tradesCount++;
   await incrementTrade();
   updateTradeCounter();
 
   // Wait for expiry then read balance change
   const result = await waitForTradeResult(balanceBefore, getTimeframeMs(state.settings.timeframe));
+  clearTimeout(tradeGuardTimeout);
+  state.isTradeOpen = false;
+  console.log('[Avalisa] Trade closed. Result:', result, '| isTradeOpen = false');
   const balanceAfter = getBalance();
 
   // Log trade to backend
@@ -669,8 +693,43 @@ function handleLogout() {
   updateUI();
 }
 
+function diagnosePOInterface() {
+  console.log('[Avalisa] === PO INTERFACE DIAGNOSTIC ===');
+
+  // Find timeframe elements by keyword
+  const tfKeywords = ['timeframe', 'time-frame', 'duration', 'expir', 'period'];
+  tfKeywords.forEach(kw => {
+    const els = document.querySelectorAll(`[class*="${kw}"], [data-${kw}]`);
+    if (els.length) {
+      els.forEach(el => console.log(`[Avalisa] TF element (${kw}):`, el.className, el.textContent.trim().substring(0, 50)));
+    }
+  });
+
+  // Find all buttons/clickable elements with time-like text
+  document.querySelectorAll('button, [role="button"], li, .item').forEach(el => {
+    const text = el.textContent.trim();
+    if (/^(S\d+|M\d+|H\d+|\d+[smh])$/i.test(text)) {
+      console.log('[Avalisa] Time button found:', el.tagName, el.className, text);
+    }
+  });
+
+  // Find all input elements
+  const inputs = document.querySelectorAll('input');
+  inputs.forEach(inp => {
+    console.log('[Avalisa] Input found:', inp.className, inp.name, inp.type, inp.value);
+  });
+
+  // Find active/selected element
+  const active = document.querySelector('.active, .selected, [aria-selected="true"]');
+  if (active) console.log('[Avalisa] Active element:', active.className, active.textContent.trim());
+
+  console.log('[Avalisa] === END DIAGNOSTIC ===');
+}
+
 async function startBot() {
   if (state.running) return;
+
+  diagnosePOInterface();
 
   await saveCurrentSettings();
   const license = await checkLicense();
