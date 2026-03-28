@@ -6,29 +6,18 @@ const SYSTEM_PROMPT = 'You are the support assistant for Avalisa PO Bot, a Chrom
 
 // POST /api/support/chat
 router.post('/chat', async (req, res) => {
-  const { messages } = req.body;
-
-  if (!messages || !Array.isArray(messages) || messages.length === 0) {
-    return res.status(400).json({ error: 'messages array is required' });
+  let userMessage;
+  if (req.body.message) {
+    userMessage = req.body.message;
+  } else if (req.body.messages && req.body.messages.length > 0) {
+    userMessage = req.body.messages[req.body.messages.length - 1].content;
+  } else {
+    return res.status(400).json({ error: 'message or messages required' });
   }
 
-  for (const msg of messages) {
-    if (!msg.role || !msg.content) {
-      return res.status(400).json({ error: 'Each message must have role and content' });
-    }
-    if (!['user', 'assistant'].includes(msg.role)) {
-      return res.status(400).json({ error: 'Message role must be user or assistant' });
-    }
-  }
-
-  const trimmedMessages = messages.slice(-20);
-  const lastMessage = trimmedMessages[trimmedMessages.length - 1];
-
-  if (lastMessage.role !== 'user') {
-    return res.status(400).json({ error: 'Last message must be from user' });
-  }
-
-  const message = lastMessage.content;
+  const trimmedMessages = req.body.messages
+    ? req.body.messages.slice(-20)
+    : [{ role: 'user', content: userMessage }];
 
   try {
     let reply;
@@ -54,7 +43,7 @@ router.post('/chat', async (req, res) => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: message }] }],
+            contents: [{ parts: [{ text: userMessage }] }],
             systemInstruction: {
               parts: [{ text: SYSTEM_PROMPT }],
             },
