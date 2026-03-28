@@ -81,20 +81,6 @@ app.use((err, req, res, next) => {
 // Start server: run migrations, check DB, then bind port
 async function startServer() {
   try {
-    const { execSync } = require('child_process');
-    console.log('Running database migrations...');
-    execSync('npx prisma migrate deploy', {
-      stdio: 'inherit',
-      cwd: __dirname + '/..',
-    });
-    console.log('✅ Migrations complete');
-  } catch (err) {
-    console.error('Migration error details:', err.message);
-    console.error('Migration error code:', err.code);
-    console.error('Migration full error:', JSON.stringify(err, null, 2));
-  }
-
-  try {
     await prisma.$queryRaw`SELECT 1`;
     console.log('✅ Database connected');
   } catch (err) {
