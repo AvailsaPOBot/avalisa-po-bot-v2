@@ -29,7 +29,7 @@ router.post('/register', async (req, res) => {
           create: {
             plan: 'free',
             tradesUsed: 0,
-            tradesLimit: null, // free plan uses device fingerprint tracking
+            tradesLimit: 10,
           },
         },
         settings: {
