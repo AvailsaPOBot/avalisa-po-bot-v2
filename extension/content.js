@@ -162,17 +162,41 @@ function getTimeframeMs(timeframe) {
   return map[timeframe] || 60000;
 }
 
-function setTimeframe(tf) {
+async function setTimeframe(tf) {
   console.log('[Avalisa] Setting timeframe to:', tf);
-  const items = document.querySelectorAll('.dops__timeframes-item');
-  console.log('[Avalisa] TF items found:', items.length);
+
+  // Step 1: Try clicking directly if panel already open
+  let items = document.querySelectorAll('.dops__timeframes-item');
+  console.log('[Avalisa] TF items found (before open):', items.length);
+
+  // Step 2: If not visible, click the expiration block to open the panel
+  if (items.length === 0) {
+    const triggers = [
+      document.querySelector('.block--expiration-inputs'),
+      document.querySelector('.expiration-inputs'),
+      document.querySelector('[class*="expir"]'),
+    ].filter(Boolean);
+
+    if (triggers.length > 0) {
+      triggers[0].click();
+      console.log('[Avalisa] Clicked expiration trigger:', triggers[0].className);
+      await new Promise(r => setTimeout(r, 500));
+    }
+  }
+
+  // Step 3: Now try to find and click the timeframe
+  items = document.querySelectorAll('.dops__timeframes-item');
+  console.log('[Avalisa] TF items found (after open):', items.length);
+
   for (const item of items) {
     if (item.textContent.trim() === tf) {
       item.click();
       console.log('[Avalisa] Timeframe clicked:', tf);
+      await new Promise(r => setTimeout(r, 300));
       return true;
     }
   }
+
   console.warn('[Avalisa] Timeframe not found:', tf);
   return false;
 }
@@ -280,7 +304,7 @@ async function runTradeCycle() {
   updateStatus('running', `Trade #${state.tradesCount + 1} — ${direction.toUpperCase()} $${amount.toFixed(2)}`);
 
   // Set timeframe on page
-  setTimeframe(state.settings.timeframe);
+  await setTimeframe(state.settings.timeframe);
 
   // Set amount on page
   if (!setTradeAmount(amount)) {
