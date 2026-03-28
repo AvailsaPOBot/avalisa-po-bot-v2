@@ -4,7 +4,7 @@ const prisma = require('../lib/prisma');
 
 const router = express.Router();
 
-const VALID_TIMEFRAMES = ['M1', 'M3', 'M5', 'M30', 'H1', 'H4'];
+const VALID_TIMEFRAMES = ['S15', 'S30', 'M1', 'M3', 'M5', 'M30', 'H1'];
 const VALID_DIRECTIONS = ['alternating', 'call', 'put'];
 const VALID_STRATEGIES = ['martingale', 'anti-martingale', 'fixed', 'ai-signal'];
 const VALID_DELAYS = [4, 6, 8, 10, 12];
@@ -25,8 +25,18 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 });
 
+// POST /api/settings — extension uses apiPost (POST), same logic as PUT
+router.post('/', authMiddleware, async (req, res) => {
+  req.method = 'PUT'; // reuse PUT handler below
+  return settingsUpsert(req, res);
+});
+
 // PUT /api/settings
 router.put('/', authMiddleware, async (req, res) => {
+  return settingsUpsert(req, res);
+});
+
+async function settingsUpsert(req, res) {
   const {
     strategy,
     timeframe,
@@ -88,6 +98,6 @@ router.put('/', authMiddleware, async (req, res) => {
     console.error('Settings update error:', err);
     res.status(500).json({ error: 'Failed to update settings' });
   }
-});
+}
 
 module.exports = router;

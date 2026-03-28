@@ -6,9 +6,24 @@ const router = express.Router();
 
 // POST /api/trades/log
 router.post('/log', authMiddleware, async (req, res) => {
-  const { pair, direction, amount, result, balanceBefore, balanceAfter } = req.body;
-  if (!pair || !direction || !amount) {
-    return res.status(400).json({ error: 'pair, direction, and amount are required' });
+  console.log('[trades/log] body received:', JSON.stringify(req.body));
+
+  const {
+    pair,
+    direction = 'call',
+    amount,
+    result = 'pending',
+    balanceBefore,
+    balanceAfter,
+  } = req.body;
+
+  if (!pair) {
+    return res.status(400).json({ error: 'pair is required' });
+  }
+
+  // amount is required but must allow 0-safe check
+  if (amount === undefined || amount === null || amount === '') {
+    return res.status(400).json({ error: 'amount is required' });
   }
 
   try {
@@ -18,9 +33,9 @@ router.post('/log', authMiddleware, async (req, res) => {
         pair,
         direction,
         amount: parseFloat(amount),
-        result: result || 'pending',
-        balanceBefore: balanceBefore ? parseFloat(balanceBefore) : null,
-        balanceAfter: balanceAfter ? parseFloat(balanceAfter) : null,
+        result,
+        balanceBefore: balanceBefore != null ? parseFloat(balanceBefore) : null,
+        balanceAfter: balanceAfter != null ? parseFloat(balanceAfter) : null,
       },
     });
     res.status(201).json(trade);

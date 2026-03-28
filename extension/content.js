@@ -162,65 +162,18 @@ function getTimeframeMs(timeframe) {
   return map[timeframe] || 60000;
 }
 
-async function setTimeframe(timeframe) {
-  console.log('[Avalisa] Setting timeframe to:', timeframe);
-
-  // Log every candidate element so we can see what PO uses
-  const candidateSelectors = [
-    '[class*="timeframe"]', '[class*="time-frame"]',
-    '[data-timeframe]', '[data-period]',
-    '.chart-timeframes button', '.chart-timeframes li', '.chart-timeframes a',
-    '.timeframe-selector button', '.timeframe-selector li',
-  ];
-  const seen = new Set();
-  candidateSelectors.forEach(sel => {
-    document.querySelectorAll(sel).forEach(el => {
-      if (!seen.has(el)) {
-        seen.add(el);
-        console.log('[Avalisa] TF candidate:', el.tagName, '|class:', el.className,
-          '|text:', el.textContent.trim().substring(0, 20),
-          '|data-timeframe:', el.dataset.timeframe || '',
-          '|data-period:', el.dataset.period || '');
-      }
-    });
-  });
-  console.log('[Avalisa] Total TF candidates found:', seen.size);
-
-  // What text labels PO might use for each timeframe
-  const tfLabels = {
-    S15: ['15s', '15S', '0:15', '15', 'S15'],
-    S30: ['30s', '30S', '0:30', '30', 'S30'],
-    M1:  ['1m', '1M', '1:00', '01:00', '1', 'M1'],
-    M3:  ['3m', '3M', '3:00', '3', 'M3'],
-    M5:  ['5m', '5M', '5:00', '5', 'M5'],
-    M30: ['30m', '30M', '30:00', '30', 'M30'],
-    H1:  ['1h', '1H', '60m', '60', 'H1'],
-  };
-  const targets = tfLabels[timeframe] || [timeframe];
-
-  // 1. Try data-timeframe / data-period attributes
-  for (const t of targets) {
-    const el = document.querySelector(`[data-timeframe="${t}"], [data-period="${t}"]`);
-    if (el) {
-      console.log('[Avalisa] Clicking TF via data attr:', t, el.className);
-      el.click(); return true;
+function setTimeframe(tf) {
+  console.log('[Avalisa] Setting timeframe to:', tf);
+  const items = document.querySelectorAll('.dops__timeframes-item');
+  console.log('[Avalisa] TF items found:', items.length);
+  for (const item of items) {
+    if (item.textContent.trim() === tf) {
+      item.click();
+      console.log('[Avalisa] Timeframe clicked:', tf);
+      return true;
     }
   }
-
-  // 2. Try visible button/li/a matching text content exactly
-  const clickables = document.querySelectorAll('button, li, a, span[role="button"]');
-  for (const el of clickables) {
-    const text = el.textContent.trim();
-    if (targets.some(t => text === t || text.toLowerCase() === t.toLowerCase())) {
-      const r = el.getBoundingClientRect();
-      if (r.width > 0 && r.height > 0) {
-        console.log('[Avalisa] Clicking TF via text content:', text, el.className);
-        el.click(); return true;
-      }
-    }
-  }
-
-  console.warn('[Avalisa] setTimeframe: no element found for', timeframe, '— page keeps current TF');
+  console.warn('[Avalisa] Timeframe not found:', tf);
   return false;
 }
 
@@ -327,7 +280,7 @@ async function runTradeCycle() {
   updateStatus('running', `Trade #${state.tradesCount + 1} — ${direction.toUpperCase()} $${amount.toFixed(2)}`);
 
   // Set timeframe on page
-  await setTimeframe(state.settings.timeframe);
+  setTimeframe(state.settings.timeframe);
 
   // Set amount on page
   if (!setTradeAmount(amount)) {
