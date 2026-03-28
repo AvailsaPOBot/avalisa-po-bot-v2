@@ -180,41 +180,74 @@ function waitForTradeOpen(timeoutMs = 5000) {
 
 /**
  * Wait for most recent pending trade to close and return win/loss.
- * Watches for .deals-list__item--closed element and reads its result class.
+ * Watches for closed deal elements and reads result class/text.
  */
 function waitForTradeClose(timeoutMs = 120000) {
   return new Promise((resolve, reject) => {
     const start = Date.now();
 
+    function checkElement(el) {
+      const classes = Array.from(el.classList);
+      console.log('[Avalisa] Checking closed deal element. Classes:', classes.join(' '));
+
+      // Check all known win class patterns
+      const isWin =
+        classes.some(c => /win|positive|profit|success/i.test(c)) ||
+        el.classList.contains('c-green') ||
+        el.classList.contains('status-win') ||
+        el.classList.contains('deals-list__item--win') ||
+        el.querySelector('[class*="win"], [class*="positive"], [class*="profit"], .c-green') !== null;
+
+      // Check all known loss class patterns
+      const isLoss =
+        classes.some(c => /loss|negative|fail/i.test(c)) ||
+        el.classList.contains('c-red') ||
+        el.classList.contains('status-loss') ||
+        el.classList.contains('deals-list__item--loss') ||
+        el.querySelector('[class*="loss"], [class*="negative"], .c-red') !== null;
+
+      // Text content fallbacks
+      const resultEl = el.querySelector('.deals-list__item-result, .result, .deal-result, [class*="result"]');
+      const resultText = resultEl?.textContent?.trim()?.toLowerCase() || '';
+      console.log('[Avalisa] Result element text:', resultText || '(none)');
+
+      if (isWin || resultText === 'win' || resultText === '+' || resultText.includes('win')) {
+        console.log('[Avalisa] Detected: WIN');
+        return 'win';
+      }
+      if (isLoss || resultText === 'loss' || resultText === '-' || resultText.includes('loss')) {
+        console.log('[Avalisa] Detected: LOSS');
+        return 'loss';
+      }
+
+      return null;
+    }
+
     const observer = new MutationObserver(() => {
-      const closedItems = document.querySelectorAll('.deals-list__item--closed');
+      // Try all closed deal selectors
+      const selectors = [
+        '.deals-list__item--closed',
+        '.deal--closed',
+        '.deals-list__item.closed',
+        '[class*="deal"][class*="closed"]',
+      ];
+
+      let closedItems = [];
+      for (const sel of selectors) {
+        const found = document.querySelectorAll(sel);
+        if (found.length > 0) { closedItems = Array.from(found); break; }
+      }
+
       if (closedItems.length === 0) return;
 
       const latest = closedItems[closedItems.length - 1];
+      console.log('[Avalisa] Closed deal found. Full classList:', latest.className);
 
-      // PO uses different class names depending on version — try both
-      if (
-        latest.classList.contains('c-green') ||
-        latest.classList.contains('status-win') ||
-        latest.classList.contains('deals-list__item--win')
-      ) {
+      const result = checkElement(latest);
+      if (result) {
         observer.disconnect();
-        return resolve('win');
+        return resolve(result);
       }
-
-      if (
-        latest.classList.contains('c-red') ||
-        latest.classList.contains('status-loss') ||
-        latest.classList.contains('deals-list__item--loss')
-      ) {
-        observer.disconnect();
-        return resolve('loss');
-      }
-
-      // Check text content as fallback
-      const resultText = latest.querySelector('.deals-list__item-result')?.textContent?.trim()?.toLowerCase();
-      if (resultText === 'win' || resultText === '+') { observer.disconnect(); return resolve('win'); }
-      if (resultText === 'loss' || resultText === '-') { observer.disconnect(); return resolve('loss'); }
 
       if (Date.now() - start > timeoutMs) {
         observer.disconnect();
@@ -434,20 +467,21 @@ function getOverlayHTML() {
         <div class="av-row">
           <label class="av-label">Timeframe</label>
           <select id="av-timeframe" class="av-select">
+            <option value="S15">S15</option>
+            <option value="S30">S30</option>
             <option value="M1">M1</option>
             <option value="M3">M3</option>
             <option value="M5">M5</option>
             <option value="M30">M30</option>
             <option value="H1">H1</option>
-            <option value="H4">H4</option>
           </select>
         </div>
         <div class="av-row">
           <label class="av-label">Direction</label>
           <select id="av-direction" class="av-select">
             <option value="alternating">Alternating</option>
-            <option value="call">Always Call</option>
-            <option value="put">Always Put</option>
+            <option value="call">Always Buy</option>
+            <option value="put">Always Sell</option>
           </select>
         </div>
         <div class="av-row">
@@ -462,15 +496,11 @@ function getOverlayHTML() {
         </div>
         <div class="av-row">
           <label class="av-label">Start Amount ($)</label>
-          <input id="av-start-amount" type="number" min="0.01" step="0.01" value="1.00" class="av-input av-input-sm" />
+          <input id="av-start-amount" type="number" min="1" step="1" value="1" class="av-input av-input-sm" />
         </div>
         <div class="av-row">
           <label class="av-label">Martingale ×</label>
           <select id="av-multiplier" class="av-select">
-            <option value="1.2">1.2×</option>
-            <option value="1.4">1.4×</option>
-            <option value="1.6">1.6×</option>
-            <option value="1.8">1.8×</option>
             <option value="2.0" selected>2.0×</option>
             <option value="2.2">2.2×</option>
             <option value="2.4">2.4×</option>
