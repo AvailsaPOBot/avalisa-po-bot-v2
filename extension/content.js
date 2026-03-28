@@ -165,35 +165,55 @@ function getTimeframeMs(timeframe) {
 async function setTimeframe(tf) {
   console.log('[Avalisa] Setting timeframe to:', tf);
 
-  // Step 1: Try clicking directly if panel already open
+  // Convert our TF codes to what PO Quick mode shows
+  const tfMap = {
+    'S15': '15s', 'S30': '30s',
+    'M1': 'M1', 'M3': 'M3', 'M5': 'M5', 'M30': 'M30', 'H1': 'H1',
+  };
+
+  // Mode 1: Try .dops__timeframes-item (regular mode)
   let items = document.querySelectorAll('.dops__timeframes-item');
-  console.log('[Avalisa] TF items found (before open):', items.length);
-
-  // Step 2: If not visible, click the expiration block to open the panel
   if (items.length === 0) {
-    const triggers = [
-      document.querySelector('.block--expiration-inputs'),
-      document.querySelector('.expiration-inputs'),
-      document.querySelector('[class*="expir"]'),
-    ].filter(Boolean);
-
-    if (triggers.length > 0) {
-      triggers[0].click();
-      console.log('[Avalisa] Clicked expiration trigger:', triggers[0].className);
-      await new Promise(r => setTimeout(r, 500));
+    // Try clicking expiration block to reveal panel
+    const trigger = document.querySelector('.block--expiration-inputs, [class*="expir"]');
+    if (trigger) { trigger.click(); await new Promise(r => setTimeout(r, 500)); }
+    items = document.querySelectorAll('.dops__timeframes-item');
+  }
+  if (items.length > 0) {
+    for (const item of items) {
+      if (item.textContent.trim() === tf) {
+        item.click();
+        console.log('[Avalisa] TF clicked (mode 1):', tf);
+        return true;
+      }
     }
   }
 
-  // Step 3: Now try to find and click the timeframe
-  items = document.querySelectorAll('.dops__timeframes-item');
-  console.log('[Avalisa] TF items found (after open):', items.length);
+  // Mode 2: Quick mode — open dropdown then click LI
+  const dropdownBtn = document.querySelector('.btn.dropdown-toggle.btn-default');
+  if (dropdownBtn) {
+    dropdownBtn.click();
+    await new Promise(r => setTimeout(r, 400));
 
-  for (const item of items) {
-    if (item.textContent.trim() === tf) {
-      item.click();
-      console.log('[Avalisa] Timeframe clicked:', tf);
-      await new Promise(r => setTimeout(r, 300));
-      return true;
+    // Try all possible text variants for this timeframe
+    const variants = [
+      tf,
+      tfMap[tf],
+      tf.replace('M', '').replace('H', '') + (tf.includes('H') ? 'h' : tf.includes('M') ? 'm' : 's'),
+    ].filter(Boolean);
+    console.log('[Avalisa] Trying TF variants:', variants);
+
+    const lis = document.querySelectorAll('li, .dropdown-menu li');
+    console.log('[Avalisa] LI items found:', lis.length);
+    for (const li of lis) {
+      const text = li.textContent.trim();
+      console.log('[Avalisa] LI text:', text);
+      if (variants.some(v => text === v || text.includes(v))) {
+        li.click();
+        console.log('[Avalisa] TF clicked (mode 2):', text);
+        await new Promise(r => setTimeout(r, 300));
+        return true;
+      }
     }
   }
 
