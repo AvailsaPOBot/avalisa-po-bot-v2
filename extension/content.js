@@ -178,57 +178,44 @@ function getTimeframeMs(timeframe) {
 async function setTimeframe(tf) {
   console.log('[Avalisa] Setting timeframe to:', tf);
 
-  // Check if timeframe grid is already visible
+  // Check if grid already visible
   let items = document.querySelectorAll('.dops__timeframes-item');
-  console.log('[Avalisa] TF items before any click:', items.length);
+  console.log('[Avalisa] TF items initially:', items.length);
 
-  // If grid not visible, find and click the clock toggle to open it
   if (items.length === 0) {
     const expiryBlock = document.querySelector('.block--expiration-inputs');
-    if (!expiryBlock) {
-      console.warn('[Avalisa] No expiry block found');
-      return false;
-    }
-
-    // Log everything inside expiry block so we can see what's there
-    expiryBlock.querySelectorAll('*').forEach(el => {
-      if (el.tagName !== 'SPAN' || el.className)
-        console.log('[Avalisa] Expiry child:', el.tagName, el.className, el.textContent.trim().substring(0, 20));
-    });
-
-    // Find the toggle — it's an <a> tag containing an SVG inside the expiry block
-    const toggleLink = expiryBlock.querySelector('a');
-    console.log('[Avalisa] Toggle link found:', !!toggleLink, toggleLink?.className);
+    const toggleLink = expiryBlock?.querySelector('a');
 
     if (toggleLink) {
+      // Click once and wait
       toggleLink.click();
-      console.log('[Avalisa] Clicked toggle to OPEN panel');
       await new Promise(r => setTimeout(r, 800));
       items = document.querySelectorAll('.dops__timeframes-item');
-      console.log('[Avalisa] TF items after open click:', items.length);
+      console.log('[Avalisa] TF items after 1st click:', items.length);
+
+      // If still 0, we're on wrong panel — click again to switch
+      if (items.length === 0) {
+        toggleLink.click();
+        await new Promise(r => setTimeout(r, 800));
+        items = document.querySelectorAll('.dops__timeframes-item');
+        console.log('[Avalisa] TF items after 2nd click:', items.length);
+      }
     }
   }
 
-  // Click the matching timeframe
+  // Click the matching timeframe — do NOT close panel after
   for (const item of items) {
     const text = item.textContent.trim();
     if (text === tf) {
       item.click();
       console.log('[Avalisa] TF clicked:', tf);
       await new Promise(r => setTimeout(r, 300));
-
-      // Close the panel by clicking toggle again
-      const expiryBlock = document.querySelector('.block--expiration-inputs');
-      const toggleLink = expiryBlock?.querySelector('a');
-      if (toggleLink) {
-        toggleLink.click();
-        console.log('[Avalisa] Clicked toggle to CLOSE panel');
-      }
       return true;
     }
   }
 
-  console.warn('[Avalisa] TF not found:', tf, '| items found:', items.length);
+  console.warn('[Avalisa] TF not found:', tf, '| items:', items.length);
+  items.forEach(i => console.log('[Avalisa] Available TF:', i.textContent.trim()));
   return false;
 }
 
