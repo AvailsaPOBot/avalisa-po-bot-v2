@@ -116,12 +116,25 @@ async function incrementTrade() {
 
 // ─── DOM Helpers ──────────────────────────────────────────────────────────────
 function getBalance() {
-  const demoEl = document.querySelector('.js-hd.js-balance-demo');
-  const realEl = document.querySelector('.js-hd.js-balance-real');
-  const el = demoEl || realEl;
-  if (!el) return null;
-  const text = el.textContent.replace(/[^0-9.]/g, '');
-  return parseFloat(text) || null;
+  const selectors = [
+    '.js-balance-demo', '.js-balance-real',
+    '.js-hd.js-balance-demo', '.js-hd.js-balance-real',
+    '[class*="balance-demo"]', '[class*="balance-real"]',
+    '.balance__value', '.header-balance',
+  ];
+  for (const sel of selectors) {
+    const el = document.querySelector(sel);
+    if (el) {
+      const text = el.textContent.replace(/[^0-9.]/g, '');
+      const val = parseFloat(text);
+      if (val > 0) {
+        console.log('[Avalisa] Balance found via:', sel, '=', val);
+        return val;
+      }
+    }
+  }
+  console.warn('[Avalisa] Balance not found — tried all selectors');
+  return null;
 }
 
 function setTradeAmount(amount) {
@@ -164,60 +177,49 @@ function getTimeframeMs(timeframe) {
 
 async function setTimeframe(tf) {
   console.log('[Avalisa] Setting timeframe to:', tf);
+  const isQuickMode = window.location.href.includes('quick');
 
-  // Convert our TF codes to what PO Quick mode shows
-  const tfMap = {
-    'S15': '15s', 'S30': '30s',
-    'M1': 'M1', 'M3': 'M3', 'M5': 'M5', 'M30': 'M30', 'H1': 'H1',
-  };
-
-  // Mode 1: Try .dops__timeframes-item (regular mode)
-  let items = document.querySelectorAll('.dops__timeframes-item');
-  if (items.length === 0) {
-    // Try clicking expiration block to reveal panel
-    const trigger = document.querySelector('.block--expiration-inputs, [class*="expir"]');
-    if (trigger) { trigger.click(); await new Promise(r => setTimeout(r, 500)); }
-    items = document.querySelectorAll('.dops__timeframes-item');
-  }
-  if (items.length > 0) {
+  if (isQuickMode) {
+    // Quick/Turbo mode — scope all clicks to the expiration block only
+    const expiryBlock = document.querySelector('.block--expiration-inputs');
+    const dropdownBtn = expiryBlock ? expiryBlock.querySelector('button, .dropdown-toggle') : null;
+    if (dropdownBtn) {
+      dropdownBtn.click();
+      await new Promise(r => setTimeout(r, 400));
+      const lis = expiryBlock.querySelectorAll('li');
+      console.log('[Avalisa] Quick mode LI items:', lis.length);
+      for (const li of lis) {
+        const text = li.textContent.trim();
+        console.log('[Avalisa] LI:', text);
+        if (text === tf || text === tf.replace('M', '') + 'm' || text === tf.replace('H', '') + 'h') {
+          li.click();
+          console.log('[Avalisa] TF clicked (quick):', text);
+          return true;
+        }
+      }
+    }
+  } else {
+    // Regular mode — open expiration panel then click timeframe item
+    let items = document.querySelectorAll('.dops__timeframes-item');
+    if (items.length === 0) {
+      const trigger = document.querySelector('.block--expiration-inputs');
+      if (trigger) {
+        trigger.click();
+        await new Promise(r => setTimeout(r, 500));
+        items = document.querySelectorAll('.dops__timeframes-item');
+      }
+    }
+    console.log('[Avalisa] Regular mode TF items:', items.length);
     for (const item of items) {
       if (item.textContent.trim() === tf) {
         item.click();
-        console.log('[Avalisa] TF clicked (mode 1):', tf);
+        console.log('[Avalisa] TF clicked (regular):', tf);
         return true;
       }
     }
   }
 
-  // Mode 2: Quick mode — open dropdown then click LI
-  const dropdownBtn = document.querySelector('.btn.dropdown-toggle.btn-default');
-  if (dropdownBtn) {
-    dropdownBtn.click();
-    await new Promise(r => setTimeout(r, 400));
-
-    // Try all possible text variants for this timeframe
-    const variants = [
-      tf,
-      tfMap[tf],
-      tf.replace('M', '').replace('H', '') + (tf.includes('H') ? 'h' : tf.includes('M') ? 'm' : 's'),
-    ].filter(Boolean);
-    console.log('[Avalisa] Trying TF variants:', variants);
-
-    const lis = document.querySelectorAll('li, .dropdown-menu li');
-    console.log('[Avalisa] LI items found:', lis.length);
-    for (const li of lis) {
-      const text = li.textContent.trim();
-      console.log('[Avalisa] LI text:', text);
-      if (variants.some(v => text === v || text.includes(v))) {
-        li.click();
-        console.log('[Avalisa] TF clicked (mode 2):', text);
-        await new Promise(r => setTimeout(r, 300));
-        return true;
-      }
-    }
-  }
-
-  console.warn('[Avalisa] Timeframe not found:', tf);
+  console.warn('[Avalisa] TF not found:', tf);
   return false;
 }
 
@@ -234,13 +236,25 @@ function clickPut() {
 }
 
 function waitForTradeOpen(timeoutMs = 5000) {
+  const openSelectors = [
+    '.deals-list__item:not(.deals-list__item--closed)',
+    '.deal:not(.deal--closed)',
+    '[class*="deal"]:not([class*="closed"])',
+  ];
   return new Promise((resolve, reject) => {
     const start = Date.now();
     const check = () => {
-      // A trade opens when a new deals-list item appears
-      const items = document.querySelectorAll('.deals-list__item:not(.deals-list__item--closed)');
-      if (items.length > 0) return resolve(true);
-      if (Date.now() - start > timeoutMs) return reject(new Error('Trade open timeout'));
+      for (const sel of openSelectors) {
+        const items = document.querySelectorAll(sel);
+        if (items.length > 0) {
+          console.log('[Avalisa] waitForTradeOpen: found', items.length, 'open deal(s) via:', sel);
+          return resolve(true);
+        }
+      }
+      if (Date.now() - start > timeoutMs) {
+        console.warn('[Avalisa] waitForTradeOpen: timeout — no open deals found. Selectors tried:', openSelectors);
+        return reject(new Error('Trade open timeout'));
+      }
       setTimeout(check, 200);
     };
     check();
