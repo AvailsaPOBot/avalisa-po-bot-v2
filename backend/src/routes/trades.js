@@ -8,31 +8,28 @@ const router = express.Router();
 router.post('/log', authMiddleware, async (req, res) => {
   console.log('[trades/log] body received:', JSON.stringify(req.body));
 
-  const {
-    pair = 'UNKNOWN',
-    direction = 'unknown',
-    amount = 0,
-    result = 'unknown',
-    balanceBefore = null,
-    balanceAfter = null,
-  } = req.body;
-
   try {
+    const { pair, direction, amount, result, balanceBefore, balanceAfter } = req.body;
+
+    if (!direction || amount == null || amount === '' || !result) {
+      return res.status(400).json({ error: 'Missing required fields: direction, amount, result' });
+    }
+
     const trade = await prisma.trade.create({
       data: {
         userId: req.userId,
-        pair,
-        direction,
+        pair: pair || 'UNKNOWN',
+        direction: String(direction),
         amount: parseFloat(amount),
-        result,
+        result: String(result),
         balanceBefore: balanceBefore != null ? parseFloat(balanceBefore) : null,
         balanceAfter: balanceAfter != null ? parseFloat(balanceAfter) : null,
       },
     });
-    res.status(201).json(trade);
+    return res.json({ success: true, trade });
   } catch (err) {
-    console.error('Trade log error:', err);
-    res.status(500).json({ error: 'Failed to log trade' });
+    console.error('[trades/log] Error:', err.message, err.code);
+    return res.status(500).json({ error: err.message });
   }
 });
 

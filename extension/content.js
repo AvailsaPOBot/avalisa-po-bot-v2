@@ -67,7 +67,6 @@ async function saveSettings(settings) {
 function getDefaultSettings() {
   return {
     strategy: 'martingale',
-    timeframe: 'M1',
     direction: 'alternating',
     martingaleMultiplier: 2.0,
     martingaleSteps: 'infinite',
@@ -166,58 +165,6 @@ function setTradeAmount(amount) {
   return true;
 }
 
-// Maps our timeframe values to wait duration in ms
-function getTimeframeMs(timeframe) {
-  const map = {
-    S15: 15000, S30: 30000,
-    M1: 60000, M3: 180000, M5: 300000, M30: 1800000, H1: 3600000,
-  };
-  return map[timeframe] || 60000;
-}
-
-async function setTimeframe(tf) {
-  console.log('[Avalisa] Setting timeframe to:', tf);
-
-  // Check if grid already visible
-  let items = document.querySelectorAll('.dops__timeframes-item');
-  console.log('[Avalisa] TF items initially:', items.length);
-
-  if (items.length === 0) {
-    const expiryBlock = document.querySelector('.block--expiration-inputs');
-    const toggleLink = expiryBlock?.querySelector('a');
-
-    if (toggleLink) {
-      // Click once and wait
-      toggleLink.click();
-      await new Promise(r => setTimeout(r, 800));
-      items = document.querySelectorAll('.dops__timeframes-item');
-      console.log('[Avalisa] TF items after 1st click:', items.length);
-
-      // If still 0, we're on wrong panel — click again to switch
-      if (items.length === 0) {
-        toggleLink.click();
-        await new Promise(r => setTimeout(r, 800));
-        items = document.querySelectorAll('.dops__timeframes-item');
-        console.log('[Avalisa] TF items after 2nd click:', items.length);
-      }
-    }
-  }
-
-  // Click the matching timeframe — do NOT close panel after
-  for (const item of items) {
-    const text = item.textContent.trim();
-    if (text === tf) {
-      item.click();
-      console.log('[Avalisa] TF clicked:', tf);
-      await new Promise(r => setTimeout(r, 300));
-      return true;
-    }
-  }
-
-  console.warn('[Avalisa] TF not found:', tf, '| items:', items.length);
-  items.forEach(i => console.log('[Avalisa] Available TF:', i.textContent.trim()));
-  return false;
-}
 
 function clickCall() {
   const btn = document.querySelector('a.btn.btn-call');
@@ -257,37 +204,40 @@ function waitForTradeOpen(timeoutMs = 5000) {
   });
 }
 
-/**
- * Wait for trade expiry then determine win/loss from balance change.
- * @param {number|null} balanceBefore  Balance recorded before trade was placed
- * @param {number}      timeframeMs    Timeframe duration in ms (e.g. 60000 for M1)
- */
-async function waitForTradeResult(balanceBefore, timeframeMs) {
-  const waitMs = timeframeMs + 3000; // expiry + 3s buffer
-  console.log(`[Avalisa] Trade placed. Waiting ${waitMs / 1000}s for expiry (TF ${timeframeMs / 1000}s + 3s buffer)...`);
-  updateStatus('running', `Waiting ${Math.round(waitMs / 1000)}s for result…`);
-
-  await sleep(waitMs);
-
-  const balanceAfter = getBalance();
-  console.log(`[Avalisa] Balance BEFORE: ${balanceBefore} | Balance AFTER: ${balanceAfter}`);
-
-  if (balanceBefore === null || balanceAfter === null) {
-    console.warn('[Avalisa] Could not read balance — defaulting to LOSS');
-    return 'loss';
-  }
-
-  if (balanceAfter > balanceBefore) {
-    console.log('[Avalisa] Balance increased → WIN');
-    return 'win';
-  } else {
-    console.log('[Avalisa] Balance same or decreased → LOSS');
-    return 'loss';
-  }
-}
-
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// ─── Deal Poll Helpers ────────────────────────────────────────────────────────
+function countOpenDeals() {
+  const selectors = [
+    '.deals-list__item:not(.deals-list__item--closed)',
+    '.deal:not(.deal--closed)',
+    '[class*="deal"]:not([class*="closed"])',
+  ];
+  for (const sel of selectors) {
+    const els = document.querySelectorAll(sel);
+    if (els.length > 0) return els.length;
+  }
+  return 0;
+}
+
+function waitForDealToClose(dealCountAtOpen, timeoutMs = 600000) {
+  return new Promise((resolve) => {
+    const start = Date.now();
+    const interval = setInterval(() => {
+      const current = countOpenDeals();
+      const elapsed = Date.now() - start;
+      if (current < dealCountAtOpen) {
+        clearInterval(interval);
+        resolve('closed');
+      } else if (elapsed >= timeoutMs) {
+        clearInterval(interval);
+        console.warn('[Avalisa] waitForDealToClose: timeout after 10min');
+        resolve('timeout');
+      }
+    }, 1000);
+  });
 }
 
 // ─── Trading Engine ───────────────────────────────────────────────────────────
@@ -333,9 +283,6 @@ async function runTradeCycle() {
 
   updateStatus('running', `Trade #${state.tradesCount + 1} — ${direction.toUpperCase()} $${amount.toFixed(2)}`);
 
-  // Set timeframe on page
-  await setTimeframe(state.settings.timeframe);
-
   // Set amount on page
   if (!setTradeAmount(amount)) {
     updateStatus('error', 'Could not set trade amount — page may have changed');
@@ -344,6 +291,9 @@ async function runTradeCycle() {
 
   const balanceBefore = getBalance();
   console.log('[Avalisa] Balance before trade:', balanceBefore);
+
+  // Snapshot open deal count before placing trade
+  const dealsBeforeTrade = countOpenDeals();
 
   // Place trade
   const placed = direction === 'call' ? clickCall() : clickPut();
@@ -374,12 +324,20 @@ async function runTradeCycle() {
   await incrementTrade();
   updateTradeCounter();
 
-  // Wait for expiry then read balance change
-  const result = await waitForTradeResult(balanceBefore, getTimeframeMs(state.settings.timeframe));
+  // Wait for deal count to drop (deal closed), then read balance
+  updateStatus('running', 'Trade open — waiting for result…');
+  await waitForDealToClose(dealsBeforeTrade + 1);
+  await sleep(1500);
+
   clearTimeout(tradeGuardTimeout);
   state.isTradeOpen = false;
-  console.log('[Avalisa] Trade closed. Result:', result, '| isTradeOpen = false');
+
   const balanceAfter = getBalance();
+  const result = (balanceAfter !== null && balanceBefore !== null && balanceAfter > balanceBefore)
+    ? 'win'
+    : 'loss';
+  console.log(`[Avalisa] Balance BEFORE: ${balanceBefore} | AFTER: ${balanceAfter} → ${result.toUpperCase()}`);
+  console.log('[Avalisa] Trade closed. Result:', result, '| isTradeOpen = false');
 
   // Log trade to backend
   if (state.jwt) {
@@ -503,18 +461,6 @@ function getOverlayHTML() {
       </div>
 
       <div class="av-section">
-        <div class="av-row">
-          <label class="av-label">Timeframe</label>
-          <select id="av-timeframe" class="av-select">
-            <option value="S15">S15</option>
-            <option value="S30">S30</option>
-            <option value="M1">M1</option>
-            <option value="M3">M3</option>
-            <option value="M5">M5</option>
-            <option value="M30">M30</option>
-            <option value="H1">H1</option>
-          </select>
-        </div>
         <div class="av-row">
           <label class="av-label">Direction</label>
           <select id="av-direction" class="av-select">
@@ -657,7 +603,7 @@ function bindOverlayEvents() {
   document.getElementById('av-stop-btn').addEventListener('click', stopBot);
 
   // Settings changes — auto-save
-  ['av-timeframe', 'av-direction', 'av-delay', 'av-multiplier', 'av-steps'].forEach(id => {
+  ['av-direction', 'av-delay', 'av-multiplier', 'av-steps'].forEach(id => {
     document.getElementById(id).addEventListener('change', saveCurrentSettings);
   });
   document.getElementById('av-start-amount').addEventListener('change', saveCurrentSettings);
@@ -765,7 +711,6 @@ function stopBot() {
 
 async function saveCurrentSettings() {
   const settings = {
-    timeframe: document.getElementById('av-timeframe').value,
     direction: document.getElementById('av-direction').value,
     delaySeconds: parseInt(document.getElementById('av-delay').value),
     martingaleMultiplier: parseFloat(document.getElementById('av-multiplier').value),
@@ -806,7 +751,6 @@ function updateUI() {
   const s = state.settings;
   if (s) {
     const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
-    set('av-timeframe', s.timeframe || 'M1');
     set('av-direction', s.direction || 'alternating');
     set('av-delay', s.delaySeconds || 6);
     set('av-multiplier', s.martingaleMultiplier || 2.0);
