@@ -178,24 +178,21 @@ function clickPut() {
   return false;
 }
 
-function waitForTradeOpen(timeoutMs = 5000) {
-  const openSelectors = [
-    '.deals-list__item:not(.deals-list__item--closed)',
-    '.deal:not(.deal--closed)',
-    '[class*="deal"]:not([class*="closed"])',
-  ];
+/**
+ * Wait until open deal count INCREASES above countBefore.
+ * This confirms OUR trade actually opened.
+ */
+function waitForTradeOpen(countBefore, timeoutMs = 8000) {
   return new Promise((resolve, reject) => {
     const start = Date.now();
     const check = () => {
-      for (const sel of openSelectors) {
-        const items = document.querySelectorAll(sel);
-        if (items.length > 0) {
-          console.log('[Avalisa] waitForTradeOpen: found', items.length, 'open deal(s) via:', sel);
-          return resolve(true);
-        }
+      const current = countOpenDeals();
+      if (current > countBefore) {
+        console.log('[Avalisa] waitForTradeOpen: deal count rose from', countBefore, 'to', current);
+        return resolve(current);
       }
       if (Date.now() - start > timeoutMs) {
-        console.warn('[Avalisa] waitForTradeOpen: timeout — no open deals found. Selectors tried:', openSelectors);
+        console.warn('[Avalisa] waitForTradeOpen: timeout — count stayed at', current);
         return reject(new Error('Trade open timeout'));
       }
       setTimeout(check, 200);
@@ -279,12 +276,16 @@ async function runTradeCycle() {
   }
 
   const amount = state.currentAmount;
+  if (!amount || amount <= 0) {
+    state.currentAmount = parseFloat(state.settings.startAmount) || 1.0;
+  }
+  const safeAmount = state.currentAmount;
   const direction = getNextDirection();
 
-  updateStatus('running', `Trade #${state.tradesCount + 1} — ${direction.toUpperCase()} $${amount.toFixed(2)}`);
+  updateStatus('running', `Trade #${state.tradesCount + 1} — ${direction.toUpperCase()} $${safeAmount.toFixed(2)}`);
 
   // Set amount on page
-  if (!setTradeAmount(amount)) {
+  if (!setTradeAmount(safeAmount)) {
     updateStatus('error', 'Could not set trade amount — page may have changed');
     return;
   }
@@ -292,8 +293,9 @@ async function runTradeCycle() {
   const balanceBefore = getBalance();
   console.log('[Avalisa] Balance before trade:', balanceBefore);
 
-  // Snapshot open deal count before placing trade
+  // Snapshot open deal count BEFORE placing trade
   const dealsBeforeTrade = countOpenDeals();
+  console.log('[Avalisa] Deals before trade:', dealsBeforeTrade);
 
   // Place trade
   const placed = direction === 'call' ? clickCall() : clickPut();
@@ -302,31 +304,33 @@ async function runTradeCycle() {
     return;
   }
 
+  // Wait for deal count to INCREASE — confirms our trade opened
+  let dealsAfterOpen;
   try {
-    await waitForTradeOpen(5000);
+    dealsAfterOpen = await waitForTradeOpen(dealsBeforeTrade, 8000);
   } catch {
     updateStatus('error', 'Trade did not open — check PO page');
     return;
   }
 
   state.isTradeOpen = true;
-  console.log('[Avalisa] Trade confirmed open. isTradeOpen = true');
+  console.log('[Avalisa] Trade confirmed open. isTradeOpen = true. Deals now:', dealsAfterOpen);
 
-  // Safety: auto-clear isTradeOpen after 3 minutes max
+  // Safety: auto-clear isTradeOpen after 10 minutes max
   const tradeGuardTimeout = setTimeout(() => {
     if (state.isTradeOpen) {
-      console.warn('[Avalisa] 3-min safety timeout — clearing isTradeOpen');
+      console.warn('[Avalisa] 10-min safety timeout — clearing isTradeOpen');
       state.isTradeOpen = false;
     }
-  }, 180000);
+  }, 600000);
 
   state.tradesCount++;
   await incrementTrade();
   updateTradeCounter();
 
-  // Wait for deal count to drop (deal closed), then read balance
+  // Wait for deal count to DROP back to dealsBeforeTrade — confirms our trade closed
   updateStatus('running', 'Trade open — waiting for result…');
-  await waitForDealToClose(dealsBeforeTrade + 1);
+  await waitForDealToClose(dealsAfterOpen);
   await sleep(1500);
 
   clearTimeout(tradeGuardTimeout);
@@ -344,7 +348,7 @@ async function runTradeCycle() {
     apiPost('/api/trades/log', {
       pair: getCurrentPair(),
       direction,
-      amount,
+      amount: safeAmount,
       result,
       balanceBefore,
       balanceAfter,
