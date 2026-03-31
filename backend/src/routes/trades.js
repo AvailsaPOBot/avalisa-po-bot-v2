@@ -9,22 +9,13 @@ router.post('/log', authMiddleware, async (req, res) => {
   console.log('[trades/log] body received:', JSON.stringify(req.body));
 
   const {
-    pair,
-    direction = 'call',
-    amount,
-    result = 'pending',
-    balanceBefore,
-    balanceAfter,
+    pair = 'UNKNOWN',
+    direction = 'unknown',
+    amount = 0,
+    result = 'unknown',
+    balanceBefore = null,
+    balanceAfter = null,
   } = req.body;
-
-  if (!pair) {
-    return res.status(400).json({ error: 'pair is required' });
-  }
-
-  // amount is required but must allow 0-safe check
-  if (amount === undefined || amount === null || amount === '') {
-    return res.status(400).json({ error: 'amount is required' });
-  }
 
   try {
     const trade = await prisma.trade.create({

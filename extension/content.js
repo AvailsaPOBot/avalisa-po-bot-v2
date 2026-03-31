@@ -178,23 +178,43 @@ function getTimeframeMs(timeframe) {
 async function setTimeframe(tf) {
   console.log('[Avalisa] Setting timeframe to:', tf);
   const isQuickMode = window.location.href.includes('quick');
+  console.log('[Avalisa] Mode:', isQuickMode ? 'Quick/Turbo' : 'Regular');
 
   if (isQuickMode) {
-    // Quick/Turbo mode — scope all clicks to the expiration block only
-    const expiryBlock = document.querySelector('.block--expiration-inputs');
-    const dropdownBtn = expiryBlock ? expiryBlock.querySelector('button, .dropdown-toggle') : null;
+    // In Quick mode, S15/S30 don't exist — map to closest available
+    const quickTfMap = {
+      'S15': 'M10', 'S30': 'M10', 'M1': 'M10',
+      'M3': 'M10', 'M5': 'M10', 'M30': 'M30', 'H1': 'H1',
+    };
+    const targetTf = quickTfMap[tf] || tf;
+    console.log('[Avalisa] Quick mode: mapping', tf, '->', targetTf);
+
+    // Click the dropdown button directly — not scoped to expiryBlock
+    const dropdownBtn = document.querySelector('button.dropdown-toggle, .btn.dropdown-toggle');
+    console.log('[Avalisa] Dropdown btn found:', !!dropdownBtn, dropdownBtn?.className);
     if (dropdownBtn) {
       dropdownBtn.click();
-      await new Promise(r => setTimeout(r, 400));
-      const lis = expiryBlock.querySelectorAll('li');
-      console.log('[Avalisa] Quick mode LI items:', lis.length);
-      for (const li of lis) {
-        const text = li.textContent.trim();
-        console.log('[Avalisa] LI:', text);
-        if (text === tf || text === tf.replace('M', '') + 'm' || text === tf.replace('H', '') + 'h') {
-          li.click();
-          console.log('[Avalisa] TF clicked (quick):', text);
-          return true;
+      await new Promise(r => setTimeout(r, 500));
+
+      // Search for LI in multiple containers, most specific first
+      const containers = [
+        document.querySelector('.block--expiration-inputs'),
+        document.querySelector('.dropdown-menu'),
+        document.querySelector('.open .dropdown-menu'),
+        document.body,
+      ].filter(Boolean);
+
+      for (const container of containers) {
+        const lis = container.querySelectorAll('li');
+        console.log('[Avalisa] LIs in container', container.className, ':', lis.length);
+        for (const li of lis) {
+          const text = li.textContent.trim();
+          if (text === targetTf) {
+            li.click();
+            console.log('[Avalisa] TF clicked (quick):', text);
+            await new Promise(r => setTimeout(r, 300));
+            return true;
+          }
         }
       }
     }
