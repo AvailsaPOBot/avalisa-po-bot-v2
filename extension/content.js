@@ -178,70 +178,57 @@ function getTimeframeMs(timeframe) {
 async function setTimeframe(tf) {
   console.log('[Avalisa] Setting timeframe to:', tf);
 
-  // Step 1: Click the clock icon to open the correct timeframe panel
-  // The clock icon toggles to show the grid with S3,S15,S30,M1,M3,M5,M30,H1,H4
-  const clockSelectors = [
-    '.expiration-inputs__icon',
-    '[class*="expir"] svg',
-    '.block--expiration-inputs .icon',
-    'button[class*="clock"]',
-    '.time-icon',
-    '.expiration__icon',
-  ];
+  // Check if timeframe grid is already visible
+  let items = document.querySelectorAll('.dops__timeframes-item');
+  console.log('[Avalisa] TF items before any click:', items.length);
 
-  let clockBtn = null;
-  for (const sel of clockSelectors) {
-    const el = document.querySelector(sel);
-    if (el) { clockBtn = el; console.log('[Avalisa] Clock btn found:', sel); break; }
-  }
-
-  // Also try: find the icon button INSIDE the expiration block
-  if (!clockBtn) {
+  // If grid not visible, find and click the clock toggle to open it
+  if (items.length === 0) {
     const expiryBlock = document.querySelector('.block--expiration-inputs');
-    if (expiryBlock) {
-      const icons = expiryBlock.querySelectorAll('svg, button, i, span[class*="icon"]');
-      console.log('[Avalisa] Icons in expiry block:', icons.length);
-      icons.forEach(i => console.log('[Avalisa] Icon:', i.tagName, i.className));
-      if (icons.length > 0) clockBtn = icons[icons.length - 1]; // last icon is usually the toggle
+    if (!expiryBlock) {
+      console.warn('[Avalisa] No expiry block found');
+      return false;
+    }
+
+    // Log everything inside expiry block so we can see what's there
+    expiryBlock.querySelectorAll('*').forEach(el => {
+      if (el.tagName !== 'SPAN' || el.className)
+        console.log('[Avalisa] Expiry child:', el.tagName, el.className, el.textContent.trim().substring(0, 20));
+    });
+
+    // Find the toggle — it's an <a> tag containing an SVG inside the expiry block
+    const toggleLink = expiryBlock.querySelector('a');
+    console.log('[Avalisa] Toggle link found:', !!toggleLink, toggleLink?.className);
+
+    if (toggleLink) {
+      toggleLink.click();
+      console.log('[Avalisa] Clicked toggle to OPEN panel');
+      await new Promise(r => setTimeout(r, 800));
+      items = document.querySelectorAll('.dops__timeframes-item');
+      console.log('[Avalisa] TF items after open click:', items.length);
     }
   }
 
-  if (clockBtn) {
-    try {
-      clockBtn.click();
-    } catch(e) {
-      // SVG elements need parent clicked instead
-      const parent = clockBtn.closest('button, a, div[class*="icon"]') || clockBtn.parentElement;
-      if (parent) { parent.click(); console.log('[Avalisa] Clicked clock parent:', parent.tagName, parent.className); }
-    }
-    console.log('[Avalisa] Clicked clock toggle');
-    await new Promise(r => setTimeout(r, 500));
-  }
-
-  // Step 2: Now click the correct timeframe from the grid
-  const items = document.querySelectorAll('.dops__timeframes-item');
-  console.log('[Avalisa] TF grid items found:', items.length);
+  // Click the matching timeframe
   for (const item of items) {
     const text = item.textContent.trim();
-    console.log('[Avalisa] TF item:', text);
     if (text === tf) {
       item.click();
       console.log('[Avalisa] TF clicked:', tf);
       await new Promise(r => setTimeout(r, 300));
-      // Click clock again to close panel
-      if (clockBtn) {
-        try {
-          clockBtn.click();
-        } catch(e) {
-          const parent = clockBtn.closest('button, a, div[class*="icon"]') || clockBtn.parentElement;
-          if (parent) { parent.click(); console.log('[Avalisa] Clicked clock parent (close):', parent.tagName, parent.className); }
-        }
+
+      // Close the panel by clicking toggle again
+      const expiryBlock = document.querySelector('.block--expiration-inputs');
+      const toggleLink = expiryBlock?.querySelector('a');
+      if (toggleLink) {
+        toggleLink.click();
+        console.log('[Avalisa] Clicked toggle to CLOSE panel');
       }
       return true;
     }
   }
 
-  console.warn('[Avalisa] TF not found in grid:', tf);
+  console.warn('[Avalisa] TF not found:', tf, '| items found:', items.length);
   return false;
 }
 
