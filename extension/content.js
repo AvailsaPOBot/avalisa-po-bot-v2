@@ -215,20 +215,19 @@ function sleep(ms) {
 
 // ─── Deal Poll Helpers ────────────────────────────────────────────────────────
 function countOpenDeals() {
+  // Use specific selectors only — [class*="deal"] is intentionally excluded
+  // because it matches non-trade elements (animations, modals) and causes
+  // phantom count spikes that break open/close detection.
+  // Return first-match so the same selector wins on every poll call.
   const selectors = [
     '.deals-list__item:not(.deals-list__item--closed)',
     '.deal:not(.deal--closed)',
-    '[class*="deal"]:not([class*="closed"])',
   ];
-  // Use the MAX count across all selectors for consistency.
-  // Different calls must use the same "winning" selector — taking max ensures
-  // we never get a lower count from a different selector on the next poll.
-  let max = 0;
   for (const sel of selectors) {
     const count = document.querySelectorAll(sel).length;
-    if (count > max) max = count;
+    if (count > 0) return count;
   }
-  return max;
+  return 0;
 }
 
 function waitForDealToClose(dealCountAtOpen, timeoutMs = 600000) {
@@ -386,22 +385,26 @@ async function runTradeCycle() {
 
 function applyMartingaleLogic(result) {
   const s = state.settings;
-  const maxSteps = s.martingaleSteps === 'infinite' ? Infinity : parseInt(s.martingaleSteps);
+  // Guard against undefined/NaN settings values from stale stored settings
+  const multiplier = parseFloat(s.martingaleMultiplier) || 2.0;
+  const startAmount = parseFloat(s.startAmount) || 1.0;
+  const maxSteps = s.martingaleSteps === 'infinite' ? Infinity : (parseInt(s.martingaleSteps) || Infinity);
 
   if (result === 'loss') {
     if (state.martingaleStep < maxSteps) {
       state.martingaleStep++;
-      state.currentAmount = parseFloat((state.currentAmount * s.martingaleMultiplier).toFixed(2));
+      state.currentAmount = parseFloat((state.currentAmount * multiplier).toFixed(2));
     } else {
       // Max steps reached — reset
       state.martingaleStep = 0;
-      state.currentAmount = parseFloat(s.startAmount);
+      state.currentAmount = startAmount;
     }
   } else {
     // Win — reset
     state.martingaleStep = 0;
-    state.currentAmount = parseFloat(s.startAmount);
+    state.currentAmount = startAmount;
   }
+  console.log(`[Avalisa] Martingale: result=${result} step=${state.martingaleStep} nextAmount=${state.currentAmount} multiplier=${multiplier}`);
 }
 
 function getCurrentPair() {
