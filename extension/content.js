@@ -137,19 +137,27 @@ function getBalance() {
 }
 
 function setTradeAmount(amount) {
+  // Priority order: most specific PO selectors first.
+  // 'input.form-control.amount' matches the actual trade amount field confirmed by diagnostic.
+  // '.value__val input' is intentionally moved down — it matches the calculator display, not the amount.
   const selectors = [
+    'input.form-control.amount',
     'input[data-testid="trade-amount"]',
-    '.value__val input',
-    'input.value__val',
-    '.trade-amount input',
     'input[name="amount"]',
+    '.trade-amount input',
+    '.value__val input',
   ];
 
   let input = null;
   let matchedSelector = null;
   for (const sel of selectors) {
     const el = document.querySelector(sel);
-    if (el) { input = el; matchedSelector = sel; break; }
+    // Skip any input that belongs to our own overlay
+    if (el && !el.closest('#avalisa-overlay') && !el.closest('#avalisa-panel')) {
+      input = el;
+      matchedSelector = sel;
+      break;
+    }
   }
 
   if (!input) {
@@ -157,7 +165,7 @@ function setTradeAmount(amount) {
     return false;
   }
 
-  console.log('[Avalisa] setTradeAmount: using selector:', matchedSelector);
+  console.log('[Avalisa] setTradeAmount: using selector:', matchedSelector, '| setting amount:', amount.toFixed(2));
   const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
   nativeInputValueSetter.call(input, amount.toFixed(2));
   input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -212,11 +220,15 @@ function countOpenDeals() {
     '.deal:not(.deal--closed)',
     '[class*="deal"]:not([class*="closed"])',
   ];
+  // Use the MAX count across all selectors for consistency.
+  // Different calls must use the same "winning" selector — taking max ensures
+  // we never get a lower count from a different selector on the next poll.
+  let max = 0;
   for (const sel of selectors) {
-    const els = document.querySelectorAll(sel);
-    if (els.length > 0) return els.length;
+    const count = document.querySelectorAll(sel).length;
+    if (count > max) max = count;
   }
-  return 0;
+  return max;
 }
 
 function waitForDealToClose(dealCountAtOpen, timeoutMs = 600000) {
