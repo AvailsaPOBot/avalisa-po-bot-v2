@@ -207,7 +207,13 @@ async function setTimeframe(tf) {
   }
 
   if (clockBtn) {
-    clockBtn.click();
+    try {
+      clockBtn.click();
+    } catch(e) {
+      // SVG elements need parent clicked instead
+      const parent = clockBtn.closest('button, a, div[class*="icon"]') || clockBtn.parentElement;
+      if (parent) { parent.click(); console.log('[Avalisa] Clicked clock parent:', parent.tagName, parent.className); }
+    }
     console.log('[Avalisa] Clicked clock toggle');
     await new Promise(r => setTimeout(r, 500));
   }
@@ -223,7 +229,14 @@ async function setTimeframe(tf) {
       console.log('[Avalisa] TF clicked:', tf);
       await new Promise(r => setTimeout(r, 300));
       // Click clock again to close panel
-      if (clockBtn) clockBtn.click();
+      if (clockBtn) {
+        try {
+          clockBtn.click();
+        } catch(e) {
+          const parent = clockBtn.closest('button, a, div[class*="icon"]') || clockBtn.parentElement;
+          if (parent) { parent.click(); console.log('[Avalisa] Clicked clock parent (close):', parent.tagName, parent.className); }
+        }
+      }
       return true;
     }
   }
