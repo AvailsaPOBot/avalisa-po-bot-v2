@@ -772,7 +772,7 @@ function updateUI() {
     const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
     set('av-direction', s.direction || 'alternating');
     set('av-delay', s.delaySeconds || 6);
-    set('av-multiplier', s.martingaleMultiplier || 2.0);
+    set('av-multiplier', parseFloat(s.martingaleMultiplier || 2.0).toFixed(1));
     set('av-steps', s.martingaleSteps || 'infinite');
     set('av-start-amount', s.startAmount || 1.0);
   }
