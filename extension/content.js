@@ -137,15 +137,16 @@ function getBalance() {
 }
 
 function setTradeAmount(amount) {
-  // Priority order: most specific PO selectors first.
-  // 'input.form-control.amount' matches the actual trade amount field confirmed by diagnostic.
-  // '.value__val input' is intentionally moved down — it matches the calculator display, not the amount.
+  // DOM-confirmed selector order (from DevTools inspection of PO's live DOM):
+  // The real trade amount input is: .block--bet-amount .value__val input
+  // It has NO name/class attributes — just type="text" autocomplete="off".
+  // input[name="amount"] matches a DIFFERENT hidden input and must NOT be used first.
   const selectors = [
-    'input.form-control.amount',
-    'input[data-testid="trade-amount"]',
-    'input[name="amount"]',
-    '.trade-amount input',
+    '.block--bet-amount .value__val input',
     '.value__val input',
+    'input[data-testid="trade-amount"]',
+    '.trade-amount input',
+    'input[name="amount"]',
   ];
 
   let input = null;
