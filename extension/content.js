@@ -67,6 +67,7 @@ async function saveSettings(settings) {
 function getDefaultSettings() {
   return {
     strategy: 'martingale',
+    timeframe: 'M1',
     direction: 'alternating',
     martingaleMultiplier: 2.0,
     martingaleSteps: 'infinite',
@@ -190,6 +191,84 @@ function setTradeAmount(amount) {
 }
 
 
+/**
+ * Set PO's expiry timeframe.
+ * DOM-confirmed: the Time block is .block--expiration-inputs
+ * Clicking .control__value toggles data-toggle-dropdown and opens a dropdown.
+ * Options are either .dops__timeframes-item (regular mode) or list items
+ * whose text matches S15/S30/M1 etc. or the HH:MM:SS time string.
+ */
+async function setTimeframe(tf) {
+  const tfTimeMap = {
+    S15: '00:00:15', S30: '00:00:30',
+    M1:  '00:01:00', M3:  '00:03:00',
+    M5:  '00:05:00', M30: '00:30:00',
+    H1:  '01:00:00',
+  };
+  const targetTime = tfTimeMap[tf];
+  if (!targetTime) {
+    console.warn('[Avalisa] setTimeframe: unknown tf:', tf);
+    return false;
+  }
+
+  // Already set?
+  const valEl = document.querySelector('.block--expiration-inputs .value__val');
+  const current = valEl?.textContent?.trim();
+  if (current === targetTime) {
+    console.log('[Avalisa] setTimeframe: already set to', tf);
+    return true;
+  }
+  console.log('[Avalisa] setTimeframe: current =', current, '→ target =', tf, '(', targetTime, ')');
+
+  // Click the control value to open the dropdown/panel
+  const trigger = document.querySelector(
+    '.block--expiration-inputs .control__value, ' +
+    '.block--expiration-inputs .value__val'
+  );
+  if (trigger) {
+    trigger.click();
+    await sleep(600);
+  }
+
+  // Try .dops__timeframes-item (regular mode grid)
+  let items = document.querySelectorAll('.dops__timeframes-item');
+  for (const item of items) {
+    const text = item.textContent.trim();
+    if (text === tf) {
+      item.click();
+      console.log('[Avalisa] setTimeframe: clicked grid item', tf);
+      await sleep(300);
+      return true;
+    }
+  }
+
+  // Try dropdown list items — match on label (S15) or time string (00:00:15)
+  const listItems = document.querySelectorAll(
+    '.block--expiration-inputs li, ' +
+    '.block--expiration-inputs .value__item, ' +
+    '.block--expiration-inputs [class*="item"], ' +
+    '.dops__timeframes-item'
+  );
+  for (const item of listItems) {
+    const text = item.textContent.trim();
+    if (text === tf || text === targetTime) {
+      item.click();
+      console.log('[Avalisa] setTimeframe: clicked list item', text);
+      await sleep(300);
+      return true;
+    }
+  }
+
+  // Log what was found to help debug
+  console.warn('[Avalisa] setTimeframe: could not find option for', tf);
+  console.log('[Avalisa] setTimeframe: grid items found:', items.length);
+  listItems.forEach(i => console.log('[Avalisa]  item text:', JSON.stringify(i.textContent.trim())));
+
+  // Close the dropdown if we couldn't find anything
+  if (trigger) trigger.click();
+  return false;
+}
+
 function clickCall() {
   const btn = document.querySelector('a.btn.btn-call');
   if (btn) { btn.click(); return true; }
@@ -300,6 +379,9 @@ async function runTradeCycle() {
   const direction = getNextDirection();
 
   updateStatus('running', `Trade #${state.tradesCount + 1} — ${direction.toUpperCase()} $${safeAmount.toFixed(2)}`);
+
+  // Set timeframe on page
+  await setTimeframe(state.settings.timeframe || 'M1');
 
   // Set amount on page, then wait for React to process the change
   if (!setTradeAmount(safeAmount)) {
@@ -489,6 +571,18 @@ function getOverlayHTML() {
 
       <div class="av-section">
         <div class="av-row">
+          <label class="av-label">Timeframe</label>
+          <select id="av-timeframe" class="av-select">
+            <option value="S15">S15 (15s)</option>
+            <option value="S30">S30 (30s)</option>
+            <option value="M1" selected>M1 (1m)</option>
+            <option value="M3">M3 (3m)</option>
+            <option value="M5">M5 (5m)</option>
+            <option value="M30">M30 (30m)</option>
+            <option value="H1">H1 (1h)</option>
+          </select>
+        </div>
+        <div class="av-row">
           <label class="av-label">Direction</label>
           <select id="av-direction" class="av-select">
             <option value="alternating">Alternating</option>
@@ -630,7 +724,7 @@ function bindOverlayEvents() {
   document.getElementById('av-stop-btn').addEventListener('click', stopBot);
 
   // Settings changes — auto-save
-  ['av-direction', 'av-delay', 'av-multiplier', 'av-steps'].forEach(id => {
+  ['av-timeframe', 'av-direction', 'av-delay', 'av-multiplier', 'av-steps'].forEach(id => {
     document.getElementById(id).addEventListener('change', saveCurrentSettings);
   });
   document.getElementById('av-start-amount').addEventListener('change', saveCurrentSettings);
@@ -738,6 +832,7 @@ function stopBot() {
 
 async function saveCurrentSettings() {
   const settings = {
+    timeframe: document.getElementById('av-timeframe').value,
     direction: document.getElementById('av-direction').value,
     delaySeconds: parseInt(document.getElementById('av-delay').value),
     martingaleMultiplier: parseFloat(document.getElementById('av-multiplier').value),
@@ -778,6 +873,7 @@ function updateUI() {
   const s = state.settings;
   if (s) {
     const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+    set('av-timeframe', s.timeframe || 'M1');
     set('av-direction', s.direction || 'alternating');
     set('av-delay', s.delaySeconds || 6);
     set('av-multiplier', parseFloat(s.martingaleMultiplier || 2.0).toFixed(1));
