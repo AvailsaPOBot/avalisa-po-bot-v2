@@ -1,15 +1,12 @@
 /*
  * IMAGES — place files in dashboard/public/images/
  *
- * dashboard/public/images/bot-screenshot.png  — screenshot of the bot overlay on PO
- * dashboard/public/images/po-logo.png         — Pocket Option logo (download from PO website)
+ * dashboard/public/images/bot-screenshot.png                    — screenshot of the bot overlay on PO
+ * dashboard/public/images/PO_Logo.png                           — Pocket Option logo
+ * dashboard/public/images/Gemini_Generated_Image_s5k0i1s5k0i1s5k0.jpg — AI promo image
  *
  * Reference in JSX as: <img src="/images/bot-screenshot.png" alt="..." />
  * (React serves public/ folder at root automatically)
- *
- * TO ADD IMAGES LATER:
- * 1. Save your image file to dashboard/public/images/
- * 2. Replace the placeholder <div> with: <img src="/images/filename.png" alt="description" />
  */
 
 import { Link } from 'react-router-dom';
@@ -37,15 +34,15 @@ const stats = [
   { value: '3',       label: 'Strategy Modes'    },
 ];
 
-/* ─── inline styles for elements that can't be expressed purely in Tailwind ─── */
+/* ─── inline styles ─────────────────────────────────────────────────────────── */
 const gridBg = {
   backgroundImage:
-    'linear-gradient(rgba(0,255,136,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,255,136,0.04) 1px, transparent 1px)',
+    'linear-gradient(rgba(124,58,237,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(124,58,237,0.08) 1px, transparent 1px)',
   backgroundSize: '48px 48px',
 };
 
 const glowStyle = {
-  background: 'radial-gradient(ellipse 60% 45% at 30% 50%, rgba(0,255,136,0.09) 0%, transparent 70%)',
+  background: 'radial-gradient(ellipse 60% 45% at 30% 50%, rgba(124,58,237,0.15) 0%, transparent 70%)',
 };
 
 const syneHero = { fontFamily: "'Syne', sans-serif", fontWeight: 800 };
@@ -65,11 +62,21 @@ export default function Landing() {
 
           {/* Left 60% */}
           <div className="flex-1 max-w-2xl">
-            {/* Badge */}
-            <div className="inline-flex items-center gap-2 border border-green-500/30 bg-green-500/10 text-green-400 text-xs font-semibold px-4 py-1.5 rounded-full mb-8 tracking-wider uppercase">
-              <span>⚡</span>
-              <span>Powered by Pocket Option</span>
-              {/* TODO: replace span above with PO logo img once available */}
+            {/* Badge with PO logo */}
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: '10px',
+              background: 'rgba(124,58,237,0.15)',
+              border: '1px solid rgba(124,58,237,0.4)',
+              borderRadius: '999px',
+              padding: '6px 16px 6px 8px',
+              marginBottom: '24px',
+            }}>
+              <div style={{ background: '#0a0a1a', borderRadius: '6px', padding: '2px 8px' }}>
+                <img src="/images/PO_Logo.png" alt="Pocket Option" style={{ height: '20px', width: 'auto', display: 'block' }} />
+              </div>
+              <span style={{ color: '#a78bfa', fontSize: '13px', fontWeight: 600, letterSpacing: '0.05em' }}>
+                POWERED BY POCKET OPTION
+              </span>
             </div>
 
             {/* Headline */}
@@ -78,7 +85,7 @@ export default function Landing() {
               style={syneHero}
             >
               Automate Your<br />
-              <span style={{ color: '#00ff88' }}>Pocket Option</span><br />
+              <span style={{ color: '#a78bfa' }}>Pocket Option</span><br />
               Trading Strategy
             </h1>
 
@@ -93,14 +100,14 @@ export default function Landing() {
                 href={AFFILIATE_LINK}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-2 px-7 py-3.5 rounded-lg font-semibold text-sm text-gray-950 transition-all hover:brightness-110 active:scale-95"
-                style={{ background: '#00ff88', fontFamily: "'Syne', sans-serif" }}
+                className="inline-flex items-center gap-2 px-7 py-3.5 rounded-lg font-semibold text-sm text-white transition-all hover:brightness-110 active:scale-95"
+                style={{ background: '#7c3aed', fontFamily: "'Syne', sans-serif" }}
               >
                 Get Free Access →
               </a>
               <Link
                 to="/pricing"
-                className="inline-flex items-center gap-2 px-7 py-3.5 rounded-lg font-semibold text-sm border border-gray-600 text-gray-300 hover:border-green-500/60 hover:text-white transition-all"
+                className="inline-flex items-center gap-2 px-7 py-3.5 rounded-lg font-semibold text-sm border border-gray-600 text-gray-300 hover:border-purple-500/60 hover:text-white transition-all"
               >
                 View Plans
               </Link>
@@ -114,25 +121,53 @@ export default function Landing() {
             </p>
           </div>
 
-          {/* Right 40% — bot screenshot placeholder */}
+          {/* Right 40% — bot screenshot */}
           <div className="flex-shrink-0 w-full lg:w-auto lg:max-w-md xl:max-w-lg">
-            {/* TODO: replace with actual bot screenshot — place image in dashboard/public/images/bot-screenshot.png */}
-            <div
-              className="rounded-2xl flex flex-col items-center justify-center text-green-500/50 text-sm select-none"
-              style={{
-                aspectRatio: '16/10',
-                background: '#0a1a12',
-                border: '2px dashed rgba(0,255,136,0.25)',
-                width: '100%',
-                minWidth: 280,
-              }}
-            >
-              <span className="text-4xl mb-3 opacity-30">🖥</span>
-              <span style={mono}>Bot in action</span>
-              <span className="mt-1 text-xs opacity-40" style={mono}>/images/bot-screenshot.png</span>
+            <div style={{
+              position: 'relative',
+              borderRadius: '12px',
+              overflow: 'hidden',
+              boxShadow: '0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(124,58,237,0.3)',
+            }}>
+              <img
+                src="/images/bot-screenshot.png"
+                alt="Avalisa Bot running on Pocket Option"
+                style={{ width: '100%', height: 'auto', display: 'block' }}
+              />
+              {/* Subtle purple glow overlay at bottom */}
+              <div style={{
+                position: 'absolute', bottom: 0, left: 0, right: 0, height: '40%',
+                background: 'linear-gradient(to top, rgba(124,58,237,0.2), transparent)',
+                pointerEvents: 'none',
+              }} />
             </div>
           </div>
 
+        </div>
+      </section>
+
+      {/* ─── PROMO BANNER ─────────────────────────────────────────────────── */}
+      <section style={{
+        maxWidth: '900px',
+        margin: '0 auto',
+        padding: '0 16px 48px',
+      }}>
+        <div style={{
+          position: 'relative',
+          borderRadius: '16px',
+          overflow: 'hidden',
+          boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
+        }}>
+          <img
+            src="/images/Gemini_Generated_Image_s5k0i1s5k0i1s5k0.jpg"
+            alt="Unlock your trading potential with Avalisa Bot"
+            style={{ width: '100%', height: 'auto', display: 'block' }}
+          />
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'linear-gradient(135deg, rgba(124,58,237,0.3) 0%, transparent 60%)',
+            pointerEvents: 'none',
+          }} />
         </div>
       </section>
 
@@ -143,7 +178,7 @@ export default function Landing() {
             <div key={s.label} className="flex flex-col items-center gap-1 px-4">
               <span
                 className="text-3xl md:text-4xl font-semibold"
-                style={{ ...mono, color: '#00ff88' }}
+                style={{ ...mono, color: '#a78bfa' }}
               >
                 {s.value}
               </span>
@@ -155,7 +190,7 @@ export default function Landing() {
 
       {/* ─── 3. HOW IT WORKS ──────────────────────────────────────────────── */}
       <section className="max-w-6xl mx-auto px-6 py-24">
-        <p className="text-xs text-green-400 font-semibold tracking-widest uppercase mb-3" style={mono}>How it works</p>
+        <p className="text-xs font-semibold tracking-widest uppercase mb-3" style={{ ...mono, color: '#a78bfa' }}>How it works</p>
         <h2 className="text-3xl md:text-4xl font-bold text-white mb-16" style={syneNum}>
           Three steps to automated trading
         </h2>
@@ -163,10 +198,9 @@ export default function Landing() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {steps.map(s => (
             <div key={s.n} className="relative">
-              {/* number */}
               <div
                 className="text-6xl md:text-7xl font-extrabold mb-4 leading-none"
-                style={{ ...syneNum, color: 'rgba(0,255,136,0.18)' }}
+                style={{ ...syneNum, color: 'rgba(124,58,237,0.25)' }}
               >
                 {s.n}
               </div>
@@ -182,14 +216,14 @@ export default function Landing() {
         <div
           className="rounded-2xl p-10 md:p-14 relative overflow-hidden"
           style={{
-            background: 'linear-gradient(135deg, #071a0e 0%, #0d2918 60%, #071a0e 100%)',
-            border: '1px solid rgba(0,255,136,0.2)',
+            background: 'rgba(124,58,237,0.08)',
+            border: '1px solid rgba(124,58,237,0.3)',
           }}
         >
           {/* faint grid overlay inside card */}
           <div className="absolute inset-0 pointer-events-none opacity-30" style={gridBg} />
           <div className="relative z-10 max-w-2xl">
-            <p className="text-xs text-green-400 font-semibold tracking-widest uppercase mb-4" style={mono}>Best deal</p>
+            <p className="text-xs font-semibold tracking-widest uppercase mb-4" style={{ ...mono, color: '#a78bfa' }}>Best deal</p>
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-5" style={syneNum}>
               Get Unlimited Free Access
             </h2>
@@ -201,8 +235,8 @@ export default function Landing() {
               href={AFFILIATE_LINK}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-2 px-8 py-4 rounded-lg font-bold text-sm text-gray-950 transition-all hover:brightness-110 active:scale-95"
-              style={{ background: '#00ff88', fontFamily: "'Syne', sans-serif" }}
+              className="inline-flex items-center gap-2 px-8 py-4 rounded-lg font-bold text-sm text-white transition-all hover:brightness-110 active:scale-95"
+              style={{ background: '#7c3aed', fontFamily: "'Syne', sans-serif" }}
             >
               Register New PO Account — It's Free
             </a>
@@ -215,7 +249,7 @@ export default function Landing() {
 
       {/* ─── 5. FEATURES GRID ─────────────────────────────────────────────── */}
       <section className="max-w-6xl mx-auto px-6 pb-24">
-        <p className="text-xs text-green-400 font-semibold tracking-widest uppercase mb-3" style={mono}>Features</p>
+        <p className="text-xs font-semibold tracking-widest uppercase mb-3" style={{ ...mono, color: '#a78bfa' }}>Features</p>
         <h2 className="text-3xl md:text-4xl font-bold text-white mb-12" style={syneNum}>
           Everything you need to trade smarter
         </h2>
@@ -224,11 +258,11 @@ export default function Landing() {
           {features.map(f => (
             <div
               key={f.title}
-              className="rounded-xl p-6 flex flex-col gap-3 transition-colors hover:border-green-500/40"
+              className="rounded-xl p-6 flex flex-col gap-3 transition-colors"
               style={{
                 background: '#0d1117',
                 border: '1px solid #1c2730',
-                borderLeft: '3px solid rgba(0,255,136,0.5)',
+                borderLeft: '3px solid rgba(124,58,237,0.6)',
               }}
             >
               <span className="text-2xl">{f.icon}</span>
@@ -244,16 +278,18 @@ export default function Landing() {
         <div className="max-w-3xl mx-auto px-6 text-center flex flex-col items-center gap-5">
           <p className="text-gray-400 text-sm">Avalisa Bot is built exclusively for</p>
 
-          {/* TODO: place PO logo at dashboard/public/images/po-logo.png */}
-          <div
-            className="rounded-lg flex items-center justify-center text-green-500/40 text-xs px-8 py-3 select-none"
-            style={{
-              background: '#0a1a12',
-              border: '1px dashed rgba(0,255,136,0.2)',
-              fontFamily: "'IBM Plex Mono', monospace",
-            }}
-          >
-            [Pocket Option Logo] · /images/po-logo.png
+          <div style={{
+            display: 'inline-block',
+            background: '#0a0a1a',
+            borderRadius: '8px',
+            padding: '6px 16px',
+            margin: '0 12px',
+          }}>
+            <img
+              src="/images/PO_Logo.png"
+              alt="Pocket Option"
+              style={{ height: '32px', width: 'auto', display: 'block' }}
+            />
           </div>
 
           <p className="text-gray-400 text-sm">
@@ -271,7 +307,7 @@ export default function Landing() {
 
       {/* ─── 8. FINAL CTA ─────────────────────────────────────────────────── */}
       <section className="py-28 text-center relative overflow-hidden" style={gridBg}>
-        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse 50% 60% at 50% 50%, rgba(0,255,136,0.07) 0%, transparent 70%)' }} />
+        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse 50% 60% at 50% 50%, rgba(124,58,237,0.12) 0%, transparent 70%)' }} />
         <div className="relative z-10 max-w-xl mx-auto px-6">
           <h2 className="text-4xl md:text-5xl font-extrabold text-white mb-4" style={syneHero}>
             Ready to trade smarter?
@@ -284,14 +320,14 @@ export default function Landing() {
               href={AFFILIATE_LINK}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-lg font-bold text-sm text-gray-950 transition-all hover:brightness-110 active:scale-95"
-              style={{ background: '#00ff88', fontFamily: "'Syne', sans-serif" }}
+              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-lg font-bold text-sm text-white transition-all hover:brightness-110 active:scale-95"
+              style={{ background: '#7c3aed', fontFamily: "'Syne', sans-serif" }}
             >
               Get Free Access
             </a>
             <Link
               to="/pricing"
-              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-lg font-semibold text-sm border border-gray-600 text-gray-300 hover:border-green-500/60 hover:text-white transition-all"
+              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-lg font-semibold text-sm border border-gray-600 text-gray-300 hover:border-purple-500/60 hover:text-white transition-all"
             >
               See Pricing
             </Link>
@@ -309,7 +345,7 @@ export default function Landing() {
         <div style={{ maxWidth: '600px', margin: '0 auto' }}>
           {/* Logo / Brand */}
           <div style={{ marginBottom: '20px' }}>
-            <span style={{ color: '#00ff88', fontWeight: 700, fontSize: '18px' }}>⚡ Avalisa Bot</span>
+            <span style={{ color: '#a78bfa', fontWeight: 700, fontSize: '18px' }}>⚡ Avalisa Bot</span>
           </div>
 
           {/* Social Links */}
@@ -353,7 +389,7 @@ export default function Landing() {
             {/* Email */}
             <a href="mailto:AvalisaPOBot@gmail.com"
               style={{ color: '#94a3b8', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', transition: 'color 0.2s' }}
-              onMouseEnter={e => e.currentTarget.style.color = '#00ff88'}
+              onMouseEnter={e => e.currentTarget.style.color = '#a78bfa'}
               onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="2" y="4" width="20" height="16" rx="2"/>
