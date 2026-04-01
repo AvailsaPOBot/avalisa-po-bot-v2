@@ -402,6 +402,9 @@ export default function Landing() {
           {/* Bottom line */}
           <p style={{ color: '#374151', fontSize: '12px' }}>
             © {new Date().getFullYear()} Avalisa Bot. Trade responsibly.
+            <a href="/privacy" style={{ color: '#64748b', fontSize: '12px', textDecoration: 'none', marginLeft: '16px' }}>
+              Privacy Policy
+            </a>
           </p>
         </div>
       </footer>
