@@ -165,11 +165,26 @@ function setTradeAmount(amount) {
     return false;
   }
 
-  console.log('[Avalisa] setTradeAmount: using selector:', matchedSelector, '| setting amount:', amount.toFixed(2));
-  const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-  nativeInputValueSetter.call(input, amount.toFixed(2));
-  input.dispatchEvent(new Event('input', { bubbles: true }));
-  input.dispatchEvent(new Event('change', { bubbles: true }));
+  const valueStr = amount.toFixed(2);
+  console.log('[Avalisa] setTradeAmount: using selector:', matchedSelector, '| setting amount:', valueStr);
+
+  // Focus and select-all so execCommand replaces the full existing value
+  input.focus();
+  input.select();
+
+  // execCommand simulates real user typing — React picks this up reliably
+  const typed = document.execCommand('insertText', false, valueStr);
+
+  if (!typed) {
+    // Fallback: native setter + synthetic events
+    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    nativeSetter.call(input, valueStr);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  // Blur so React finalises the controlled value
+  input.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
   return true;
 }
 
@@ -295,11 +310,12 @@ async function runTradeCycle() {
 
   updateStatus('running', `Trade #${state.tradesCount + 1} — ${direction.toUpperCase()} $${safeAmount.toFixed(2)}`);
 
-  // Set amount on page
+  // Set amount on page, then wait for React to process the change
   if (!setTradeAmount(safeAmount)) {
     updateStatus('error', 'Could not set trade amount — page may have changed');
     return;
   }
+  await sleep(300);
 
   const balanceBefore = getBalance();
   console.log('[Avalisa] Balance before trade:', balanceBefore);
