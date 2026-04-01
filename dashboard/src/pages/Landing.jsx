@@ -1,3 +1,17 @@
+/*
+ * IMAGES — place files in dashboard/public/images/
+ *
+ * dashboard/public/images/bot-screenshot.png  — screenshot of the bot overlay on PO
+ * dashboard/public/images/po-logo.png         — Pocket Option logo (download from PO website)
+ *
+ * Reference in JSX as: <img src="/images/bot-screenshot.png" alt="..." />
+ * (React serves public/ folder at root automatically)
+ *
+ * TO ADD IMAGES LATER:
+ * 1. Save your image file to dashboard/public/images/
+ * 2. Replace the placeholder <div> with: <img src="/images/filename.png" alt="description" />
+ */
+
 import { Link } from 'react-router-dom';
 
 const AFFILIATE_LINK = 'https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50';
@@ -11,65 +25,280 @@ const features = [
   { icon: '📱', title: 'Cloud Settings Sync', desc: 'Settings saved to your account and synced instantly to the extension.' },
 ];
 
+const steps = [
+  { n: '01', title: 'Register Free', desc: 'Create a new Pocket Option account via our affiliate link to unlock full free access.' },
+  { n: '02', title: 'Install Extension', desc: 'Add Avalisa Bot to Chrome in one click — no configuration needed to get started.' },
+  { n: '03', title: 'Set & Start', desc: 'Choose your strategy, timeframe, and amount. Hit Start and let the bot trade.' },
+];
+
+const stats = [
+  { value: '10,000+', label: 'Trades Executed' },
+  { value: '92%',     label: 'Avg Payout on PO'  },
+  { value: '3',       label: 'Strategy Modes'    },
+];
+
+/* ─── inline styles for elements that can't be expressed purely in Tailwind ─── */
+const gridBg = {
+  backgroundImage:
+    'linear-gradient(rgba(0,255,136,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,255,136,0.04) 1px, transparent 1px)',
+  backgroundSize: '48px 48px',
+};
+
+const glowStyle = {
+  background: 'radial-gradient(ellipse 60% 45% at 30% 50%, rgba(0,255,136,0.09) 0%, transparent 70%)',
+};
+
+const syneHero = { fontFamily: "'Syne', sans-serif", fontWeight: 800 };
+const syneNum  = { fontFamily: "'Syne', sans-serif", fontWeight: 700 };
+const mono     = { fontFamily: "'IBM Plex Mono', monospace" };
+
 export default function Landing() {
   return (
-    <div className="min-h-screen">
-      {/* Hero */}
-      <section className="max-w-5xl mx-auto px-4 pt-24 pb-20 text-center">
-        <div className="inline-block bg-brand-900 text-brand-400 text-sm font-semibold px-4 py-1.5 rounded-full mb-6">
-          Trading Strategy Tool for Pocket Option
+    <div className="min-h-screen bg-gray-950 text-white">
+
+      {/* ─── 1. HERO ──────────────────────────────────────────────────────── */}
+      <section className="relative min-h-screen flex items-center overflow-hidden" style={gridBg}>
+        {/* radial glow */}
+        <div className="absolute inset-0 pointer-events-none" style={glowStyle} />
+
+        <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-12 w-full py-24 flex flex-col lg:flex-row items-center gap-16">
+
+          {/* Left 60% */}
+          <div className="flex-1 max-w-2xl">
+            {/* Badge */}
+            <div className="inline-flex items-center gap-2 border border-green-500/30 bg-green-500/10 text-green-400 text-xs font-semibold px-4 py-1.5 rounded-full mb-8 tracking-wider uppercase">
+              <span>⚡</span>
+              <span>Powered by Pocket Option</span>
+              {/* TODO: replace span above with PO logo img once available */}
+            </div>
+
+            {/* Headline */}
+            <h1
+              className="text-5xl md:text-6xl xl:text-7xl leading-[1.05] mb-6 text-white"
+              style={syneHero}
+            >
+              Automate Your<br />
+              <span style={{ color: '#00ff88' }}>Pocket Option</span><br />
+              Trading Strategy
+            </h1>
+
+            {/* Subheadline */}
+            <p className="text-lg text-gray-400 mb-10 leading-relaxed max-w-xl">
+              Set your strategy. Let the bot execute. Watch results in real time.
+            </p>
+
+            {/* CTAs */}
+            <div className="flex flex-wrap gap-4 mb-6">
+              <a
+                href={AFFILIATE_LINK}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 px-7 py-3.5 rounded-lg font-semibold text-sm text-gray-950 transition-all hover:brightness-110 active:scale-95"
+                style={{ background: '#00ff88', fontFamily: "'Syne', sans-serif" }}
+              >
+                Get Free Access →
+              </a>
+              <Link
+                to="/pricing"
+                className="inline-flex items-center gap-2 px-7 py-3.5 rounded-lg font-semibold text-sm border border-gray-600 text-gray-300 hover:border-green-500/60 hover:text-white transition-all"
+              >
+                View Plans
+              </Link>
+            </div>
+
+            {/* Trust line */}
+            <p className="text-xs text-gray-500 flex flex-wrap gap-4">
+              <span>✓ Free for new PO accounts</span>
+              <span>✓ No subscription</span>
+              <span>✓ Chrome Extension</span>
+            </p>
+          </div>
+
+          {/* Right 40% — bot screenshot placeholder */}
+          <div className="flex-shrink-0 w-full lg:w-auto lg:max-w-md xl:max-w-lg">
+            {/* TODO: replace with actual bot screenshot — place image in dashboard/public/images/bot-screenshot.png */}
+            <div
+              className="rounded-2xl flex flex-col items-center justify-center text-green-500/50 text-sm select-none"
+              style={{
+                aspectRatio: '16/10',
+                background: '#0a1a12',
+                border: '2px dashed rgba(0,255,136,0.25)',
+                width: '100%',
+                minWidth: 280,
+              }}
+            >
+              <span className="text-4xl mb-3 opacity-30">🖥</span>
+              <span style={mono}>Bot in action</span>
+              <span className="mt-1 text-xs opacity-40" style={mono}>/images/bot-screenshot.png</span>
+            </div>
+          </div>
+
         </div>
-        <h1 className="text-5xl md:text-6xl font-extrabold text-white mb-6 leading-tight">
-          Trade smarter with<br />
-          <span className="text-brand-400">Avalisa Bot</span>
-        </h1>
-        <p className="text-xl text-gray-400 mb-10 max-w-2xl mx-auto">
-          A powerful Chrome extension that automates your Pocket Option strategies.
-          Start free — no subscription required.
-        </p>
-        <div className="flex flex-wrap justify-center gap-4">
-          <a href={AFFILIATE_LINK} target="_blank" rel="noreferrer" className="btn-primary text-base px-8 py-3">
-            Get Started Free
-          </a>
-          <Link to="/pricing" className="btn-outline text-base px-8 py-3">View Plans</Link>
-        </div>
-        <p className="mt-4 text-sm text-gray-500">
-          Free plan available — register a new PO account under our affiliate link
-        </p>
       </section>
 
-      {/* Features */}
-      <section className="max-w-6xl mx-auto px-4 py-16">
-        <h2 className="text-3xl font-bold text-center text-white mb-12">Everything you need</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {features.map(f => (
-            <div key={f.title} className="card hover:border-brand-600 transition-colors">
-              <div className="text-3xl mb-4">{f.icon}</div>
-              <h3 className="text-lg font-semibold text-white mb-2">{f.title}</h3>
-              <p className="text-gray-400 text-sm">{f.desc}</p>
+      {/* ─── 2. SOCIAL PROOF BAR ──────────────────────────────────────────── */}
+      <section className="border-y border-gray-800 bg-gray-900/60">
+        <div className="max-w-4xl mx-auto px-6 py-8 grid grid-cols-3 divide-x divide-gray-800">
+          {stats.map(s => (
+            <div key={s.label} className="flex flex-col items-center gap-1 px-4">
+              <span
+                className="text-3xl md:text-4xl font-semibold"
+                style={{ ...mono, color: '#00ff88' }}
+              >
+                {s.value}
+              </span>
+              <span className="text-xs text-gray-500 text-center tracking-wide uppercase">{s.label}</span>
             </div>
           ))}
         </div>
       </section>
 
-      {/* Risk Disclaimer */}
-      <section className="max-w-3xl mx-auto px-4 py-8">
+      {/* ─── 3. HOW IT WORKS ──────────────────────────────────────────────── */}
+      <section className="max-w-6xl mx-auto px-6 py-24">
+        <p className="text-xs text-green-400 font-semibold tracking-widest uppercase mb-3" style={mono}>How it works</p>
+        <h2 className="text-3xl md:text-4xl font-bold text-white mb-16" style={syneNum}>
+          Three steps to automated trading
+        </h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {steps.map(s => (
+            <div key={s.n} className="relative">
+              {/* number */}
+              <div
+                className="text-6xl md:text-7xl font-extrabold mb-4 leading-none"
+                style={{ ...syneNum, color: 'rgba(0,255,136,0.18)' }}
+              >
+                {s.n}
+              </div>
+              <h3 className="text-lg font-bold text-white mb-2">{s.title}</h3>
+              <p className="text-gray-400 text-sm leading-relaxed">{s.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ─── 4. FREE ACCESS CALLOUT ───────────────────────────────────────── */}
+      <section className="max-w-6xl mx-auto px-6 pb-24">
+        <div
+          className="rounded-2xl p-10 md:p-14 relative overflow-hidden"
+          style={{
+            background: 'linear-gradient(135deg, #071a0e 0%, #0d2918 60%, #071a0e 100%)',
+            border: '1px solid rgba(0,255,136,0.2)',
+          }}
+        >
+          {/* faint grid overlay inside card */}
+          <div className="absolute inset-0 pointer-events-none opacity-30" style={gridBg} />
+          <div className="relative z-10 max-w-2xl">
+            <p className="text-xs text-green-400 font-semibold tracking-widest uppercase mb-4" style={mono}>Best deal</p>
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-5" style={syneNum}>
+              Get Unlimited Free Access
+            </h2>
+            <p className="text-gray-300 text-sm leading-relaxed mb-8">
+              Register a new Pocket Option account through our link and use Avalisa Bot completely free —
+              no trade limits, no subscription. Already have a PO account? Start with our Basic plan.
+            </p>
+            <a
+              href={AFFILIATE_LINK}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 px-8 py-4 rounded-lg font-bold text-sm text-gray-950 transition-all hover:brightness-110 active:scale-95"
+              style={{ background: '#00ff88', fontFamily: "'Syne', sans-serif" }}
+            >
+              Register New PO Account — It's Free
+            </a>
+            <p className="mt-4 text-xs text-gray-500" style={mono}>
+              * Must register via our link to qualify for free access
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── 5. FEATURES GRID ─────────────────────────────────────────────── */}
+      <section className="max-w-6xl mx-auto px-6 pb-24">
+        <p className="text-xs text-green-400 font-semibold tracking-widest uppercase mb-3" style={mono}>Features</p>
+        <h2 className="text-3xl md:text-4xl font-bold text-white mb-12" style={syneNum}>
+          Everything you need to trade smarter
+        </h2>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {features.map(f => (
+            <div
+              key={f.title}
+              className="rounded-xl p-6 flex flex-col gap-3 transition-colors hover:border-green-500/40"
+              style={{
+                background: '#0d1117',
+                border: '1px solid #1c2730',
+                borderLeft: '3px solid rgba(0,255,136,0.5)',
+              }}
+            >
+              <span className="text-2xl">{f.icon}</span>
+              <h3 className="font-semibold text-white text-sm">{f.title}</h3>
+              <p className="text-gray-400 text-sm leading-relaxed">{f.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ─── 6. POCKET OPTION PARTNERSHIP STRIP ──────────────────────────── */}
+      <section className="border-y border-gray-800 bg-gray-900/40 py-12">
+        <div className="max-w-3xl mx-auto px-6 text-center flex flex-col items-center gap-5">
+          <p className="text-gray-400 text-sm">Avalisa Bot is built exclusively for</p>
+
+          {/* TODO: place PO logo at dashboard/public/images/po-logo.png */}
+          <div
+            className="rounded-lg flex items-center justify-center text-green-500/40 text-xs px-8 py-3 select-none"
+            style={{
+              background: '#0a1a12',
+              border: '1px dashed rgba(0,255,136,0.2)',
+              fontFamily: "'IBM Plex Mono', monospace",
+            }}
+          >
+            [Pocket Option Logo] · /images/po-logo.png
+          </div>
+
+          <p className="text-gray-400 text-sm">
+            Register under our affiliate link to get free bot access
+          </p>
+        </div>
+      </section>
+
+      {/* ─── 7. RISK DISCLAIMER ───────────────────────────────────────────── */}
+      <section className="max-w-3xl mx-auto px-6 py-10">
         <div className="bg-yellow-900/20 border border-yellow-700/50 rounded-xl p-5 text-sm text-yellow-200">
           <strong>⚠️ Risk Disclaimer:</strong> Binary options trading involves significant financial risk. You may lose some or all of your invested capital. This tool does not guarantee profits. Trade responsibly and only with funds you can afford to lose.
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="max-w-4xl mx-auto px-4 py-20 text-center">
-        <h2 className="text-3xl font-bold text-white mb-4">Ready to start?</h2>
-        <p className="text-gray-400 mb-8">Join traders already using Avalisa Bot on Pocket Option.</p>
-        <div className="flex flex-wrap justify-center gap-4">
-          <a href={AFFILIATE_LINK} target="_blank" rel="noreferrer" className="btn-primary text-base px-8 py-3">
-            Register Free PO Account
-          </a>
-          <Link to="/register" className="btn-outline text-base px-8 py-3">Create Dashboard Account</Link>
+      {/* ─── 8. FINAL CTA ─────────────────────────────────────────────────── */}
+      <section className="py-28 text-center relative overflow-hidden" style={gridBg}>
+        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse 50% 60% at 50% 50%, rgba(0,255,136,0.07) 0%, transparent 70%)' }} />
+        <div className="relative z-10 max-w-xl mx-auto px-6">
+          <h2 className="text-4xl md:text-5xl font-extrabold text-white mb-4" style={syneHero}>
+            Ready to trade smarter?
+          </h2>
+          <p className="text-gray-400 mb-10 text-sm">
+            Join traders already using Avalisa Bot on Pocket Option.
+          </p>
+          <div className="flex flex-wrap justify-center gap-4">
+            <a
+              href={AFFILIATE_LINK}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-lg font-bold text-sm text-gray-950 transition-all hover:brightness-110 active:scale-95"
+              style={{ background: '#00ff88', fontFamily: "'Syne', sans-serif" }}
+            >
+              Get Free Access
+            </a>
+            <Link
+              to="/pricing"
+              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-lg font-semibold text-sm border border-gray-600 text-gray-300 hover:border-green-500/60 hover:text-white transition-all"
+            >
+              See Pricing
+            </Link>
+          </div>
         </div>
       </section>
+
     </div>
   );
 }
