@@ -299,6 +299,77 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* Footer */}
+      <footer style={{
+        borderTop: '1px solid #1a1a3e',
+        marginTop: '40px',
+        padding: '40px 16px',
+        textAlign: 'center',
+      }}>
+        <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+          {/* Logo / Brand */}
+          <div style={{ marginBottom: '20px' }}>
+            <span style={{ color: '#00ff88', fontWeight: 700, fontSize: '18px' }}>⚡ Avalisa Bot</span>
+          </div>
+
+          {/* Social Links */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginBottom: '20px', flexWrap: 'wrap' }}>
+            {/* YouTube */}
+            <a href="https://youtube.com/@avalisapobot?si=B0477eY_uwdHelIJ"
+              target="_blank" rel="noreferrer"
+              style={{ color: '#94a3b8', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', transition: 'color 0.2s' }}
+              onMouseEnter={e => e.currentTarget.style.color = '#ff0000'}
+              onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/>
+              </svg>
+              YouTube
+            </a>
+
+            {/* TikTok */}
+            <a href="https://www.tiktok.com/@avalisa.po.bot?_r=1&_t=ZS-95AWsutNbgT"
+              target="_blank" rel="noreferrer"
+              style={{ color: '#94a3b8', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', transition: 'color 0.2s' }}
+              onMouseEnter={e => e.currentTarget.style.color = '#ffffff'}
+              onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19.6 3a3.5 3.5 0 0 1-3.5-3.5h-2.8v14.7a2.1 2.1 0 1 1-2.8-2v-2.8a4.9 4.9 0 1 0 5.6 4.8V8.3a8.1 8.1 0 0 0 4.9 1.6V7.1A3.5 3.5 0 0 1 19.6 3z"/>
+              </svg>
+              TikTok
+            </a>
+
+            {/* Facebook */}
+            <a href="https://www.facebook.com/share/1EGgzWbHv9/?mibextid=wwXIfr"
+              target="_blank" rel="noreferrer"
+              style={{ color: '#94a3b8', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', transition: 'color 0.2s' }}
+              onMouseEnter={e => e.currentTarget.style.color = '#1877f2'}
+              onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M24 12.1C24 5.4 18.6 0 12 0S0 5.4 0 12.1c0 6 4.4 11 10.1 11.9v-8.4H7.1v-3.5h3V9.4c0-3 1.8-4.7 4.5-4.7 1.3 0 2.7.2 2.7.2v3h-1.5c-1.5 0-2 .9-2 1.9v2.2h3.3l-.5 3.5h-2.8V24C19.6 23.1 24 18.1 24 12.1z"/>
+              </svg>
+              Facebook
+            </a>
+
+            {/* Email */}
+            <a href="mailto:AvalisaPOBot@gmail.com"
+              style={{ color: '#94a3b8', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', transition: 'color 0.2s' }}
+              onMouseEnter={e => e.currentTarget.style.color = '#00ff88'}
+              onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="2" y="4" width="20" height="16" rx="2"/>
+                <path d="m2 7 10 7 10-7"/>
+              </svg>
+              AvalisaPOBot@gmail.com
+            </a>
+          </div>
+
+          {/* Bottom line */}
+          <p style={{ color: '#374151', fontSize: '12px' }}>
+            © {new Date().getFullYear()} Avalisa Bot. Trade responsibly.
+          </p>
+        </div>
+      </footer>
+
     </div>
   );
 }
