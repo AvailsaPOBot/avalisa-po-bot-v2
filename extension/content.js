@@ -22,6 +22,7 @@ const state = {
   userId: null,
   deviceFingerprint: null,
   stopRequested: false,
+  cycleGeneration: 0,  // incremented on each start/stop; stale cycles self-terminate
 };
 
 // ─── Device Fingerprint ───────────────────────────────────────────────────────
@@ -343,7 +344,9 @@ function getNextDirection() {
   return state.lastDirection;
 }
 
-async function runTradeCycle() {
+async function runTradeCycle(generation) {
+  // Stale cycle check — if bot was restarted this generation won't match
+  if (generation !== state.cycleGeneration) return;
   if (state.stopRequested) return;
 
   // Guard: don't place a new trade while one is still open
@@ -351,7 +354,7 @@ async function runTradeCycle() {
     console.log('[Avalisa] Trade already open, waiting...');
     updateStatus('running', 'Trade already open, waiting...');
     await sleep(3000);
-    if (state.running && !state.stopRequested) runTradeCycle();
+    if (state.running && !state.stopRequested) runTradeCycle(generation);
     return;
   }
 
@@ -462,14 +465,14 @@ async function runTradeCycle() {
   updateStatus('running', `Last: ${result.toUpperCase()} | Next: $${state.currentAmount.toFixed(2)}`);
 
   // Check if still running after update
-  if (!state.running || state.stopRequested) return;
+  if (!state.running || state.stopRequested || generation !== state.cycleGeneration) return;
 
   // Delay between trades
   const delay = (state.settings.delaySeconds || 6) * 1000;
   await sleep(delay);
 
-  if (state.running && !state.stopRequested) {
-    runTradeCycle();
+  if (state.running && !state.stopRequested && generation === state.cycleGeneration) {
+    runTradeCycle(generation);
   }
 }
 
@@ -593,6 +596,7 @@ function getOverlayHTML() {
         <div class="av-row">
           <label class="av-label">Delay</label>
           <select id="av-delay" class="av-select">
+            <option value="2">2s</option>
             <option value="4">4s</option>
             <option value="6" selected>6s</option>
             <option value="8">8s</option>
@@ -813,19 +817,24 @@ async function startBot() {
     return;
   }
 
+  state.cycleGeneration++;           // invalidates any still-running old cycles
   state.running = true;
   state.stopRequested = false;
+  state.isTradeOpen = false;         // clear any stale open-trade flag from last run
   state.currentAmount = parseFloat(state.settings.startAmount) || 1.0;
   state.martingaleStep = 0;
 
+  const gen = state.cycleGeneration;
   updateUI();
   updateStatus('running', 'Starting...');
-  runTradeCycle();
+  runTradeCycle(gen);
 }
 
 function stopBot() {
+  state.cycleGeneration++;           // invalidates any running cycle immediately
   state.running = false;
   state.stopRequested = true;
+  state.isTradeOpen = false;
   updateUI();
   updateStatus('', 'Stopped');
 }
