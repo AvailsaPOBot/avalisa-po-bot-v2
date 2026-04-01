@@ -1,11 +1,10 @@
 {
   "manifest_version": 3,
   "name": "Avalisa Trading Strategy Tool",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Advanced trading strategy assistant for Pocket Option. Automate your strategies with precision and full control.",
   "permissions": [
     "storage",
-    "activeTab",
     "scripting"
   ],
   "host_permissions": [
