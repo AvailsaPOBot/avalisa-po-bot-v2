@@ -248,7 +248,7 @@ async function ensureDurationPanel() {
  */
 async function setTimeframe(tf) {
   const tfTimeMap = {
-    S15: '00:00:15', S30: '00:00:30',
+    S30: '00:00:30',
     M1:  '00:01:00', M3:  '00:03:00',
     M5:  '00:05:00', M30: '00:30:00',
     H1:  '01:00:00',
@@ -278,7 +278,11 @@ async function setTimeframe(tf) {
   );
   if (trigger) {
     trigger.click();
-    await sleep(600);
+    // Poll until .dops__timeframes-item elements appear (lazy-rendered on first open)
+    for (let i = 0; i < 25; i++) {
+      await sleep(100);
+      if (document.querySelectorAll('.dops__timeframes-item').length > 0) break;
+    }
   }
 
   // Try .dops__timeframes-item — Panel 2 items have no "+" prefix
@@ -617,7 +621,6 @@ function getOverlayHTML() {
         <div class="av-row">
           <label class="av-label">Timeframe</label>
           <select id="av-timeframe" class="av-select">
-            <option value="S15">S15 (15s)</option>
             <option value="S30">S30 (30s)</option>
             <option value="M1" selected>M1 (1m)</option>
             <option value="M3">M3 (3m)</option>
@@ -923,7 +926,7 @@ function updateUI() {
   const s = state.settings;
   if (s) {
     const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
-    set('av-timeframe', s.timeframe || 'M1');
+    set('av-timeframe', (s.timeframe === 'S15' ? 'S30' : s.timeframe) || 'M1');
     set('av-direction', s.direction || 'alternating');
     set('av-delay', s.delaySeconds || 6);
     set('av-multiplier', parseFloat(s.martingaleMultiplier || 2.0).toFixed(1));
