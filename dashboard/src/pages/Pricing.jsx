@@ -3,74 +3,79 @@ import { useAuth } from '../hooks/useAuth';
 
 const AFFILIATE_LINK = 'https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50';
 
-// Replace with your actual Lemon Squeezy checkout URLs
-const LS_BASIC_URL = process.env.REACT_APP_LS_BASIC_URL || '#';
-const LS_LIFETIME_URL = process.env.REACT_APP_LS_LIFETIME_URL || '#';
-
-const plans = [
-  {
-    name: 'Free',
-    price: '$0',
-    period: 'forever',
-    badge: 'badge-free',
-    description: 'Get started with Martingale strategy',
-    features: [
-      '10 free trades (device-linked)',
-      'Martingale strategy only',
-      'All timeframes (M1–H4)',
-      'Basic trade history',
-      'AI support chat',
-    ],
-    cta: 'Register Free PO Account',
-    ctaHref: AFFILIATE_LINK,
-    ctaExternal: true,
-    highlighted: false,
-  },
-  {
-    name: 'Basic',
-    price: '$50',
-    period: 'one-time',
-    badge: 'badge-basic',
-    description: '100 trades with full strategy access',
-    features: [
-      '100 trades total',
-      'Max $2 starting trade amount',
-      'All strategies unlocked',
-      'Anti-Martingale strategy',
-      'Fixed Amount strategy',
-      'Full trade history & stats',
-      'Settings cloud sync',
-    ],
-    cta: 'Buy Basic — $50',
-    ctaHref: LS_BASIC_URL,
-    ctaExternal: true,
-    highlighted: false,
-  },
-  {
-    name: 'Lifetime',
-    price: '$100',
-    period: 'one-time',
-    badge: 'badge-lifetime',
-    description: 'Unlimited everything, forever',
-    features: [
-      'Unlimited trades',
-      'Unlimited starting amount',
-      'All strategies unlocked',
-      'AI Signal strategy (coming soon)',
-      'Full trade history & stats',
-      'Settings cloud sync',
-      'Priority AI support',
-    ],
-    cta: 'Buy Lifetime — $100',
-    ctaHref: LS_LIFETIME_URL,
-    ctaExternal: true,
-    highlighted: true,
-  },
-];
-
 export default function Pricing() {
   const { user } = useAuth();
   const currentPlan = user?.license?.plan || null;
+
+  const email = user?.email || '';
+  const appendEmail = (url) => {
+    if (!url || url === '#') return '#';
+    const separator = url.includes('?') ? '&' : '?';
+    return email ? `${url}${separator}checkout[email]=${encodeURIComponent(email)}` : url;
+  };
+  const LS_BASIC_URL = appendEmail(process.env.REACT_APP_LS_BASIC_URL);
+  const LS_LIFETIME_URL = appendEmail(process.env.REACT_APP_LS_LIFETIME_URL);
+
+  const plans = [
+    {
+      name: 'Free',
+      price: '$0',
+      period: 'forever',
+      badge: 'badge-free',
+      description: 'Get started with Martingale strategy',
+      features: [
+        '10 free trades (device-linked)',
+        'Martingale strategy only',
+        'All timeframes (M1–H4)',
+        'Basic trade history',
+        'AI support chat',
+      ],
+      cta: 'Register Free PO Account',
+      ctaHref: AFFILIATE_LINK,
+      ctaExternal: true,
+      highlighted: false,
+    },
+    {
+      name: 'Basic',
+      price: '$50',
+      period: 'one-time',
+      badge: 'badge-basic',
+      description: '100 trades with full strategy access',
+      features: [
+        '100 trades total',
+        'Max $2 starting trade amount',
+        'All strategies unlocked',
+        'Anti-Martingale strategy',
+        'Fixed Amount strategy',
+        'Full trade history & stats',
+        'Settings cloud sync',
+      ],
+      cta: 'Buy Basic — $50',
+      ctaHref: LS_BASIC_URL,
+      ctaExternal: true,
+      highlighted: false,
+    },
+    {
+      name: 'Lifetime',
+      price: '$100',
+      period: 'one-time',
+      badge: 'badge-lifetime',
+      description: 'Unlimited everything, forever',
+      features: [
+        'Unlimited trades',
+        'Unlimited starting amount',
+        'All strategies unlocked',
+        'AI Signal strategy (coming soon)',
+        'Full trade history & stats',
+        'Settings cloud sync',
+        'Priority AI support',
+      ],
+      cta: 'Buy Lifetime — $100',
+      ctaHref: LS_LIFETIME_URL,
+      ctaExternal: true,
+      highlighted: true,
+    },
+  ];
 
   return (
     <div className="min-h-screen py-16 px-4">
