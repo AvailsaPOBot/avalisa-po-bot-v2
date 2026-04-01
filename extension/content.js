@@ -193,11 +193,58 @@ function setTradeAmount(amount) {
 
 
 /**
+ * Detect if PO is showing the UTC clock panel (Panel 1) instead of
+ * the duration panel (Panel 2).
+ * Panel 1: .value__val shows a real clock time like "09:58:00" (total > 3600s)
+ * Panel 2: .value__val shows a duration like "00:00:15" (total <= 3600s)
+ * If on Panel 1, try to click the panel toggle to switch to Panel 2.
+ */
+async function ensureDurationPanel() {
+  const block = document.querySelector('.block--expiration-inputs');
+  if (!block) return;
+
+  // Check if we're in UTC clock mode (text contains "UTC" is the clearest signal)
+  const blockText = block.textContent || '';
+  if (!blockText.includes('UTC')) return; // already on duration panel
+
+  console.log('[Avalisa] ensureDurationPanel: clock panel detected — switching to duration panel');
+
+  // Try toggle selectors inside the expiry block (not the dropdown trigger itself)
+  const toggleSelectors = [
+    '.block--expiration-inputs a',
+    '.block--expiration-inputs .block__icon',
+    '.block--expiration-inputs [class*="icon"]',
+    '.block--expiration-inputs [class*="switch"]',
+    '.block--expiration-inputs [class*="toggle"]',
+    '.block--expiration-inputs button',
+  ];
+
+  for (const sel of toggleSelectors) {
+    const el = document.querySelector(sel);
+    if (el) {
+      console.log('[Avalisa] ensureDurationPanel: trying toggle selector:', sel);
+      el.click();
+      await sleep(700);
+      // Check if we switched (UTC gone from block text)
+      if (!document.querySelector('.block--expiration-inputs')?.textContent?.includes('UTC')) {
+        console.log('[Avalisa] ensureDurationPanel: switched successfully');
+        return;
+      }
+    }
+  }
+
+  console.warn('[Avalisa] ensureDurationPanel: could not switch panels — logging block children to help diagnose:');
+  block.querySelectorAll('*').forEach(el => {
+    if (el.tagName && el.children.length === 0 && el.textContent.trim()) {
+      console.log('[Avalisa]  child:', el.tagName, el.className, JSON.stringify(el.textContent.trim().substring(0, 30)));
+    }
+  });
+}
+
+/**
  * Set PO's expiry timeframe.
- * DOM-confirmed: the Time block is .block--expiration-inputs
- * Clicking .control__value toggles data-toggle-dropdown and opens a dropdown.
- * Options are either .dops__timeframes-item (regular mode) or list items
- * whose text matches S15/S30/M1 etc. or the HH:MM:SS time string.
+ * Always ensures the duration panel (Panel 2) is active first, then
+ * opens the dropdown and clicks the matching .dops__timeframes-item.
  */
 async function setTimeframe(tf) {
   const tfTimeMap = {
@@ -212,6 +259,9 @@ async function setTimeframe(tf) {
     return false;
   }
 
+  // Switch to duration panel if UTC clock panel is showing
+  await ensureDurationPanel();
+
   // Already set?
   const valEl = document.querySelector('.block--expiration-inputs .value__val');
   const current = valEl?.textContent?.trim();
@@ -221,7 +271,7 @@ async function setTimeframe(tf) {
   }
   console.log('[Avalisa] setTimeframe: current =', current, '→ target =', tf, '(', targetTime, ')');
 
-  // Click the control value to open the dropdown/panel
+  // Click the control value to open the dropdown
   const trigger = document.querySelector(
     '.block--expiration-inputs .control__value, ' +
     '.block--expiration-inputs .value__val'
@@ -231,7 +281,7 @@ async function setTimeframe(tf) {
     await sleep(600);
   }
 
-  // Try .dops__timeframes-item (regular mode grid)
+  // Try .dops__timeframes-item — Panel 2 items have no "+" prefix
   let items = document.querySelectorAll('.dops__timeframes-item');
   for (const item of items) {
     const text = item.textContent.trim();
@@ -243,30 +293,21 @@ async function setTimeframe(tf) {
     }
   }
 
-  // Try dropdown list items — match on label (S15) or time string (00:00:15)
-  const listItems = document.querySelectorAll(
-    '.block--expiration-inputs li, ' +
-    '.block--expiration-inputs .value__item, ' +
-    '.block--expiration-inputs [class*="item"], ' +
-    '.dops__timeframes-item'
-  );
-  for (const item of listItems) {
+  // Fallback: match on HH:MM:SS time string
+  for (const item of items) {
     const text = item.textContent.trim();
-    if (text === tf || text === targetTime) {
+    if (text === targetTime) {
       item.click();
-      console.log('[Avalisa] setTimeframe: clicked list item', text);
+      console.log('[Avalisa] setTimeframe: clicked item by time string', targetTime);
       await sleep(300);
       return true;
     }
   }
 
-  // Log what was found to help debug
-  console.warn('[Avalisa] setTimeframe: could not find option for', tf);
-  console.log('[Avalisa] setTimeframe: grid items found:', items.length);
-  listItems.forEach(i => console.log('[Avalisa]  item text:', JSON.stringify(i.textContent.trim())));
-
-  // Close the dropdown if we couldn't find anything
-  if (trigger) trigger.click();
+  console.warn('[Avalisa] setTimeframe: could not find option for', tf,
+    '| items found:', items.length,
+    '| texts:', Array.from(items).map(i => i.textContent.trim()));
+  if (trigger) trigger.click(); // close dropdown
   return false;
 }
 
