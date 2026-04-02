@@ -74,7 +74,7 @@ async function settingsUpsert(req, res) {
       if (!license || license.plan === 'free') {
         return res.status(403).json({
           error: 'Paid plan required for this strategy',
-          upgradeUrl: 'https://avalisa-po-bot-v2.vercel.app/pricing',
+          upgradeUrl: 'https://avalisabot.vercel.app/pricing',
         });
       }
     }

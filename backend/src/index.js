@@ -29,7 +29,7 @@ const PORT = process.env.PORT || 3000;
 // CORS — allow dashboard + extension
 const allowedOrigins = [
   process.env.FRONTEND_URL,
-  'https://avalisa-po-bot-v2.vercel.app',
+  'https://avalisabot.vercel.app',
   'https://pocketoption.com',
   'https://po.cash',
   'chrome-extension://', // handled by wildcard below
