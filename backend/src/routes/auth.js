@@ -69,7 +69,7 @@ router.post('/login', async (req, res) => {
 
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '30d' });
     res.json({
-      user: { id: user.id, email: user.email, poUserId: user.poUserId, createdAt: user.createdAt },
+      user: { id: user.id, email: user.email, poUserId: user.poUserId, isAdmin: user.isAdmin, createdAt: user.createdAt },
       token,
     });
   } catch (err) {
@@ -87,6 +87,7 @@ router.get('/me', authMiddleware, async (req, res) => {
         id: true,
         email: true,
         poUserId: true,
+        isAdmin: true,
         createdAt: true,
         license: {
           select: { plan: true, tradesUsed: true, tradesLimit: true, expiresAt: true },

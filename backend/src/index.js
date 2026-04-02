@@ -20,6 +20,7 @@ const authRoutes = require('./routes/auth');
 const licenseRoutes = require('./routes/license');
 const tradeRoutes = require('./routes/trades');
 const settingsRoutes = require('./routes/settings');
+const adminRoutes = require('./routes/admin');
 const supportRoutes = require('./routes/support');
 const webhookRoutes = require('./routes/webhooks');
 
@@ -65,6 +66,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/license', licenseRoutes);
 app.use('/api/trades', tradeRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api/support', supportRoutes);
 
 // 404 handler

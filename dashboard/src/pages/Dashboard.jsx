@@ -20,12 +20,52 @@ const STEPS = ['infinite', 1, 2, 3, 4, 5, 6, 8, 10, 12];
 export default function Dashboard() {
   const { user } = useAuth();
   const plan = user?.license?.plan || 'free';
+  const isAdmin = user?.isAdmin || false;
 
   const [settings, setSettings] = useState(null);
   const [history, setHistory] = useState([]);
   const [stats, setStats] = useState(null);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('settings');
+
+  // Admin state
+  const [adminIdentifier, setAdminIdentifier] = useState('');
+  const [adminPlan, setAdminPlan] = useState('lifetime');
+  const [adminLoading, setAdminLoading] = useState(false);
+  const [adminResult, setAdminResult] = useState(null);
+  const [adminUsers, setAdminUsers] = useState([]);
+
+  const loadAdminUsers = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      const res = await api.get('/api/admin/users');
+      setAdminUsers(res.data.users || []);
+    } catch (err) {
+      console.error('Failed to load admin users:', err);
+    }
+  }, [isAdmin]);
+
+  async function grantAccess() {
+    if (!adminIdentifier.trim()) return;
+    setAdminLoading(true);
+    setAdminResult(null);
+    try {
+      const res = await api.post('/api/admin/grant-access', {
+        identifier: adminIdentifier.trim(),
+        plan: adminPlan,
+      });
+      setAdminResult({ success: true, message: res.data.message });
+      setAdminIdentifier('');
+      loadAdminUsers();
+    } catch (err) {
+      setAdminResult({
+        success: false,
+        message: err.response?.data?.error || 'Failed to grant access',
+      });
+    } finally {
+      setAdminLoading(false);
+    }
+  }
 
   const loadData = useCallback(async () => {
     const [settingsRes, historyRes] = await Promise.allSettled([
@@ -40,6 +80,7 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => { loadAdminUsers(); }, [loadAdminUsers]);
 
   async function saveSettings() {
     if (!settings) return;
@@ -98,7 +139,7 @@ export default function Dashboard() {
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 bg-dark-800 border border-dark-600 rounded-lg p-1 w-fit">
-        {['settings', 'history'].map(tab => (
+        {['settings', 'history', ...(isAdmin ? ['admin'] : [])].map(tab => (
           <button key={tab} onClick={() => setActiveTab(tab)}
             className={`px-5 py-2 rounded-md text-sm font-medium capitalize transition-colors ${activeTab === tab ? 'bg-brand-600 text-white' : 'text-gray-400 hover:text-white'}`}>
             {tab}
@@ -229,6 +270,101 @@ export default function Dashboard() {
               </tbody>
             </table>
           )}
+        </div>
+      )}
+
+      {activeTab === 'admin' && isAdmin && (
+        <div className="space-y-6">
+          {/* Grant Access Card */}
+          <div className="card">
+            <h2 className="text-lg font-semibold text-white mb-1">Grant Bot Access</h2>
+            <p className="text-gray-400 text-sm mb-4">
+              Enter the user's email address or Pocket Option UID to grant them access.
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm text-gray-400 block mb-1">Email or PO UID</label>
+                <input
+                  type="text"
+                  className="input w-full text-sm"
+                  placeholder="user@email.com or 128532137"
+                  value={adminIdentifier}
+                  onChange={e => setAdminIdentifier(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && grantAccess()}
+                />
+              </div>
+              <div>
+                <label className="text-sm text-gray-400 block mb-1">Plan</label>
+                <select
+                  className="select text-sm w-full"
+                  value={adminPlan}
+                  onChange={e => setAdminPlan(e.target.value)}
+                >
+                  <option value="lifetime">Lifetime (Unlimited)</option>
+                  <option value="basic">Basic (100 trades)</option>
+                </select>
+              </div>
+              <button
+                onClick={grantAccess}
+                disabled={adminLoading || !adminIdentifier.trim()}
+                className="btn-primary w-full py-2.5"
+              >
+                {adminLoading ? 'Granting...' : '✓ Grant Access'}
+              </button>
+              {adminResult && (
+                <div className={`text-sm px-3 py-2 rounded-lg ${
+                  adminResult.success
+                    ? 'bg-green-900/30 border border-green-700/50 text-green-400'
+                    : 'bg-red-900/30 border border-red-700/50 text-red-400'
+                }`}>
+                  {adminResult.message}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Users List */}
+          <div className="card overflow-x-auto">
+            <h2 className="text-lg font-semibold text-white mb-4">
+              Recent Users ({adminUsers.length})
+            </h2>
+            {adminUsers.length === 0 ? (
+              <p className="text-gray-400 text-sm text-center py-4">No users yet.</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-gray-400 border-b border-dark-600 text-left">
+                    <th className="py-2 pr-4">Email</th>
+                    <th className="py-2 pr-4">PO UID</th>
+                    <th className="py-2 pr-4">Plan</th>
+                    <th className="py-2 pr-4">Trades</th>
+                    <th className="py-2">Joined</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {adminUsers.map(u => (
+                    <tr key={u.id} className="border-b border-dark-600/50 text-gray-300">
+                      <td className="py-2 pr-4 text-xs">{u.email}</td>
+                      <td className="py-2 pr-4 text-xs text-gray-500">
+                        {u.poUserId || '—'}
+                      </td>
+                      <td className="py-2 pr-4">
+                        <span className={`badge-${u.license?.plan || 'free'}`}>
+                          {u.license?.plan || 'free'}
+                        </span>
+                      </td>
+                      <td className="py-2 pr-4 text-xs text-gray-500">
+                        {u.license ? `${u.license.tradesUsed} / ${u.license.tradesLimit ?? '∞'}` : '—'}
+                      </td>
+                      <td className="py-2 text-xs text-gray-500">
+                        {new Date(u.createdAt).toLocaleDateString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
       )}
     </div>
