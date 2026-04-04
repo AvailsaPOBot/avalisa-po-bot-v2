@@ -25,7 +25,7 @@ export default function Register() {
     try {
       await register(form.email, form.password);
       toast.success('Account created! Welcome to Avalisa Bot.');
-      navigate('/dashboard');
+      navigate('/app');
     } catch (err) {
       toast.error(err.response?.data?.error || 'Registration failed');
     } finally {

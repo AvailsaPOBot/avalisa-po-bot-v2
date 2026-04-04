@@ -105,6 +105,25 @@ export default function Landing() {
               >
                 Get Free Access →
               </a>
+              <button
+                onClick={() => {
+                  const token = localStorage.getItem('pwa_token')
+                  window.location.href = token ? '/app' : '/app/login'
+                }}
+                style={{
+                  background: '#1a7cfa',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '8px 18px',
+                  fontSize: '14px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Open App →
+              </button>
               <Link
                 to="/pricing"
                 className="inline-flex items-center gap-2 px-7 py-3.5 rounded-lg font-semibold text-sm border border-gray-600 text-gray-300 hover:border-purple-500/60 hover:text-white transition-all"

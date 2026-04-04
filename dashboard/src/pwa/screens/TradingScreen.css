@@ -1,0 +1,195 @@
+/* ── Root ─────────────────────────────────────────────────── */
+.ts-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: #0d1b2e;
+}
+
+/* ── Top bar ──────────────────────────────────────────────── */
+.ts-topbar {
+  height: 44px;
+  flex-shrink: 0;
+  background: #080f1c;
+  border-bottom: 0.5px solid #1a2a40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+}
+
+/* ── Bot strip ────────────────────────────────────────────── */
+.ts-botstrip {
+  height: 36px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  transition: background 0.3s;
+}
+
+/* ── Chart / iframe zone ──────────────────────────────────── */
+.ts-chart-zone {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: #0a1220;
+}
+
+.ts-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+/* ── Sentiment bar ────────────────────────────────────────── */
+.ts-sentiment {
+  height: 24px;
+  flex-shrink: 0;
+  background: #080f1c;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+}
+
+/* ── Trade panel ──────────────────────────────────────────── */
+.ts-panel {
+  flex-shrink: 0;
+  background: #080f1c;
+  border-top: 0.5px solid #1a2a40;
+  padding: 8px 12px;
+}
+
+/* ── Result popup ─────────────────────────────────────────── */
+.ts-popup {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  text-align: center;
+  animation: popupIn 0.25s ease-out forwards;
+  pointer-events: none;
+}
+
+/* ── Toast ────────────────────────────────────────────────── */
+.ts-toast {
+  position: absolute;
+  bottom: 140px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #152338;
+  border: 0.5px solid #2a4060;
+  border-radius: 8px;
+  padding: 8px 16px;
+  color: #ffffff;
+  font-size: 12px;
+  z-index: 20;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* ── Dot helpers ──────────────────────────────────────────── */
+.ts-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.ts-dot-pulse {
+  background: #00ff88;
+  animation: pulse 1.2s infinite;
+}
+
+/* ── Keyframes ────────────────────────────────────────────── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.15; }
+}
+
+@keyframes popupIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -48%) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+/* ── Idle placeholder ─────────────────────────────────────── */
+.ts-chart-placeholder {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  background: #0a1220;
+}
+.ts-chart-placeholder-inner {
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center; padding: 24px; gap: 12px;
+}
+.ts-chart-title { color: #fff; font-size: 16px; font-weight: 600; margin: 0; }
+.ts-chart-sub   { color: #8fa8c8; font-size: 13px; margin: 0; max-width: 260px; line-height: 1.5; }
+.ts-chart-hint  { color: #4a6080; font-size: 11px; margin: 0; }
+.ts-open-po-btn {
+  background: #1a7cfa; color: #fff; font-size: 13px; font-weight: 700;
+  padding: 10px 24px; border-radius: 8px; text-decoration: none; margin-top: 4px;
+  display: inline-block;
+}
+.ts-open-po-btn:hover { background: #1565c0; }
+
+/* ── Live trade feed ──────────────────────────────────────── */
+.ts-live-feed {
+  width: 100%; height: 100%; display: flex; flex-direction: column;
+  background: #0a1220; overflow: hidden;
+}
+.ts-feed-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 12px; border-bottom: 0.5px solid #1a2a40; flex-shrink: 0;
+}
+.ts-feed-title  { color: #fff; font-size: 13px; font-weight: 600; }
+.ts-feed-po-link { color: #1a7cfa; font-size: 12px; text-decoration: none; }
+.ts-feed-po-link:hover { color: #60a5fa; }
+
+.ts-feed-stats {
+  display: flex; gap: 0; border-bottom: 0.5px solid #1a2a40; flex-shrink: 0;
+}
+.ts-feed-stat {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  padding: 10px 0; border-right: 0.5px solid #1a2a40;
+}
+.ts-feed-stat:last-child { border-right: none; }
+.ts-feed-stat-val   { color: #fff; font-size: 18px; font-weight: 800; line-height: 1; }
+.ts-feed-stat-label { color: #8fa8c8; font-size: 10px; margin-top: 3px; }
+
+.ts-feed-list  { flex: 1; overflow-y: auto; padding: 6px 0; }
+.ts-feed-empty { color: #4a6080; font-size: 13px; text-align: center; padding: 24px; }
+
+.ts-feed-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 12px; border-bottom: 0.5px solid #0d1b2e;
+}
+.ts-feed-row-left  { display: flex; align-items: center; gap: 8px; }
+.ts-feed-row-right { display: flex; align-items: center; gap: 8px; }
+
+.ts-feed-pair { color: #fff; font-size: 13px; font-weight: 600; }
+.ts-feed-dir  {
+  font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;
+}
+.ts-dir-call { background: #0d2e1a; color: #2ecc71; border: 0.5px solid #2ecc71; }
+.ts-dir-put  { background: #2e0d0d; color: #e74c3c; border: 0.5px solid #e74c3c; }
+
+.ts-feed-result { font-size: 13px; font-weight: 700; }
+.ts-res-win     { color: #2ecc71; }
+.ts-res-loss    { color: #e74c3c; }
+
+.ts-feed-badge {
+  font-size: 9px; font-weight: 700; padding: 2px 5px; border-radius: 3px;
+}
+.ts-feed-win  .ts-feed-badge { background: #0d2e1a; color: #2ecc71; }
+.ts-feed-loss .ts-feed-badge { background: #2e0d0d; color: #e74c3c; }
