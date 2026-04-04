@@ -2,6 +2,25 @@
 @tailwind components;
 @tailwind utilities;
 
+.open-app-btn {
+  background: #1a7cfa;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .open-app-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+}
+
 @layer base {
   body {
     @apply bg-dark-900 text-gray-100 antialiased;

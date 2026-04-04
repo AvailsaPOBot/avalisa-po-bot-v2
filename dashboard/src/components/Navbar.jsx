@@ -20,28 +20,28 @@ export default function Navbar() {
           <span className="text-xl font-bold text-brand-400">⚡ Avalisa Bot</span>
         </Link>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           {user ? (
             <>
-              <Link to="/dashboard" className="text-sm text-gray-300 hover:text-white transition-colors">Dashboard</Link>
-              <Link to="/pricing" className="text-sm text-gray-300 hover:text-white transition-colors">Pricing</Link>
-              <Link to="/support" className="text-sm text-gray-300 hover:text-white transition-colors">Support</Link>
-              <span className={badgeClass}>{plan}</span>
+              <Link to="/dashboard" className="text-sm text-gray-300 hover:text-white transition-colors hidden sm:inline">Dashboard</Link>
+              <Link to="/pricing" className="text-sm text-gray-300 hover:text-white transition-colors hidden sm:inline">Pricing</Link>
+              <Link to="/support" className="text-sm text-gray-300 hover:text-white transition-colors hidden sm:inline">Support</Link>
+              <span className={`${badgeClass} hidden sm:inline`}>{plan}</span>
               <button
                 onClick={() => { window.location.href = '/app' }}
-                style={{ background: '#1a7cfa', color: '#fff', fontSize: 14, fontWeight: 600, padding: '8px 18px', borderRadius: 8, border: 'none', cursor: 'pointer' }}
+                className="open-app-btn"
               >Open App →</button>
-              <button onClick={handleLogout} className="text-sm text-gray-400 hover:text-white transition-colors">Logout</button>
+              <button onClick={handleLogout} className="text-sm text-gray-400 hover:text-white transition-colors hidden sm:inline">Logout</button>
             </>
           ) : (
             <>
-              <Link to="/pricing" className="text-sm text-gray-300 hover:text-white transition-colors">Pricing</Link>
+              <Link to="/pricing" className="text-sm text-gray-300 hover:text-white transition-colors hidden sm:inline">Pricing</Link>
               <button
                 onClick={() => { const t = localStorage.getItem('pwa_token'); window.location.href = t ? '/app' : '/app/login' }}
-                style={{ background: '#1a7cfa', color: '#fff', fontSize: 14, fontWeight: 600, padding: '8px 18px', borderRadius: 8, border: 'none', cursor: 'pointer' }}
+                className="open-app-btn"
               >Open App →</button>
-              <Link to="/login" className="btn-outline text-sm py-1.5">Login</Link>
-              <Link to="/register" className="btn-primary text-sm py-1.5">Get Started Free</Link>
+              <Link to="/login" className="btn-outline text-sm py-1.5 hidden sm:inline-flex">Login</Link>
+              <Link to="/register" className="btn-primary text-sm py-1.5 hidden sm:inline-flex">Get Started Free</Link>
             </>
           )}
         </div>

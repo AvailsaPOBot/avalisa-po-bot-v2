@@ -191,7 +191,7 @@ export default function TradingScreen({ onNavigate }) {
             <span style={{ fontSize: 12, color: '#fff', fontWeight: 600 }}>In PO ↗</span>
           </div>
           <a
-            href="https://pocketoption.com/en/trading"
+            href="https://pocketoption.com"
             target="_blank"
             rel="noopener noreferrer"
             style={{ background: '#1a7cfa', borderRadius: 8, width: 32, height: 32, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0, textDecoration: 'none' }}
@@ -275,7 +275,7 @@ export default function TradingScreen({ onNavigate }) {
               <p className="ts-chart-title">Ready to trade</p>
               <p className="ts-chart-sub">Open Pocket Option in your browser, log in, then tap START BOT above.</p>
               <a
-                href="https://pocketoption.com/en/trading"
+                href="https://pocketoption.com"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="ts-open-po-btn"
@@ -293,7 +293,7 @@ export default function TradingScreen({ onNavigate }) {
             <div className="ts-feed-header">
               <span className="ts-feed-title">Live trades</span>
               <a
-                href="https://pocketoption.com/en/trading"
+                href="https://pocketoption.com"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="ts-feed-po-link"
