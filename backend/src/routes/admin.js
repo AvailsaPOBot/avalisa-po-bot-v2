@@ -60,7 +60,7 @@ router.post('/grant-access', async (req, res) => {
     });
   } catch (err) {
     console.error('[Admin] grant-access error:', err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: 'Failed to grant access' });
   }
 });
 
@@ -82,7 +82,8 @@ router.get('/users', async (req, res) => {
     });
     return res.json({ users });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    console.error('[Admin] users list error:', err);
+    return res.status(500).json({ error: 'Failed to fetch users' });
   }
 });
 

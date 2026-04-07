@@ -14,6 +14,7 @@ process.on('unhandledRejection', (reason) => {
 
 const express = require('express');
 const cors = require('cors');
+const rateLimit = require('express-rate-limit');
 const prisma = require('./lib/prisma');
 
 const authRoutes = require('./routes/auth');
@@ -49,6 +50,15 @@ app.use(cors({
   },
   credentials: true,
 }));
+
+// Rate limiters
+const generalLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100, standardHeaders: true, legacyHeaders: false });
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, standardHeaders: true, legacyHeaders: false });
+const chatLimiter = rateLimit({ windowMs: 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false });
+
+app.use('/api', generalLimiter);
+app.use('/api/auth', authLimiter);
+app.use('/api/support/chat', chatLimiter);
 
 // Webhook route BEFORE express.json() — needs raw body for HMAC verification
 app.use('/api/webhooks', webhookRoutes);

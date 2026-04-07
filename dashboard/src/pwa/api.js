@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: 'https://avalisa-backend.onrender.com',
+  baseURL: process.env.REACT_APP_API_URL || 'https://avalisa-backend.onrender.com',
   timeout: 15000,
 })
 

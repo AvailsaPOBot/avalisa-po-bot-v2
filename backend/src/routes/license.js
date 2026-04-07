@@ -97,38 +97,6 @@ router.post('/increment', async (req, res) => {
   }
 });
 
-// POST /api/license/activate — called by Lemon Squeezy webhook after payment
-router.post('/activate', async (req, res) => {
-  const { userId, plan, orderId, tradesLimit } = req.body;
-  if (!userId || !plan) {
-    return res.status(400).json({ error: 'userId and plan are required' });
-  }
-
-  try {
-    const license = await prisma.license.upsert({
-      where: { userId },
-      update: {
-        plan,
-        tradesUsed: 0,
-        tradesLimit: tradesLimit || (plan === 'basic' ? 100 : null),
-        lemonsqueezyOrderId: orderId || null,
-        expiresAt: null,
-      },
-      create: {
-        userId,
-        plan,
-        tradesUsed: 0,
-        tradesLimit: tradesLimit || (plan === 'basic' ? 100 : null),
-        lemonsqueezyOrderId: orderId || null,
-      },
-    });
-    res.json({ success: true, license });
-  } catch (err) {
-    console.error('Activate error:', err);
-    res.status(500).json({ error: 'Failed to activate license' });
-  }
-});
-
 // GET /api/license/status — for authenticated users
 router.get('/status', authMiddleware, async (req, res) => {
   try {

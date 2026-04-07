@@ -19,7 +19,13 @@ router.post('/lemonsqueezy', express.raw({ type: 'application/json' }), async (r
   const hmac = crypto.createHmac('sha256', secret);
   const digest = hmac.update(req.body).digest('hex');
 
-  if (!signature || !crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(signature))) {
+  let signatureValid = false;
+  try {
+    signatureValid = signature && crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(signature));
+  } catch (_) {
+    // timingSafeEqual throws if buffer lengths differ — treat as invalid
+  }
+  if (!signatureValid) {
     console.warn('Invalid webhook signature');
     return res.status(401).json({ error: 'Invalid signature' });
   }

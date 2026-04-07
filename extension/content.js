@@ -399,7 +399,7 @@ async function runTradeCycle(generation) {
     console.log('[Avalisa] Trade already open, waiting...');
     updateStatus('running', 'Trade already open, waiting...');
     await sleep(3000);
-    if (state.running && !state.stopRequested) runTradeCycle(generation);
+    if (state.running && !state.stopRequested) runTradeCycle(generation).catch(err => console.error('[Avalisa] Cycle error:', err));
     return;
   }
 
@@ -517,7 +517,7 @@ async function runTradeCycle(generation) {
   await sleep(delay);
 
   if (state.running && !state.stopRequested && generation === state.cycleGeneration) {
-    runTradeCycle(generation);
+    runTradeCycle(generation).catch(err => console.error('[Avalisa] Cycle error:', err));
   }
 }
 
@@ -975,6 +975,15 @@ async function init() {
     }
   }, 1000);
 }
+
+// Message listener — handles messages from popup and background
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg.type === 'TOGGLE_PANEL') {
+    const panel = document.getElementById('avalisa-overlay');
+    if (panel) panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
+    sendResponse({ ok: true });
+  }
+});
 
 // Wait for page to be ready
 if (document.readyState === 'loading') {

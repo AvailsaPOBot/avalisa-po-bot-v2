@@ -29,7 +29,7 @@ router.post('/log', authMiddleware, async (req, res) => {
     return res.json({ success: true, trade });
   } catch (err) {
     console.error('[trades/log] Error:', err.message, err.code);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: 'Failed to log trade' });
   }
 });
 
