@@ -13,8 +13,8 @@ export default function Pricing() {
     const separator = url.includes('?') ? '&' : '?';
     return email ? `${url}${separator}checkout[email]=${encodeURIComponent(email)}` : url;
   };
-  const LS_BASIC_URL = appendEmail(process.env.REACT_APP_LS_BASIC_URL);
-  const LS_LIFETIME_URL = appendEmail(process.env.REACT_APP_LS_LIFETIME_URL);
+  const WHOP_BASIC_URL = appendEmail(process.env.REACT_APP_WHOP_BASIC_URL);
+  const WHOP_LIFETIME_URL = appendEmail(process.env.REACT_APP_WHOP_LIFETIME_URL);
 
   const plans = [
     {
@@ -51,7 +51,7 @@ export default function Pricing() {
         'Settings cloud sync',
       ],
       cta: 'Buy Basic — $50',
-      ctaHref: LS_BASIC_URL,
+      ctaHref: WHOP_BASIC_URL,
       ctaExternal: true,
       highlighted: false,
     },
@@ -71,7 +71,7 @@ export default function Pricing() {
         'Priority AI support',
       ],
       cta: 'Buy Lifetime — $100',
-      ctaHref: LS_LIFETIME_URL,
+      ctaHref: WHOP_LIFETIME_URL,
       ctaExternal: true,
       highlighted: true,
     },
@@ -130,7 +130,7 @@ export default function Pricing() {
         </div>
 
         <div className="mt-10 text-center text-sm text-gray-500">
-          Payments processed securely by Lemon Squeezy. All sales final.
+          Payments processed securely by Whop. All sales final.
         </div>
 
         <div className="mt-8 bg-yellow-900/20 border border-yellow-700/40 rounded-xl p-5 text-sm text-yellow-200 text-center">

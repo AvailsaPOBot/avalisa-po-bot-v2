@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react'
 import api from '../api'
 import './AccountScreen.css'
 
-const LS_BASIC_URL    = process.env.REACT_APP_LS_BASIC_URL    || ''
-const LS_LIFETIME_URL = process.env.REACT_APP_LS_LIFETIME_URL || ''
+const WHOP_BASIC_URL    = process.env.REACT_APP_WHOP_BASIC_URL    || ''
+const WHOP_LIFETIME_URL = process.env.REACT_APP_WHOP_LIFETIME_URL || ''
 
 function appendEmail(url, email) {
   if (!url || !email) return url
@@ -100,7 +100,7 @@ export default function AccountScreen({ onLogout, onNavigate }) {
             {plan !== 'basic' && (
               <button
                 className="as-plan-btn"
-                onClick={() => window.open(appendEmail(LS_BASIC_URL, email), '_blank', 'noopener')}
+                onClick={() => window.open(appendEmail(WHOP_BASIC_URL, email), '_blank', 'noopener')}
               >
                 <div className="as-plan-btn-left">
                   <span className="as-plan-name">Basic</span>
@@ -117,7 +117,7 @@ export default function AccountScreen({ onLogout, onNavigate }) {
             <button
               className="as-plan-btn"
               style={{ borderColor: '#f59e0b' }}
-              onClick={() => window.open(appendEmail(LS_LIFETIME_URL, email), '_blank', 'noopener')}
+              onClick={() => window.open(appendEmail(WHOP_LIFETIME_URL, email), '_blank', 'noopener')}
             >
               <div className="as-plan-btn-left">
                 <span className="as-plan-name" style={{ color: '#f59e0b' }}>Lifetime</span>
