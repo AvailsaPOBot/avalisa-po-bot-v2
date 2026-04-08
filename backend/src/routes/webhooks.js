@@ -58,16 +58,13 @@ router.post('/whop', express.raw({ type: 'application/json' }), async (req, res)
 
 async function handleWhopMembership(data) {
   const membershipId = data?.id;
-  const planId = data?.plan?.id;
   const customerEmail = data?.user?.email;
+
+  // Log full payload on first receipt so we can verify structure
+  console.log('[Whop] Membership payload:', JSON.stringify(data, null, 2));
 
   if (!customerEmail) {
     console.warn(`[Whop] No email for membership ${membershipId}`);
-    return;
-  }
-
-  if (!planId) {
-    console.warn(`[Whop] No plan ID for membership ${membershipId}`);
     return;
   }
 
@@ -77,17 +74,22 @@ async function handleWhopMembership(data) {
     return;
   }
 
+  // Match by price (in cents): $50 = basic, $100 = lifetime
+  // Also check plan name as fallback
+  const priceInCents = data?.plan?.price_cents ?? data?.plan?.price ?? data?.price_cents;
+  const planName = (data?.plan?.name || '').toLowerCase();
+
   let plan = null;
   let tradesLimit = null;
 
-  if (planId === process.env.WHOP_PLAN_ID_BASIC) {
+  if (priceInCents === 5000 || planName.includes('basic')) {
     plan = 'basic';
     tradesLimit = 100;
-  } else if (planId === process.env.WHOP_PLAN_ID_LIFETIME) {
+  } else if (priceInCents === 10000 || planName.includes('lifetime')) {
     plan = 'lifetime';
     tradesLimit = null;
   } else {
-    console.warn(`[Whop] Unknown plan ID: ${planId}`);
+    console.warn(`[Whop] Cannot determine plan. Price: ${priceInCents}, Name: ${planName}`);
     return;
   }
 
