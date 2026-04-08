@@ -43,8 +43,8 @@ router.post('/whop', express.raw({ type: 'application/json' }), async (req, res)
 
   console.log(`[Whop] Event: ${action}, ID: ${data?.id}`);
 
-  // membership.went_valid fires when a purchase completes and the membership activates
-  if (action === 'membership.went_valid') {
+  // membership_activated fires when a purchase completes and the membership activates
+  if (action === 'membership_activated' || action === 'membership.went_valid') {
     try {
       await handleWhopMembership(data);
     } catch (err) {
