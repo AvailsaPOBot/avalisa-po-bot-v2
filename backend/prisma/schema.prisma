@@ -30,6 +30,9 @@ model License {
   tradesLimit           Int?      // null = unlimited
   expiresAt             DateTime?
   lemonsqueezyOrderId   String?
+  claimStatus           String    @default("none") // none | pending | approved | rejected
+  claimNote             String?
+  claimedPoUid          String?
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 

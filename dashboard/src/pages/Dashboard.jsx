@@ -35,6 +35,19 @@ export default function Dashboard() {
   const [adminResult, setAdminResult] = useState(null);
   const [adminUsers, setAdminUsers] = useState([]);
 
+  // Claim state (settings tab)
+  const [claimPoUid, setClaimPoUid] = useState('');
+  const [claimLoading, setClaimLoading] = useState(false);
+  const [claimResult, setClaimResult] = useState(null);
+  const [claimStatus, setClaimStatus] = useState(null); // null | 'pending' | 'approved' | 'rejected'
+  const [claimNote, setClaimNote] = useState(null);
+
+  // Admin claims state
+  const [pendingClaims, setPendingClaims] = useState([]);
+  const [claimsLoading, setClaimsLoading] = useState(false);
+  const [rejectingId, setRejectingId] = useState(null);
+  const [rejectReason, setRejectReason] = useState('not_found');
+
   const loadAdminUsers = useCallback(async () => {
     if (!isAdmin) return;
     try {
@@ -44,6 +57,30 @@ export default function Dashboard() {
       console.error('Failed to load admin users:', err);
     }
   }, [isAdmin]);
+
+  const loadPendingClaims = useCallback(async () => {
+    if (!isAdmin) return;
+    setClaimsLoading(true);
+    try {
+      const res = await api.get('/api/admin/claims');
+      setPendingClaims(res.data || []);
+    } catch (err) {
+      console.error('Failed to load claims:', err);
+    } finally {
+      setClaimsLoading(false);
+    }
+  }, [isAdmin]);
+
+  const loadClaimStatus = useCallback(async () => {
+    if (plan !== 'free') return;
+    try {
+      const res = await api.get('/api/license/claim/status');
+      setClaimStatus(res.data.claimStatus || 'none');
+      setClaimNote(res.data.claimNote || null);
+    } catch (err) {
+      // silent
+    }
+  }, [plan]);
 
   async function grantAccess() {
     if (!adminIdentifier.trim()) return;
@@ -67,6 +104,43 @@ export default function Dashboard() {
     }
   }
 
+  async function submitClaim() {
+    if (!claimPoUid.trim()) return;
+    setClaimLoading(true);
+    setClaimResult(null);
+    try {
+      const res = await api.post('/api/license/claim', { poUid: claimPoUid.trim() });
+      setClaimResult({ success: true, message: res.data.message });
+      setClaimStatus('pending');
+    } catch (err) {
+      setClaimResult({ success: false, message: err.response?.data?.error || 'Failed to submit claim' });
+    } finally {
+      setClaimLoading(false);
+    }
+  }
+
+  async function approveClaim(userId) {
+    try {
+      await api.post('/api/admin/claims/approve', { userId });
+      toast.success('Claim approved. User now has lifetime access.');
+      loadPendingClaims();
+      loadAdminUsers();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to approve');
+    }
+  }
+
+  async function rejectClaim(userId) {
+    try {
+      await api.post('/api/admin/claims/reject', { userId, reason: rejectReason });
+      toast.success('Claim rejected.');
+      setRejectingId(null);
+      loadPendingClaims();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to reject');
+    }
+  }
+
   const loadData = useCallback(async () => {
     const [settingsRes, historyRes] = await Promise.allSettled([
       api.get('/api/settings'),
@@ -81,6 +155,8 @@ export default function Dashboard() {
 
   useEffect(() => { loadData(); }, [loadData]);
   useEffect(() => { loadAdminUsers(); }, [loadAdminUsers]);
+  useEffect(() => { loadPendingClaims(); }, [loadPendingClaims]);
+  useEffect(() => { loadClaimStatus(); }, [loadClaimStatus]);
 
   async function saveSettings() {
     if (!settings) return;
@@ -231,6 +307,68 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* Claim Free Access Card — settings tab, free plan users without linked UID only */}
+      {activeTab === 'settings' && plan === 'free' && !user?.poUserId && claimStatus !== 'approved' && (
+        <div className="card mt-6">
+          <h2 className="text-lg font-semibold text-white mb-1">Link Your Pocket Option Account</h2>
+          <p className="text-gray-400 text-sm mb-4">
+            Registered via our affiliate link? Submit your PO UID to claim free lifetime access.
+          </p>
+
+          {claimStatus === 'pending' ? (
+            <div className="text-sm px-3 py-3 rounded-lg bg-yellow-900/30 border border-yellow-700/50 text-yellow-300">
+              ⏳ Your claim is under review. We'll notify you here within 24 hours.
+            </div>
+          ) : claimStatus === 'rejected' ? (
+            <div className="space-y-3">
+              <div className="text-sm px-3 py-3 rounded-lg bg-red-900/30 border border-red-700/50 text-red-400">
+                {claimNote === 'not_found' && '❌ UID not found under our affiliate link. Please register a new PO account via our link, or upgrade your plan.'}
+                {claimNote === 'uid_mismatch' && '❌ UID mismatch. Contact support.'}
+                {claimNote === 'already_registered' && '❌ This UID is already registered to another account.'}
+                {!['not_found', 'uid_mismatch', 'already_registered'].includes(claimNote) && `❌ Claim rejected: ${claimNote}`}
+              </div>
+              <div className="flex gap-3">
+                <a href="https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50"
+                  target="_blank" rel="noreferrer" className="btn-primary text-sm py-2 px-4">
+                  Affiliate Link
+                </a>
+                <Link to="/pricing" className="btn-outline text-sm py-2 px-4">View Pricing</Link>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm text-gray-400 block mb-1">Your Pocket Option UID</label>
+                <input
+                  type="number"
+                  className="input w-full text-sm"
+                  placeholder="e.g. 128532137"
+                  value={claimPoUid}
+                  onChange={e => setClaimPoUid(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && submitClaim()}
+                />
+              </div>
+              <button
+                onClick={submitClaim}
+                disabled={claimLoading || !claimPoUid.trim()}
+                className="btn-primary w-full py-2.5"
+              >
+                {claimLoading ? 'Submitting...' : 'Submit Claim'}
+              </button>
+              {claimResult && (
+                <div className={`text-sm px-3 py-2 rounded-lg ${
+                  claimResult.success
+                    ? 'bg-green-900/30 border border-green-700/50 text-green-400'
+                    : 'bg-red-900/30 border border-red-700/50 text-red-400'
+                }`}>
+                  {claimResult.message}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {activeTab === 'history' && (
         <div className="card overflow-x-auto">
           <h2 className="text-lg font-semibold text-white mb-4">Trade History</h2>
@@ -275,6 +413,74 @@ export default function Dashboard() {
 
       {activeTab === 'admin' && isAdmin && (
         <div className="space-y-6">
+          {/* Pending Claims */}
+          <div className="card">
+            <h2 className="text-lg font-semibold text-white mb-4">Pending Claims</h2>
+            {claimsLoading ? (
+              <p className="text-gray-400 text-sm">Loading...</p>
+            ) : pendingClaims.length === 0 ? (
+              <p className="text-gray-400 text-sm">No pending claims. ✅</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-gray-400 border-b border-dark-600 text-left">
+                      <th className="py-2 pr-4">Email</th>
+                      <th className="py-2 pr-4">PO UID</th>
+                      <th className="py-2 pr-4">Submitted</th>
+                      <th className="py-2">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pendingClaims.map(c => (
+                      <tr key={c.userId} className="border-b border-dark-600/50 text-gray-300">
+                        <td className="py-3 pr-4 text-xs">{c.email}</td>
+                        <td className="py-3 pr-4 text-xs font-mono">{c.claimedPoUid}</td>
+                        <td className="py-3 pr-4 text-xs text-gray-500">
+                          {new Date(c.submittedAt).toLocaleDateString()}
+                        </td>
+                        <td className="py-3">
+                          {rejectingId === c.userId ? (
+                            <div className="flex items-center gap-2">
+                              <select
+                                className="select text-xs"
+                                value={rejectReason}
+                                onChange={e => setRejectReason(e.target.value)}
+                              >
+                                <option value="not_found">Not found in affiliate list</option>
+                                <option value="already_registered">UID already registered elsewhere</option>
+                                <option value="uid_mismatch">UID doesn't match</option>
+                              </select>
+                              <button onClick={() => rejectClaim(c.userId)}
+                                className="text-xs px-3 py-1 bg-red-700 hover:bg-red-600 text-white rounded-md">
+                                Confirm
+                              </button>
+                              <button onClick={() => setRejectingId(null)}
+                                className="text-xs px-2 py-1 text-gray-400 hover:text-white">
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <button onClick={() => approveClaim(c.userId)}
+                                className="text-xs px-3 py-1 bg-green-700 hover:bg-green-600 text-white rounded-md">
+                                ✅ Approve
+                              </button>
+                              <button onClick={() => { setRejectingId(c.userId); setRejectReason('not_found'); }}
+                                className="text-xs px-3 py-1 bg-red-900 hover:bg-red-800 text-red-300 rounded-md">
+                                ❌ Reject
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
           {/* Grant Access Card */}
           <div className="card">
             <h2 className="text-lg font-semibold text-white mb-1">Grant Bot Access</h2>

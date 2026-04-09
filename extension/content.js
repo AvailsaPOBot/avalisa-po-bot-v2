@@ -89,6 +89,13 @@ async function apiPost(path, body) {
   return res.json();
 }
 
+async function apiGet(path) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (state.jwt) headers['Authorization'] = `Bearer ${state.jwt}`;
+  const res = await fetch(`${API_BASE}${path}`, { headers });
+  return res.json();
+}
+
 // ─── License Check ────────────────────────────────────────────────────────────
 async function checkLicense() {
   try {
@@ -572,6 +579,7 @@ function injectOverlay() {
 
   bindOverlayEvents();
   updateUI();
+  if (state.jwt) checkClaimStatus();
 }
 
 function injectHeaderButton() {
@@ -694,6 +702,20 @@ function getOverlayHTML() {
         <p>🚫 Trade limit reached!</p>
         <a id="av-affiliate-link" class="av-btn av-btn-primary" target="_blank">Register Free Account</a>
         <a id="av-upgrade-link" class="av-btn av-btn-outline" target="_blank">Upgrade Plan</a>
+        <div id="av-claim-section" style="margin-top:8px; border-top:1px solid #2a4060; padding-top:8px;">
+          <p style="font-size:11px; color:#8fa8c8; margin:0 0 6px 0;">Already registered via affiliate link?</p>
+          <button id="av-claim-btn" style="width:100%; padding:6px; background:#7c3aed; color:white; border:none; border-radius:4px; font-size:12px; cursor:pointer;">
+            🎯 Claim Free Access
+          </button>
+          <div id="av-claim-uid-input" style="display:none; margin-top:6px;">
+            <input id="av-claim-uid" type="text" placeholder="Enter your Pocket Option UID"
+              style="width:100%; padding:5px 8px; background:#0f0f23; border:1px solid #2d2d5b; border-radius:4px; color:#e2e8f0; font-size:11px; box-sizing:border-box; margin-bottom:4px;" />
+            <button id="av-claim-submit" style="width:100%; padding:5px; background:#7c3aed; color:white; border:none; border-radius:4px; font-size:11px; cursor:pointer;">
+              Submit Claim
+            </button>
+          </div>
+          <div id="av-claim-status" style="font-size:11px; margin-top:6px; display:none;"></div>
+        </div>
       </div>
     </div>
   `;
@@ -780,6 +802,118 @@ function bindOverlayEvents() {
   // Limit message links
   document.getElementById('av-affiliate-link').href = AFFILIATE_LINK;
   document.getElementById('av-upgrade-link').href = `${DASHBOARD_URL}/pricing`;
+
+  // Claim Free Access
+  document.getElementById('av-claim-btn').addEventListener('click', handleClaimClick);
+  document.getElementById('av-claim-submit').addEventListener('click', handleClaimSubmit);
+}
+
+function getPoUidFromDom() {
+  const selectors = ['.js-user-id', '[data-user-id]', '.user-id', '[class*="user-id"]', '[data-uid]'];
+  for (const sel of selectors) {
+    const el = document.querySelector(sel);
+    if (el) {
+      const uid = (el.textContent || el.getAttribute('data-user-id') || el.getAttribute('data-uid') || '').trim();
+      if (uid && /^\d+$/.test(uid)) return uid;
+    }
+  }
+  return null;
+}
+
+function setClaimStatus(text, color) {
+  const el = document.getElementById('av-claim-status');
+  if (!el) return;
+  el.style.display = 'block';
+  el.style.color = color;
+  el.innerHTML = text;
+}
+
+async function handleClaimClick() {
+  if (!state.jwt) {
+    setClaimStatus('⚠️ Please log in to claim free access.', '#f59e0b');
+    return;
+  }
+
+  // Try to read UID from PO DOM
+  const domUid = getPoUidFromDom();
+  if (domUid) {
+    // UID found — submit directly
+    document.getElementById('av-claim-btn').disabled = true;
+    document.getElementById('av-claim-btn').textContent = 'Submitting...';
+    await submitClaim(domUid);
+    document.getElementById('av-claim-btn').disabled = false;
+    document.getElementById('av-claim-btn').textContent = '🎯 Claim Free Access';
+  } else {
+    // UID not found in DOM — show manual input
+    document.getElementById('av-claim-uid-input').style.display = 'block';
+    document.getElementById('av-claim-btn').style.display = 'none';
+  }
+}
+
+async function handleClaimSubmit() {
+  const uid = (document.getElementById('av-claim-uid')?.value || '').trim();
+  if (!uid) {
+    setClaimStatus('⚠️ Please enter your Pocket Option UID.', '#f59e0b');
+    return;
+  }
+  const btn = document.getElementById('av-claim-submit');
+  btn.disabled = true;
+  btn.textContent = 'Submitting...';
+  await submitClaim(uid);
+  btn.disabled = false;
+  btn.textContent = 'Submit Claim';
+}
+
+async function submitClaim(poUid) {
+  try {
+    const data = await apiPost('/api/license/claim', { poUid });
+    if (data.message) {
+      setClaimStatus('✅ Claim submitted! We\'ll review within 24 hours.', '#34d399');
+      document.getElementById('av-claim-uid-input').style.display = 'none';
+    } else if (data.error) {
+      const err = data.error;
+      if (err.includes('under review')) {
+        setClaimStatus('⏳ Your claim is under review.', '#f59e0b');
+      } else if (err.includes('already been approved')) {
+        setClaimStatus('✅ Already approved! Refresh to see your plan.', '#34d399');
+      } else if (err.includes('already linked to another account') || err.includes('already been claimed')) {
+        setClaimStatus('❌ This UID is already linked to another account.', '#f87171');
+      } else {
+        setClaimStatus(`❌ ${err}`, '#f87171');
+      }
+    }
+  } catch (err) {
+    setClaimStatus('❌ Network error. Please try again.', '#f87171');
+  }
+}
+
+async function checkClaimStatus() {
+  if (!state.jwt) return;
+  try {
+    const data = await apiGet('/api/license/claim/status');
+    if (!data.claimStatus || data.claimStatus === 'none') return;
+
+    const limitMsg = document.getElementById('av-limit-msg');
+    if (limitMsg) limitMsg.style.display = 'block';
+
+    if (data.claimStatus === 'pending') {
+      setClaimStatus('⏳ Your claim is under review.', '#f59e0b');
+    } else if (data.claimStatus === 'approved') {
+      setClaimStatus('✅ Already approved! Refresh to see your plan.', '#34d399');
+    } else if (data.claimStatus === 'rejected') {
+      const note = data.claimNote || '';
+      if (note === 'not_found') {
+        setClaimStatus('❌ UID not found under our affiliate link. Please register via our link, or upgrade your plan.' +
+          ` <a href="${AFFILIATE_LINK}" style="color:#a78bfa">Affiliate link</a> | <a href="${DASHBOARD_URL}/pricing" style="color:#a78bfa">Pricing</a>`, '#f87171');
+      } else if (note === 'uid_mismatch') {
+        setClaimStatus('❌ UID mismatch. Contact support.', '#f87171');
+      } else {
+        setClaimStatus(`❌ Claim rejected: ${note}. <a href="${DASHBOARD_URL}/pricing" style="color:#a78bfa">Upgrade your plan</a>`, '#f87171');
+      }
+    }
+  } catch (err) {
+    // silent fail
+  }
 }
 
 async function handleLogin() {

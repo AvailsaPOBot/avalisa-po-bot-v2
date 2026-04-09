@@ -108,4 +108,74 @@ router.get('/status', authMiddleware, async (req, res) => {
   }
 });
 
+// POST /api/license/claim — submit affiliate claim for free access
+router.post('/claim', authMiddleware, async (req, res) => {
+  const { poUid } = req.body;
+  if (!poUid || !String(poUid).trim()) {
+    return res.status(400).json({ error: 'poUid is required' });
+  }
+  const uid = String(poUid).trim();
+
+  try {
+    const license = await prisma.license.findUnique({ where: { userId: req.userId } });
+    if (!license) return res.status(404).json({ error: 'No license found' });
+
+    if (license.plan !== 'free') {
+      return res.status(400).json({ error: 'You already have an active plan.' });
+    }
+    if (license.claimStatus === 'pending') {
+      return res.status(400).json({ error: 'Your claim is already under review. Please wait.' });
+    }
+    if (license.claimStatus === 'approved') {
+      return res.status(400).json({ error: 'Your claim has already been approved.' });
+    }
+
+    // Check if UID is already linked to another user account
+    const uidLinkedUser = await prisma.user.findUnique({ where: { poUserId: uid } });
+    if (uidLinkedUser && uidLinkedUser.id !== req.userId) {
+      return res.status(400).json({ error: 'This PO UID is already linked to another account.' });
+    }
+
+    // Check if UID already claimed by another license (pending or approved)
+    const uidClaimed = await prisma.license.findFirst({
+      where: {
+        claimedPoUid: uid,
+        claimStatus: { in: ['pending', 'approved'] },
+        NOT: { userId: req.userId },
+      },
+    });
+    if (uidClaimed) {
+      return res.status(400).json({ error: 'This PO UID has already been claimed by another account.' });
+    }
+
+    await prisma.license.update({
+      where: { userId: req.userId },
+      data: { claimStatus: 'pending', claimedPoUid: uid, claimNote: null },
+    });
+
+    res.json({ message: 'Claim submitted. We will review and notify you within 24 hours.' });
+  } catch (err) {
+    console.error('Claim error:', err);
+    res.status(500).json({ error: 'Failed to submit claim' });
+  }
+});
+
+// GET /api/license/claim/status — get current claim status
+router.get('/claim/status', authMiddleware, async (req, res) => {
+  try {
+    const license = await prisma.license.findUnique({ where: { userId: req.userId } });
+    if (!license) return res.status(404).json({ error: 'No license found' });
+    res.json({
+      claimStatus: license.claimStatus,
+      claimNote: license.claimNote,
+      claimedPoUid: license.claimedPoUid,
+      plan: license.plan,
+      tradesUsed: license.tradesUsed,
+      tradesLimit: license.tradesLimit,
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch claim status' });
+  }
+});
+
 module.exports = router;
