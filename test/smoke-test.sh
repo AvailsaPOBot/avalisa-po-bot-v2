@@ -2,10 +2,13 @@
 # Smoke test — Avalisa backend critical routes
 # Usage: ./test/smoke-test.sh
 # Requires: curl, jq
-# Set ADMIN_EMAIL / ADMIN_PASSWORD env vars for admin tests (or edit defaults below)
+
+# Load credentials from .env.test if present
+SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+[ -f "$SCRIPT_DIR/.env.test" ] && source "$SCRIPT_DIR/.env.test"
 
 BASE="https://avalisa-backend.onrender.com"
-ADMIN_EMAIL="${ADMIN_EMAIL:-admin@avalisabot.com}"
+ADMIN_EMAIL="${ADMIN_EMAIL:-}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-}"
 TEST_EMAIL="smoketest_$(date +%s)@test.com"
 TEST_PASSWORD="SmokeTest123!"

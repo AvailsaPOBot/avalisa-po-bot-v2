@@ -17,6 +17,7 @@ node_modules/
 .env.staging
 backend/.env
 dashboard/.env
+.env.test
 
 # ============================
 # Build Outputs
