@@ -54,11 +54,11 @@ export default function Landing() {
     <div className="min-h-screen bg-gray-950 text-white">
 
       {/* ─── 1. HERO ──────────────────────────────────────────────────────── */}
-      <section className="relative min-h-screen flex items-center overflow-hidden" style={gridBg}>
+      <section className="relative flex items-start overflow-hidden" style={gridBg}>
         {/* radial glow */}
         <div className="absolute inset-0 pointer-events-none" style={glowStyle} />
 
-        <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-12 w-full py-24 flex flex-col lg:flex-row items-center gap-16">
+        <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-12 w-full pt-12 pb-16 md:pt-16 md:pb-24 flex flex-col lg:flex-row items-center gap-12 lg:gap-16">
 
           {/* Left 60% */}
           <div className="flex-1 max-w-2xl min-w-0">
