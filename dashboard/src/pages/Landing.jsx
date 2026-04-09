@@ -61,7 +61,7 @@ export default function Landing() {
         <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-12 w-full py-24 flex flex-col lg:flex-row items-center gap-16">
 
           {/* Left 60% */}
-          <div className="flex-1 max-w-2xl">
+          <div className="flex-1 max-w-2xl min-w-0">
             {/* Badge with PO logo */}
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: '10px',
@@ -81,8 +81,8 @@ export default function Landing() {
 
             {/* Headline */}
             <h1
-              className="text-5xl md:text-6xl xl:text-7xl leading-[1.05] mb-6 text-white"
-              style={syneHero}
+              className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl leading-[1.05] mb-6 text-white"
+              style={{ ...syneHero, wordBreak: 'break-word' }}
             >
               Automate Your<br />
               <span style={{ color: '#a78bfa' }}>Pocket Option</span><br />
