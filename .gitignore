@@ -94,3 +94,4 @@ avalisa-extension.zip
 *.pem
 *.key
 *.cert
+test/smoke-test.log
