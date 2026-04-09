@@ -40,7 +40,7 @@ export default function Dashboard() {
   const [claimLoading, setClaimLoading] = useState(false);
   const [claimResult, setClaimResult] = useState(null);
   const [claimStatus, setClaimStatus] = useState(null); // null | 'pending' | 'approved' | 'rejected'
-  const [_claimNote, setClaimNote] = useState(null);
+  const [, setClaimNote] = useState(null);
 
   // Admin claims state
   const [pendingClaims, setPendingClaims] = useState([]);
