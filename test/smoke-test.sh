@@ -9,7 +9,7 @@ ADMIN_EMAIL="${ADMIN_EMAIL:-admin@avalisabot.com}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-}"
 TEST_EMAIL="smoketest_$(date +%s)@test.com"
 TEST_PASSWORD="SmokeTest123!"
-FAKE_UID="99999999"
+FAKE_UID="smoke$(date +%s)"
 
 PASS=0
 FAIL=0
