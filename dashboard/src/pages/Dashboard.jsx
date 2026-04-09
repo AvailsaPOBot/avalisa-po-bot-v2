@@ -40,13 +40,12 @@ export default function Dashboard() {
   const [claimLoading, setClaimLoading] = useState(false);
   const [claimResult, setClaimResult] = useState(null);
   const [claimStatus, setClaimStatus] = useState(null); // null | 'pending' | 'approved' | 'rejected'
-  const [claimNote, setClaimNote] = useState(null);
+  const [_claimNote, setClaimNote] = useState(null);
 
   // Admin claims state
   const [pendingClaims, setPendingClaims] = useState([]);
   const [claimsLoading, setClaimsLoading] = useState(false);
   const [rejectingId, setRejectingId] = useState(null);
-  const [rejectReason, setRejectReason] = useState('not_found');
 
   const loadAdminUsers = useCallback(async () => {
     if (!isAdmin) return;
@@ -481,7 +480,7 @@ export default function Dashboard() {
                                 className="text-xs px-3 py-1 bg-green-700 hover:bg-green-600 text-white rounded-md">
                                 ✅ Approve
                               </button>
-                              <button onClick={() => { setRejectingId(c.userId); setRejectReason('not_found'); }}
+                              <button onClick={() => setRejectingId(c.userId)}
                                 className="text-xs px-3 py-1 bg-red-900 hover:bg-red-800 text-red-300 rounded-md">
                                 ❌ Reject
                               </button>
