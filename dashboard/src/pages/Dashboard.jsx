@@ -132,7 +132,7 @@ export default function Dashboard() {
 
   async function rejectClaim(userId) {
     try {
-      await api.post('/api/admin/claims/reject', { userId, reason: rejectReason });
+      await api.post('/api/admin/claims/reject', { userId, reason: 'not_found' });
       toast.success('Claim rejected.');
       setRejectingId(null);
       loadPendingClaims();
@@ -322,10 +322,7 @@ export default function Dashboard() {
           ) : claimStatus === 'rejected' ? (
             <div className="space-y-3">
               <div className="text-sm px-3 py-3 rounded-lg bg-red-900/30 border border-red-700/50 text-red-400">
-                {claimNote === 'not_found' && '❌ UID not found under our affiliate link. Please register a new PO account via our link, or upgrade your plan.'}
-                {claimNote === 'uid_mismatch' && '❌ UID mismatch. Contact support.'}
-                {claimNote === 'already_registered' && '❌ This UID is already registered to another account.'}
-                {!['not_found', 'uid_mismatch', 'already_registered'].includes(claimNote) && `❌ Claim rejected: ${claimNote}`}
+                ❌ Your UID was not found in our system. Please make sure you registered your Pocket Option account under our affiliate link, then resubmit your UID below.
               </div>
               <div className="flex gap-3">
                 <a href="https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50"
@@ -334,6 +331,33 @@ export default function Dashboard() {
                 </a>
                 <Link to="/pricing" className="btn-outline text-sm py-2 px-4">View Pricing</Link>
               </div>
+              <div>
+                <label className="text-sm text-gray-400 block mb-1">Your Pocket Option UID</label>
+                <input
+                  type="number"
+                  className="input w-full text-sm"
+                  placeholder="e.g. 128532137"
+                  value={claimPoUid}
+                  onChange={e => setClaimPoUid(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && submitClaim()}
+                />
+              </div>
+              <button
+                onClick={submitClaim}
+                disabled={claimLoading || !claimPoUid.trim()}
+                className="btn-primary w-full py-2.5"
+              >
+                {claimLoading ? 'Submitting...' : 'Submit Claim'}
+              </button>
+              {claimResult && (
+                <div className={`text-sm px-3 py-2 rounded-lg ${
+                  claimResult.success
+                    ? 'bg-green-900/30 border border-green-700/50 text-green-400'
+                    : 'bg-red-900/30 border border-red-700/50 text-red-400'
+                }`}>
+                  {claimResult.message}
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-3">
@@ -442,18 +466,9 @@ export default function Dashboard() {
                         <td className="py-3">
                           {rejectingId === c.userId ? (
                             <div className="flex items-center gap-2">
-                              <select
-                                className="select text-xs"
-                                value={rejectReason}
-                                onChange={e => setRejectReason(e.target.value)}
-                              >
-                                <option value="not_found">Not found in affiliate list</option>
-                                <option value="already_registered">UID already registered elsewhere</option>
-                                <option value="uid_mismatch">UID doesn't match</option>
-                              </select>
                               <button onClick={() => rejectClaim(c.userId)}
                                 className="text-xs px-3 py-1 bg-red-700 hover:bg-red-600 text-white rounded-md">
-                                Confirm
+                                Confirm Reject
                               </button>
                               <button onClick={() => setRejectingId(null)}
                                 className="text-xs px-2 py-1 text-gray-400 hover:text-white">

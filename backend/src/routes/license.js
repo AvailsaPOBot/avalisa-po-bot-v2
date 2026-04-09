@@ -129,6 +129,7 @@ router.post('/claim', authMiddleware, async (req, res) => {
     if (license.claimStatus === 'approved') {
       return res.status(400).json({ error: 'Your claim has already been approved.' });
     }
+    // 'rejected' falls through — resubmission allowed
 
     // Check if UID is already linked to another user account
     const uidLinkedUser = await prisma.user.findUnique({ where: { poUserId: uid } });
