@@ -7,7 +7,9 @@ const router = express.Router();
 // ─── Whop Webhook ────────────────────────────────────────────────────────────
 // POST /api/webhooks/whop
 router.post('/whop', express.raw({ type: 'application/json' }), async (req, res) => {
-  const signatureHeader = req.headers['whop-signature'];
+  const signatureHeader = req.headers['webhook-signature'];
+  const webhookId        = req.headers['webhook-id'];
+  const webhookTimestamp = req.headers['webhook-timestamp'];
   const secret = process.env.WHOP_WEBHOOK_SECRET;
 
   if (!secret) {
@@ -15,20 +17,32 @@ router.post('/whop', express.raw({ type: 'application/json' }), async (req, res)
     return res.status(500).json({ error: 'Webhook secret not configured' });
   }
 
-  // Whop sends: whop-signature: sha256=<hex>
-  const hmac = crypto.createHmac('sha256', secret);
-  const digest = 'sha256=' + hmac.update(req.body).digest('hex');
+  // Whop dashboard test webhooks don't send signature headers (known bug) —
+  // allow through in non-production only.
+  if (!signatureHeader) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[Whop] No signature header — bypassing verification (non-production only)');
+    } else {
+      console.warn('[Whop] Missing webhook-signature header');
+      return res.status(401).json({ error: 'Missing signature' });
+    }
+  } else {
+    // Whop signs: webhook-id.webhook-timestamp.body
+    const signedContent = `${webhookId}.${webhookTimestamp}.${req.body}`;
+    const hmac = crypto.createHmac('sha256', secret);
+    const digest = 'sha256=' + hmac.update(signedContent).digest('hex');
 
-  let signatureValid = false;
-  try {
-    signatureValid = signatureHeader &&
-      signatureHeader.length === digest.length &&
-      crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(signatureHeader));
-  } catch (_) {}
+    let signatureValid = false;
+    try {
+      signatureValid =
+        signatureHeader.length === digest.length &&
+        crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(signatureHeader));
+    } catch (_) {}
 
-  if (!signatureValid) {
-    console.warn('[Whop] Invalid webhook signature');
-    return res.status(401).json({ error: 'Invalid signature' });
+    if (!signatureValid) {
+      console.warn('[Whop] Invalid webhook signature');
+      return res.status(401).json({ error: 'Invalid signature' });
+    }
   }
 
   let payload;
