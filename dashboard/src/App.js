@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './hooks/useAuth';
 import Navbar from './components/Navbar';
@@ -12,15 +12,11 @@ import Dashboard from './pages/Dashboard';
 import Pricing from './pages/Pricing';
 import Support from './pages/Support';
 import Privacy from './pages/Privacy';
-import PwaApp from './pwa/PwaApp';
 
 function AppShell() {
-  const location = useLocation();
-  const isPwa = location.pathname.startsWith('/app');
-
   return (
     <>
-      {!isPwa && <Navbar />}
+      <Navbar />
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
@@ -31,11 +27,8 @@ function AppShell() {
         <Route path="/dashboard" element={
           <ProtectedRoute><Dashboard /></ProtectedRoute>
         } />
-        <Route path="/app" element={<PwaApp />} />
-        <Route path="/app/login" element={<PwaApp />} />
-        <Route path="/app/register" element={<PwaApp />} />
       </Routes>
-      {!isPwa && <FloatingChat />}
+      <FloatingChat />
     </>
   );
 }

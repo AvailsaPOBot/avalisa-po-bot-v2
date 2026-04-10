@@ -27,19 +27,11 @@ export default function Navbar() {
               <Link to="/pricing" className="text-sm text-gray-300 hover:text-white transition-colors hidden sm:inline">Pricing</Link>
               <Link to="/support" className="text-sm text-gray-300 hover:text-white transition-colors hidden sm:inline">Support</Link>
               <span className={`${badgeClass} hidden sm:inline`}>{plan}</span>
-              <button
-                onClick={() => { window.location.href = '/app' }}
-                className="open-app-btn"
-              >Open App →</button>
               <button onClick={handleLogout} className="text-sm text-gray-400 hover:text-white transition-colors hidden sm:inline">Logout</button>
             </>
           ) : (
             <>
               <Link to="/pricing" className="text-sm text-gray-300 hover:text-white transition-colors hidden sm:inline">Pricing</Link>
-              <button
-                onClick={() => { const t = localStorage.getItem('pwa_token'); window.location.href = t ? '/app' : '/app/login' }}
-                className="open-app-btn"
-              >Open App →</button>
               <Link to="/login" className="btn-outline text-sm py-1.5 hidden sm:inline-flex">Login</Link>
               <Link to="/register" className="btn-primary text-sm py-1.5 hidden sm:inline-flex">Get Started Free</Link>
             </>
