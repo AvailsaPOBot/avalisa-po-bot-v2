@@ -47,6 +47,12 @@ export default function Dashboard() {
   const [claimsLoading, setClaimsLoading] = useState(false);
   const [rejectingId, setRejectingId] = useState(null);
 
+  // Edit user modal state
+  const [editingUser, setEditingUser] = useState(null); // { id, email, poUserId, plan }
+  const [editPoUid, setEditPoUid] = useState('');
+  const [editPlan, setEditPlan] = useState('free');
+  const [editSaving, setEditSaving] = useState(false);
+
   const loadAdminUsers = useCallback(async () => {
     if (!isAdmin) return;
     try {
@@ -137,6 +143,43 @@ export default function Dashboard() {
       loadPendingClaims();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to reject');
+    }
+  }
+
+  function openEditModal(u) {
+    setEditingUser(u);
+    setEditPoUid(u.poUserId || '');
+    setEditPlan(u.license?.plan || 'free');
+  }
+
+  async function saveUser() {
+    if (!editingUser) return;
+    setEditSaving(true);
+    try {
+      await api.patch(`/api/admin/users/${editingUser.id}`, {
+        poUserId: editPoUid,
+        plan: editPlan,
+      });
+      toast.success('User updated.');
+      setEditingUser(null);
+      loadAdminUsers();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to save');
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
+  async function deleteUser() {
+    if (!editingUser) return;
+    if (!window.confirm('Delete this user and all their data? This cannot be undone.')) return;
+    try {
+      await api.delete(`/api/admin/users/${editingUser.id}`);
+      toast.success('User deleted.');
+      setEditingUser(null);
+      loadAdminUsers();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to delete');
     }
   }
 
@@ -558,7 +601,8 @@ export default function Dashboard() {
                     <th className="py-2 pr-4">PO UID</th>
                     <th className="py-2 pr-4">Plan</th>
                     <th className="py-2 pr-4">Trades</th>
-                    <th className="py-2">Joined</th>
+                    <th className="py-2 pr-4">Joined</th>
+                    <th className="py-2"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -576,14 +620,84 @@ export default function Dashboard() {
                       <td className="py-2 pr-4 text-xs text-gray-500">
                         {u.license ? `${u.license.tradesUsed} / ${u.license.tradesLimit ?? '∞'}` : '—'}
                       </td>
-                      <td className="py-2 text-xs text-gray-500">
+                      <td className="py-2 pr-4 text-xs text-gray-500">
                         {new Date(u.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="py-2">
+                        <button
+                          onClick={() => openEditModal(u)}
+                          className="text-xs text-blue-400 hover:text-blue-300"
+                        >
+                          Edit
+                        </button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             )}
+          </div>
+        </div>
+      )}
+      {/* Edit User Modal */}
+      {editingUser && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-dark-800 border border-dark-600 rounded-xl p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-white mb-4">Edit User</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Email</label>
+                <input
+                  type="text"
+                  value={editingUser.email}
+                  readOnly
+                  className="input w-full opacity-50 cursor-not-allowed"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">PO UID</label>
+                <input
+                  type="text"
+                  value={editPoUid}
+                  onChange={e => setEditPoUid(e.target.value)}
+                  className="input w-full"
+                  placeholder="PocketOption user ID"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Plan</label>
+                <select
+                  value={editPlan}
+                  onChange={e => setEditPlan(e.target.value)}
+                  className="input w-full"
+                >
+                  <option value="free">free</option>
+                  <option value="basic">basic</option>
+                  <option value="lifetime">lifetime</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={saveUser}
+                disabled={editSaving}
+                className="btn-primary flex-1"
+              >
+                {editSaving ? 'Saving…' : 'Save'}
+              </button>
+              <button
+                onClick={() => setEditingUser(null)}
+                className="btn-secondary flex-1"
+              >
+                Cancel
+              </button>
+            </div>
+            <button
+              onClick={deleteUser}
+              className="mt-3 w-full py-2 rounded-lg text-sm text-red-400 border border-red-800 hover:bg-red-900/30 transition"
+            >
+              Delete User
+            </button>
           </div>
         </div>
       )}

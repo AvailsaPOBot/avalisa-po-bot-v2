@@ -138,6 +138,53 @@ router.post('/claims/reject', async (req, res) => {
   }
 });
 
+// PATCH /api/admin/users/:id — update poUserId and/or plan
+router.patch('/users/:id', async (req, res) => {
+  const { id } = req.params;
+  const { poUserId, plan } = req.body;
+  try {
+    const updates = [];
+    if (poUserId !== undefined) {
+      updates.push(prisma.user.update({
+        where: { id },
+        data: { poUserId: poUserId.trim() || null },
+      }));
+    }
+    if (plan !== undefined) {
+      updates.push(prisma.license.update({
+        where: { userId: id },
+        data: {
+          plan,
+          tradesLimit: plan === 'lifetime' ? null : plan === 'basic' ? 100 : 10,
+        },
+      }));
+    }
+    await prisma.$transaction(updates);
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('[Admin] patch user error:', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/admin/users/:id — delete user and all their data
+router.delete('/users/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await prisma.$transaction([
+      prisma.trade.deleteMany({ where: { userId: id } }),
+      prisma.deviceFingerprint.deleteMany({ where: { userId: id } }),
+      prisma.settings.deleteMany({ where: { userId: id } }),
+      prisma.license.deleteMany({ where: { userId: id } }),
+      prisma.user.delete({ where: { id } }),
+    ]);
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('[Admin] delete user error:', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/admin/users — list recent users with their plan
 router.get('/users', async (req, res) => {
   try {

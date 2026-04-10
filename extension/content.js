@@ -499,8 +499,9 @@ async function runTradeCycle(generation) {
   console.log(`[Avalisa] Balance BEFORE: ${balanceBefore} | DURING: ${balanceDuringTrade} | AFTER: ${balanceAfter} → ${result.toUpperCase()}`);
   console.log('[Avalisa] Trade closed. Result:', result, '| isTradeOpen = false');
 
-  // Log trade to backend
-  if (state.jwt) {
+  // Log trade to backend — skip if on demo/practice account
+  const isDemo = !!document.querySelector('.js-balance-demo, .js-hd.js-balance-demo, [class*="balance-demo"]');
+  if (state.jwt && !isDemo) {
     apiPost('/api/trades/log', {
       pair: getCurrentPair(),
       direction,
