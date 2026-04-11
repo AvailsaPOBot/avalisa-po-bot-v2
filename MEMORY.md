@@ -1,124 +1,186 @@
 # Avalisa PO Bot v2 — Project Memory
-Last updated: 2026-03-31 (evening)
+Last updated: 2026-04-11
 
 ---
 
 ## Live URLs
 | Service | URL |
-|---|---|
+|---------|-----|
 | Backend (Render) | https://avalisa-backend.onrender.com |
 | Dashboard (Vercel) | https://avalisabot.vercel.app |
 | GitHub | https://github.com/AvailsaPOBot/avalisa-po-bot-v2 |
+| CWS Listing | https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa |
 | Supabase project | gkhoqpthqfgkcyeorcgc |
-| Affiliate link | https://u3.shortink.io/register?utm_campaign=36377... |
+| Affiliate link | https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50 |
 
 ---
 
-## Current Status (March 31, 2026)
-✅ Working: Backend (onrender.com), Dashboard (vercel.app), Registration, Login, AI chat, Trade execution, Balance detection, WIN/LOSS detection
-❌ Still broken: Timeframe selector (panel toggles between 2 modes — latest fix in progress), /api/trades/log 500 error (needs Render log check)
-🔧 Last commit: setTimeframe rewrite — stops closing panel after timeframe click, tries toggle twice if wrong panel showing (cc522c3)
+## Stack
+| Layer | Tech |
+|-------|------|
+| Extension | Chrome MV3, content.js — injected into pocketoption.com + po.cash |
+| Backend | Node.js + Express + Prisma **v5.22.0 PINNED** |
+| Dashboard | React CRA + Tailwind CSS, Vercel |
+| DB | PostgreSQL on Supabase — port **6543** + `?pgbouncer=true` ALWAYS |
+| AI | Gemini `gemini-2.5-flash` via direct REST fetch (NO SDK) |
+| Payments | **Whop** (replaced Lemon Squeezy — LS rejected Apr 2026) |
+| Email | Resend (`RESEND_API_KEY` set on Render — forgot-password not wired yet) |
 
-## What Works
-- Backend starts, connects to Supabase, serves routes
-- Auth: register, login, JWT issuance
-- License check + increment (free plan via device fingerprint)
-- Settings POST/PUT/GET routes (all fixed)
-- Trades log route (all fields optional with defaults, body logged)
-- Extension overlay injects into PO page
-- Extension UI: login, logout (red button), start/stop bot
-- Martingale logic (multiplier, steps, reset on win)
-- isTradeOpen guard prevents double-trades
-- diagnosePOInterface() runs on every Start click
-- Balance detection (8-selector fallback chain with val > 0 guard)
-- WIN/LOSS detection (balance diff after TF expiry + 3s buffer)
-- waitForTradeOpen (3-selector fallback with full logging)
-
-## What Doesn't Work / Unconfirmed
-- setTimeframe: in progress — panel toggles between time-offset and grid modes
-- /api/trades/log: returning 500 on Render — check Render logs for Prisma error
-- setTradeAmount: selector unconfirmed on live PO (5 fallbacks tried)
-- Trades not logged for guest (unauthenticated) users
-- DIRECT_URL env var status on Render unknown
+PWA was built but **SCRAPPED** (commit 8c025e0, 2026-04-10) — PO validates session IP vs WebSocket IP.
 
 ---
 
-## Database Notes
-- Provider: Supabase PostgreSQL (project: gkhoqpthqfgkcyeorcgc)
-- Tables created MANUALLY via Supabase SQL editor (NOT via prisma migrate)
-- No migration history exists in _prisma_migrations table
-- Direct connection port 5432 blocked on dev network
-- Pooler port 6543 also blocked on dev network
-- Prisma pinned to exact 5.22.0 (no caret) — prevents npx pulling breaking v7
-- schema.prisma uses directUrl = env("DIRECT_URL") — must be set on Render
-- On Render: DATABASE_URL must be set; DIRECT_URL should also be set (can be same URL)
-- Pooler URL format: postgresql://postgres:PASSWORD@aws-1-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1
+## Database Schema
+
+### User
+| Column | Type | Notes |
+|--------|------|-------|
+| id | CUID | PK |
+| email | String unique | |
+| passwordHash | String | bcrypt |
+| poUserId | String unique nullable | PO account UID |
+| isAdmin | Boolean default false | oil4121@gmail.com = true |
+| createdAt | DateTime | |
+
+### License (1:1 with User)
+| Column | Type | Notes |
+|--------|------|-------|
+| plan | Enum free/basic/lifetime | |
+| tradesUsed | Int default 0 | |
+| tradesLimit | Int nullable | null = unlimited |
+| whopOrderId | String nullable | from Whop webhook |
+| claimStatus | Text default 'none' | none/pending/approved/rejected |
+| claimNote | Text nullable | admin rejection note |
+| claimedPoUid | Text nullable | PO UID submitted for affiliate claim |
+
+### Trade
+| Column | Type | Notes |
+|--------|------|-------|
+| pair | String | e.g. EUR/USD |
+| direction | String | call/put |
+| amount | Float | |
+| result | String | win/loss/pending |
+| balanceBefore | Float | |
+| balanceAfter | Float | |
+| createdAt | DateTime | |
+| ⚠️ isDemo | MISSING | Planned — `ALTER TABLE "Trade" ADD COLUMN IF NOT EXISTS "isDemo" BOOLEAN NOT NULL DEFAULT false;` |
+
+### Settings (1:1 with User)
+strategy, timeframe, direction, martingaleMultiplier, martingaleSteps, delaySeconds, startAmount
+
+### DeviceFingerprint
+fingerprint, freeTradesUsed — free tier = 10 trades per device fingerprint
+
+---
+
+## Backend Routes
+
+| Method | Route | Auth | Notes |
+|--------|-------|------|-------|
+| POST | /api/auth/register | None | |
+| POST | /api/auth/login | None | Returns JWT |
+| GET | /api/auth/me | JWT | |
+| POST | /api/auth/forgot-password | None | ⚠️ success response only — email not wired yet |
+| GET | /api/license/check | JWT | Returns plan + tradesUsed + limits |
+| POST | /api/license/increment | JWT | +1 trade, enforces limit |
+| GET | /api/license/status | JWT | |
+| POST | /api/license/claim | JWT | Submit PO UID for affiliate claim |
+| GET | /api/license/claim/status | JWT | Returns claimStatus + claimNote |
+| POST | /api/trades/log | JWT | Log a trade |
+| GET | /api/trades/history | JWT | Returns user's trades |
+| GET | /api/settings | JWT | |
+| PUT | /api/settings | JWT | |
+| POST | /api/support/chat | JWT | Gemini AI — rate limited 10/min |
+| POST | /api/webhooks/whop | None (HMAC) | `webhook-signature` header, HMAC-SHA256 over `webhook-id.webhook-timestamp.body` |
+| POST | /api/admin/grant-access | JWT+isAdmin | |
+| GET | /api/admin/users | JWT+isAdmin | |
+| PUT | /api/admin/users/:id | JWT+isAdmin | |
+| DELETE | /api/admin/users/:id | JWT+isAdmin | |
+
+---
+
+## Extension Architecture (content.js)
+
+### Key Mechanics
+- **Trade open detection:** `waitForBalanceDrop(balanceBefore, amount, 8000)` — polls until balance drops ≥0.5× amount (PO deducts stake immediately)
+- **Trade result:** wait `expiryMs + 3000ms`, compare `balanceAfter` vs `balanceDuringTrade` — rise = win, flat = loss
+- **Amount selector:** `.block--bet-amount .value__val input` (primary) — React input: focus→select→execCommand('insertText')→blur; fallback: native setter + synthetic events
+- **Anti-double-trade:** `state.cycleGeneration` counter — stale cycles self-terminate on mismatch
+- **Demo logging:** trades only logged if `state.jwt` is set — no explicit demo/real check
+- **Timeframe:** `setTimeframe(tf)` — calls `ensureDurationPanel()` first, then opens dropdown, clicks `.dops__timeframes-item` matching label or HH:MM:SS
+- **Panel detection:** `ensureDurationPanel()` — checks `.block--expiration-inputs` for "UTC" text; clicks toggle to switch to duration panel
+- **Expiry read:** `getExpiryMs()` — reads HH:MM:SS from `.block--expiration-inputs`, returns ms (default 60000)
+- **Claim on load:** `checkClaimStatus()` called on overlay inject if JWT present
+
+### Balance Selectors (getBalance() fallback chain)
+`.js-balance-demo`, `.js-balance-real`, `.js-hd.js-balance-demo`, `.js-hd.js-balance-real`, `[class*="balance-demo"]`, `[class*="balance-real"]`, `.balance__value`, `.header-balance` — returns first where val > 0
+
+### Timeframes
+S30, M1 (default), M3, M5, M30, H1 — S15 REMOVED (burns money)
+
+### Panel Toggle
+`{ type: 'TOGGLE_PANEL' }` — popup → content.js
+
+### License Storage
+`chrome.storage.local` key: `licenseInfo`
+
+### Extension Versions
+| Version | Status | Permissions |
+|---------|--------|-------------|
+| 2.0.3 | ⏳ Pending CWS approval | storage only |
+| 2.0.2 | ✅ Live on CWS | storage only |
+
+CWS ID: `mkcpdbnlofljijfjiglkodddicpgdapa`
+CWS listing language: "trading assistant" / "strategy tool" — NEVER "bot" or "automated trading"
+
+---
+
+## Payments — Whop
+- Basic: $50, 100 trades | Lifetime: $100, unlimited
+- Webhook: `POST /api/webhooks/whop`
+- Signature: `webhook-signature` header, HMAC-SHA256 over `webhook-id.webhook-timestamp.body`
+- Env vars on Render: `WHOP_WEBHOOK_SECRET`, `WHOP_API_KEY`
+- ⚠️ Whop test webhooks don't send signature header (known bug) — real purchases work fine
+
+---
 
 ## Render Environment Variables Required
-- DATABASE_URL
-- DIRECT_URL (same as DATABASE_URL or pooler URL)
-- JWT_SECRET
-- GOOGLE_AI_API_KEY
-- ANTHROPIC_API_KEY (optional, enables Claude instead of Gemini)
-- FRONTEND_URL (https://avalisabot.vercel.app)
-- LEMONSQUEEZY_WEBHOOK_SECRET
-- LEMONSQUEEZY_VARIANT_ID_BASIC
-- LEMONSQUEEZY_VARIANT_ID_LIFETIME
+- `DATABASE_URL` (Supabase pooler, port 6543, `?pgbouncer=true`)
+- `DIRECT_URL` (same as DATABASE_URL or direct)
+- `JWT_SECRET`
+- `GOOGLE_AI_API_KEY`
+- `FRONTEND_URL` (https://avalisabot.vercel.app)
+- `WHOP_WEBHOOK_SECRET`
+- `WHOP_API_KEY`
+- `RESEND_API_KEY` (set — forgot-password email not wired yet)
 
 ---
 
-## Known Bugs
-
-### CRITICAL
-| # | Bug | File | Status |
-|---|-----|------|--------|
-| 1 | `[class*="expir"]` too broad — caused top bar disappearing | content.js | ✅ Fixed — removed, now uses `<a>` inside `.block--expiration-inputs` only |
-| 2 | Page-wide `querySelectorAll('li')` false-matched nav menus | content.js | ✅ Fixed — scoped to expiryBlock |
-| 3 | `getBalance()` selectors unconfirmed — null → always LOSS | content.js | ✅ Fixed — 8-selector fallback, val>0 guard, logging |
-| 4 | `waitForTradeOpen` selector unconfirmed | content.js | ✅ Fixed — 3-selector fallback with logging |
-| 5 | setTimeframe clicking wrong elements — top bar disappearing | content.js | ✅ Fixed — scoped to expiryBlock `<a>` toggle only |
-| 6 | setTimeframe closing panel after select — caused panel switch | content.js | ✅ Fixed — no close click after selection |
-| 7 | /api/trades/log 400 — strict field validation | trades.js | ✅ Fixed — all fields optional with defaults |
-| 8 | /api/trades/log 500 — Prisma error on Render | trades.js | ❌ Open — check Render logs |
-| 9 | setTimeframe not reaching grid panel (on wrong panel) | content.js | 🔧 In progress — double-toggle if 0 items after 1st click |
-
-### HIGH
-| # | Bug | File | Status |
-|---|-----|------|--------|
-| 10 | `setTradeAmount` 5-selector fallback — none confirmed on live PO | content.js | Unconfirmed |
-| 11 | Bot stops silently if amount/button not found (no `state.running = false`) | content.js | Open |
-| 12 | Trades only logged if `state.jwt` set — guests untracked | content.js | By design |
-
-### MEDIUM
-| # | Bug | File | Status |
-|---|-----|------|--------|
-| 13 | `saveCurrentSettings` never sends `strategy` field | content.js | Open |
-| 14 | Multiplier stored as number may not match `<option value="2.0">` | content.js | Open |
-| 15 | `VALID_DELAYS` rejects values outside [4,6,8,10,12] | settings.js | Open |
-| 16 | License check: authenticated user with no License row → `allowed: false` | license.js | Open |
+## Critical Rules (never violate)
+1. **Port 6543 + pgbouncer=true** — Supabase blocks 5432 from Render, always
+2. **Never run `prisma migrate` from Render** — all schema changes via Supabase SQL Editor
+3. **Prisma pinned at v5.22.0** — both `prisma` and `@prisma/client`, never upgrade
+4. **Gemini via REST fetch only** — no SDK, SDK caused deploy failures
+5. **Never touch Martingale trading logic** without CEO (Oil) approval
+6. **React CRA not Vite** — env vars must use `REACT_APP_*` prefix
+7. **node PATH fix on MBA:** `export PATH="$PATH:/opt/homebrew/bin"`
 
 ---
 
-## Key Technical Facts — PO DOM (discovered via diagnostic logs)
-- PO has 2 timeframe panels toggled by `<a>` inside `.block--expiration-inputs`
-- Panel 1: time offset mode (+S30, +M1 etc) — NOT what we want
-- Panel 2: fixed grid (S3, S15, S30, M1, M3, M5, M30, H1, H4) = `.dops__timeframes-item` — THIS is what we want
-- Do NOT click toggle to close after selecting — PO closes panel naturally on selection
-- If 1st toggle click shows 0 `.dops__timeframes-item`, we're on wrong panel — click again to switch
-- Quick/Turbo mode URL contains: `demo-quick-high-low`
-- Both regular and Quick mode use the SAME timeframe grid panel
+## Admin Access
+- `oil4121@gmail.com` → `isAdmin=true` in DB
+- If DB reset: `UPDATE "User" SET "isAdmin" = true WHERE email = 'oil4121@gmail.com';`
 
-## Key Technical Decisions
-1. **AI provider**: Gemini (gemini-2.5-flash) by default; Claude (claude-sonnet-4-20250514) if ANTHROPIC_API_KEY set
-2. **Trade result detection**: Balance diff (wait TF duration + 3s, compare before/after) — NOT MutationObserver (was unreliable)
-3. **Free plan**: 10 trades by device fingerprint hash (UA + lang + screen + cores). Fingerprint also linked to userId when user logs in.
-4. **Prisma**: Pinned to 5.22.0 exact. Startup migration block removed — tables exist, no migration needed on deploy.
-5. **Timeframe panel**: Single `<a>` toggle inside `.block--expiration-inputs`. Check for `.dops__timeframes-item` first; click toggle once (or twice if wrong panel) to reach grid.
-6. **Extension reload required** after every git push: chrome://extensions → ⟳ → refresh PO page
-7. **No H4 timeframe in extension**: Removed from dropdown and backend validation. S15/S30 added.
-8. **Martingale multiplier**: Min 2.0× in extension UI (removed 1.2–1.8 options). Backend still validates ≥ 1.2 (cosmetic mismatch).
-9. **Settings sync**: Extension uses POST (apiPost) to /api/settings. Backend accepts POST + PUT (both call settingsUpsert).
-10. **Trade amount input**: Uses React's native input value setter + input/change events (required for React-controlled inputs on PO).
+---
+
+## Known Issues / Pending Work
+- ⚠️ Forgot Password: success response but no email sent yet (RESEND_API_KEY ready)
+- ⚠️ isDemo missing from Trade table — add via Supabase SQL Editor
+- ⚠️ History tab needs Real/Demo/All toggle (after isDemo added)
+- ⚠️ Settings reset on Chrome restart (not loaded from backend on init)
+- ⚠️ Navbar.jsx: portrait mobile hides login/dashboard buttons (hamburger needed)
+- Render free tier: ~30sec cold start after 15min inactivity
+- CWS v2.0.3 approval pending (ETA 1–7 days)
 
 ---
 
@@ -126,4 +188,4 @@ Last updated: 2026-03-31 (evening)
 After EVERY git push:
 1. chrome://extensions → find Avalisa Bot → click ⟳
 2. Refresh the PO tab
-3. DevTools → Console → filter [Avalisa] to see live logs
+3. DevTools → Console → filter `[Avalisa]` to see live logs
