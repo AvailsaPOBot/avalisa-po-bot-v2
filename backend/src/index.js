@@ -78,6 +78,7 @@ app.use('/api/trades', tradeRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/support', supportRoutes);
+app.use('/api/webhooks/pocketpartners', require('./routes/pocketpartners'));
 
 // 404 handler
 app.use((req, res) => {
