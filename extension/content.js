@@ -1134,9 +1134,25 @@ function showLimitReachedMessage(license) {
   updateStatus('error', license?.reason || 'Limit reached');
 }
 
+// ─── Load settings from backend on startup ────────────────────────────────────
+async function loadSettingsFromBackend() {
+  if (!state.jwt) return;
+  try {
+    const data = await apiGet('/api/settings');
+    if (data && !data.error) {
+      state.settings = { ...getDefaultSettings(), ...data };
+      await new Promise(resolve => chrome.storage.local.set({ settings: state.settings }, resolve));
+      console.log('[Avalisa] Settings loaded from backend');
+    }
+  } catch (err) {
+    console.warn('[Avalisa] Could not load settings from backend — using local defaults');
+  }
+}
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
   await loadFromStorage();
+  await loadSettingsFromBackend();
   injectOverlay();
 
   // Wait for PO header to render before injecting button
