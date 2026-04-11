@@ -509,6 +509,7 @@ async function runTradeCycle(generation) {
       result,
       balanceBefore,
       balanceAfter,
+      isDemo: isDemoMode(),
     }).catch(console.error);
   }
 
@@ -551,6 +552,18 @@ function applyMartingaleLogic(result) {
     state.currentAmount = startAmount;
   }
   console.log(`[Avalisa] Martingale: result=${result} step=${state.martingaleStep} nextAmount=${state.currentAmount} multiplier=${multiplier}`);
+}
+
+function isDemoMode() {
+  // Check balance-info-block label for "Demo" text
+  const labels = document.querySelectorAll('[class*="balance-info-block"] [class*="label"], [class*="balance__label"]');
+  for (const el of labels) {
+    if (el.textContent.includes('Demo')) return true;
+  }
+  // Fallback: demo balance element has a positive value
+  const demoEl = document.querySelector('.js-balance-demo');
+  if (demoEl && parseFloat(demoEl.textContent.replace(/[^0-9.]/g, '')) > 0) return true;
+  return false;
 }
 
 function getCurrentPair() {

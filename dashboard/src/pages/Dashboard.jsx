@@ -25,6 +25,7 @@ export default function Dashboard() {
   const [settings, setSettings] = useState(null);
   const [history, setHistory] = useState([]);
   const [stats, setStats] = useState(null);
+  const [historyType, setHistoryType] = useState('real');
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('settings');
 
@@ -183,22 +184,35 @@ export default function Dashboard() {
     }
   }
 
-  const loadData = useCallback(async () => {
-    const [settingsRes, historyRes] = await Promise.allSettled([
-      api.get('/api/settings'),
-      api.get('/api/trades/history?limit=20'),
-    ]);
-    if (settingsRes.status === 'fulfilled') setSettings(settingsRes.value.data);
-    if (historyRes.status === 'fulfilled') {
-      setHistory(historyRes.value.data.trades || []);
-      setStats(historyRes.value.data.stats);
-    }
+  const loadSettings = useCallback(async () => {
+    try {
+      const res = await api.get('/api/settings');
+      setSettings(res.data);
+    } catch (err) { /* silent */ }
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  // Stats always use real trades only
+  const loadStats = useCallback(async () => {
+    try {
+      const res = await api.get('/api/trades/history?type=real&limit=500');
+      setStats(res.data.stats);
+    } catch (err) { /* silent */ }
+  }, []);
+
+  const loadHistory = useCallback(async (type) => {
+    try {
+      const res = await api.get(`/api/trades/history?type=${type}&limit=50`);
+      setHistory(res.data.trades || []);
+    } catch (err) { /* silent */ }
+  }, []);
+
+  useEffect(() => { loadSettings(); loadStats(); }, [loadSettings, loadStats]);
+  useEffect(() => { loadHistory(historyType); }, [loadHistory, historyType]);
   useEffect(() => { loadAdminUsers(); }, [loadAdminUsers]);
   useEffect(() => { loadPendingClaims(); }, [loadPendingClaims]);
   useEffect(() => { loadClaimStatus(); }, [loadClaimStatus]);
+
+  async function refreshAfterSave() { loadStats(); loadHistory(historyType); }
 
   async function saveSettings() {
     if (!settings) return;
@@ -218,9 +232,7 @@ export default function Dashboard() {
     setSettings(s => ({ ...s, [key]: value }));
   }
 
-  if (!settings) {
-    return <div className="flex items-center justify-center min-h-screen text-brand-400">Loading dashboard...</div>;
-  }
+  if (!settings) return <div className="flex items-center justify-center min-h-screen text-brand-400">Loading dashboard...</div>;
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-10">
@@ -437,7 +449,17 @@ export default function Dashboard() {
 
       {activeTab === 'history' && (
         <div className="card overflow-x-auto">
-          <h2 className="text-lg font-semibold text-white mb-4">Trade History</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-white">Trade History</h2>
+            <div className="flex gap-1 bg-dark-900 border border-dark-600 rounded-lg p-1">
+              {['real', 'demo', 'all'].map(t => (
+                <button key={t} onClick={() => setHistoryType(t)}
+                  className={`px-3 py-1 rounded-md text-xs font-medium capitalize transition-colors ${historyType === t ? 'bg-brand-600 text-white' : 'text-gray-400 hover:text-white'}`}>
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
           {history.length === 0 ? (
             <p className="text-gray-400 text-center py-8">No trades yet. Start the bot on Pocket Option.</p>
           ) : (
