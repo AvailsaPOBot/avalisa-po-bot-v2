@@ -23,6 +23,7 @@ const state = {
   deviceFingerprint: null,
   stopRequested: false,
   cycleGeneration: 0,  // incremented on each start/stop; stale cycles self-terminate
+  affiliateLink: AFFILIATE_LINK,  // updated from DB on startup
 };
 
 // ─── Device Fingerprint ───────────────────────────────────────────────────────
@@ -821,7 +822,7 @@ function bindOverlayEvents() {
 
   // Register free
   document.getElementById('av-register-free-btn').addEventListener('click', () => {
-    chrome.runtime.sendMessage({ type: 'OPEN_TAB', url: AFFILIATE_LINK });
+    chrome.runtime.sendMessage({ type: 'OPEN_TAB', url: state.affiliateLink });
   });
 
   // Logout
@@ -838,7 +839,7 @@ function bindOverlayEvents() {
   document.getElementById('av-start-amount').addEventListener('change', saveCurrentSettings);
 
   // Limit message links
-  document.getElementById('av-affiliate-link').href = AFFILIATE_LINK;
+  document.getElementById('av-affiliate-link').href = state.affiliateLink;
   document.getElementById('av-upgrade-link').href = `${DASHBOARD_URL}/pricing`;
 
   // Claim Free Access
@@ -942,7 +943,7 @@ async function checkClaimStatus() {
       const note = data.claimNote || '';
       if (note === 'not_found') {
         setClaimStatus('❌ UID not found under our affiliate link. Please register via our link, or upgrade your plan.' +
-          ` <a href="${AFFILIATE_LINK}" style="color:#a78bfa">Affiliate link</a> | <a href="${DASHBOARD_URL}/pricing" style="color:#a78bfa">Pricing</a>`, '#f87171');
+          ` <a href="${state.affiliateLink}" style="color:#a78bfa">Affiliate link</a> | <a href="${DASHBOARD_URL}/pricing" style="color:#a78bfa">Pricing</a>`, '#f87171');
       } else if (note === 'uid_mismatch') {
         setClaimStatus('❌ UID mismatch. Contact support.', '#f87171');
       } else {
@@ -1134,6 +1135,32 @@ function showLimitReachedMessage(license) {
   updateStatus('error', license?.reason || 'Limit reached');
 }
 
+// ─── Load affiliate link from backend ────────────────────────────────────────
+async function loadAffiliateLink() {
+  // Check storage first (cached from last run)
+  const stored = await new Promise(resolve =>
+    chrome.storage.local.get('affiliateLink', d => resolve(d.affiliateLink || null))
+  );
+  if (stored) state.affiliateLink = stored;
+
+  try {
+    const res = await fetchWithTimeout(`${API_BASE}/api/config/affiliate-link`, {});
+    const data = await res.json();
+    if (data?.url) {
+      state.affiliateLink = data.url;
+      chrome.storage.local.set({ affiliateLink: data.url });
+    }
+  } catch (err) {
+    // silent — use stored or hardcoded fallback
+  }
+
+  // Update overlay links if already injected
+  const el = document.getElementById('av-affiliate-link');
+  if (el) el.href = state.affiliateLink;
+  const btn = document.getElementById('av-register-free-btn');
+  if (btn) btn.dataset.href = state.affiliateLink;
+}
+
 // ─── Load settings from backend on startup ────────────────────────────────────
 async function loadSettingsFromBackend() {
   if (!state.jwt) return;
@@ -1154,6 +1181,7 @@ async function init() {
   await loadFromStorage();
   await loadSettingsFromBackend();
   injectOverlay();
+  loadAffiliateLink(); // fire-and-forget — updates DOM links when ready
 
   // Wait for PO header to render before injecting button
   const headerInterval = setInterval(() => {

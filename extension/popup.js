@@ -1,10 +1,14 @@
-const AFFILIATE_LINK = 'https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50';
+const FALLBACK_AFFILIATE_LINK = 'https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50';
 const DASHBOARD_URL = 'https://avalisabot.vercel.app';
 
-document.getElementById('affiliate-link').href = AFFILIATE_LINK;
 document.getElementById('dashboard-link').href = DASHBOARD_URL;
 document.getElementById('pricing-link').href = `${DASHBOARD_URL}/pricing`;
 document.getElementById('support-link').href = `${DASHBOARD_URL}/support`;
+
+// Load affiliate link from storage (set by content.js on page load)
+chrome.storage.local.get('affiliateLink', data => {
+  document.getElementById('affiliate-link').href = data.affiliateLink || FALLBACK_AFFILIATE_LINK;
+});
 
 async function init() {
   // Check if current tab is on PO

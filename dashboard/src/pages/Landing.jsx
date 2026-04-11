@@ -9,9 +9,11 @@
  * (React serves public/ folder at root automatically)
  */
 
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
-const AFFILIATE_LINK = 'https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50';
+const FALLBACK_AFFILIATE_LINK = 'https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50';
+const API_BASE = process.env.REACT_APP_API_URL || 'https://avalisa-backend.onrender.com';
 
 const features = [
   { icon: '🤖', title: 'Automated Strategy Execution', desc: 'Run Martingale, Anti-Martingale, Fixed Amount, and AI-guided strategies hands-free.' },
@@ -50,6 +52,15 @@ const syneNum  = { fontFamily: "'Syne', sans-serif", fontWeight: 700 };
 const mono     = { fontFamily: "'IBM Plex Mono', monospace" };
 
 export default function Landing() {
+  const [affiliateLink, setAffiliateLink] = useState(FALLBACK_AFFILIATE_LINK);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/config/affiliate-link`)
+      .then(r => r.json())
+      .then(data => { if (data?.url) setAffiliateLink(data.url); })
+      .catch(() => {}); // silent — use fallback
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-950 text-white">
 
@@ -97,7 +108,7 @@ export default function Landing() {
             {/* CTAs */}
             <div className="flex flex-wrap gap-4 mb-6">
               <a
-                href={AFFILIATE_LINK}
+                href={affiliateLink}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex items-center gap-2 px-7 py-3.5 rounded-lg font-semibold text-sm text-white transition-all hover:brightness-110 active:scale-95"
@@ -232,7 +243,7 @@ export default function Landing() {
               no trade limits, no subscription. Already have a PO account? Start with our Basic plan.
             </p>
             <a
-              href={AFFILIATE_LINK}
+              href={affiliateLink}
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-2 px-8 py-4 rounded-lg font-bold text-sm text-white transition-all hover:brightness-110 active:scale-95"
@@ -317,7 +328,7 @@ export default function Landing() {
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <a
-              href={AFFILIATE_LINK}
+              href={affiliateLink}
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-2 px-7 py-3.5 rounded-lg font-bold text-sm text-white transition-all hover:brightness-110 active:scale-95"

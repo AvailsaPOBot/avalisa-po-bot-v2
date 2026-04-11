@@ -1,11 +1,21 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
-const AFFILIATE_LINK = 'https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50';
+const FALLBACK_AFFILIATE_LINK = 'https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50';
+const API_BASE = process.env.REACT_APP_API_URL || 'https://avalisa-backend.onrender.com';
 
 export default function Pricing() {
   const { user } = useAuth();
   const currentPlan = user?.license?.plan || null;
+  const [affiliateLink, setAffiliateLink] = useState(FALLBACK_AFFILIATE_LINK);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/config/affiliate-link`)
+      .then(r => r.json())
+      .then(data => { if (data?.url) setAffiliateLink(data.url); })
+      .catch(() => {});
+  }, []);
 
   const email = user?.email || '';
   const appendEmail = (url) => {
@@ -31,7 +41,7 @@ export default function Pricing() {
         'AI support chat',
       ],
       cta: 'Register Free PO Account',
-      ctaHref: AFFILIATE_LINK,
+      ctaHref: affiliateLink,
       ctaExternal: true,
       highlighted: false,
     },

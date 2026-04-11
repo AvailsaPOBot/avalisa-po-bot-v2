@@ -79,6 +79,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/webhooks/pocketpartners', require('./routes/pocketpartners'));
+app.use('/api/config', require('./routes/config'));
 
 // 404 handler
 app.use((req, res) => {
