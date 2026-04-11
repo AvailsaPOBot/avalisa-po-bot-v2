@@ -78,3 +78,16 @@ model DeviceFingerprint {
 
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 }
+
+model AffiliateReferral {
+  id        String   @id @default(cuid())
+  poUid     String   @unique
+  event     String
+  createdAt DateTime @default(now())
+}
+
+model AppConfig {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
