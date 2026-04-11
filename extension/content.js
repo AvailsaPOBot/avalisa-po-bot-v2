@@ -78,10 +78,18 @@ function getDefaultSettings() {
 }
 
 // ─── API Helpers ──────────────────────────────────────────────────────────────
+const FETCH_TIMEOUT_MS = 15000;
+
+function fetchWithTimeout(url, options) {
+  const controller = new AbortController();
+  const tid = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(tid));
+}
+
 async function apiPost(path, body) {
   const headers = { 'Content-Type': 'application/json' };
   if (state.jwt) headers['Authorization'] = `Bearer ${state.jwt}`;
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetchWithTimeout(`${API_BASE}${path}`, {
     method: 'POST',
     headers,
     body: JSON.stringify(body),
@@ -92,17 +100,34 @@ async function apiPost(path, body) {
 async function apiGet(path) {
   const headers = { 'Content-Type': 'application/json' };
   if (state.jwt) headers['Authorization'] = `Bearer ${state.jwt}`;
-  const res = await fetch(`${API_BASE}${path}`, { headers });
+  const res = await fetchWithTimeout(`${API_BASE}${path}`, { headers });
   return res.json();
+}
+
+// Retry wrapper — retries on network/timeout errors only (not 4xx responses)
+async function withRetry(fn, maxAttempts = 3, delayMs = 10000) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const isNetworkErr = err instanceof TypeError || err.name === 'AbortError';
+      if (!isNetworkErr || attempt === maxAttempts) {
+        updateStatus('error', '❌ Server offline. Try again in 1 min.');
+        throw err;
+      }
+      updateStatus('running', `⏳ Connecting to server... (${attempt}/${maxAttempts})`);
+      await sleep(delayMs);
+    }
+  }
 }
 
 // ─── License Check ────────────────────────────────────────────────────────────
 async function checkLicense() {
   try {
-    const data = await apiPost('/api/license/check', {
+    const data = await withRetry(() => apiPost('/api/license/check', {
       userId: state.userId,
       deviceFingerprint: getDeviceFingerprint(),
-    });
+    }));
     state.licenseInfo = data;
     return data;
   } catch (err) {
@@ -499,10 +524,9 @@ async function runTradeCycle(generation) {
   console.log(`[Avalisa] Balance BEFORE: ${balanceBefore} | DURING: ${balanceDuringTrade} | AFTER: ${balanceAfter} → ${result.toUpperCase()}`);
   console.log('[Avalisa] Trade closed. Result:', result, '| isTradeOpen = false');
 
-  // Log trade to backend — skip if on demo/practice account
-  const isDemo = !!document.querySelector('.js-balance-demo, .js-hd.js-balance-demo, [class*="balance-demo"]');
-  if (state.jwt && !isDemo) {
-    apiPost('/api/trades/log', {
+  // Log trade to backend
+  if (state.jwt) {
+    withRetry(() => apiPost('/api/trades/log', {
       pair: getCurrentPair(),
       direction,
       amount: safeAmount,
@@ -510,7 +534,7 @@ async function runTradeCycle(generation) {
       balanceBefore,
       balanceAfter,
       isDemo: isDemoMode(),
-    }).catch(console.error);
+    })).catch(console.error);
   }
 
   // Martingale logic
@@ -936,11 +960,12 @@ async function handleLogin() {
   if (!email || !password) return;
 
   try {
-    const res = await fetch(`${API_BASE}/api/auth/login`, {
+    updateStatus('running', '⏳ Connecting to server...');
+    const res = await withRetry(() => fetchWithTimeout(`${API_BASE}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
-    });
+    }));
     const data = await res.json();
     if (!res.ok) {
       updateStatus('error', data.error || 'Login failed');
