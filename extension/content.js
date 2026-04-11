@@ -125,7 +125,7 @@ async function incrementTrade() {
 // ─── DOM Helpers ──────────────────────────────────────────────────────────────
 function getBalance() {
   const selectors = [
-    '.js-balance-demo', '.js-balance-real',
+    '.js-balance-demo', '.js-balance-real-USD', '.js-balance-real',
     '.js-hd.js-balance-demo', '.js-hd.js-balance-real',
     '[class*="balance-demo"]', '[class*="balance-real"]',
     '.balance__value', '.header-balance',
