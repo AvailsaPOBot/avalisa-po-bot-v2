@@ -149,6 +149,27 @@ router.post('/claim', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'This PO UID has already been claimed by another account.' });
     }
 
+    // Check AffiliateReferral — auto-approve if UID was already registered via our link
+    const referral = await prisma.affiliateReferral.findUnique({ where: { poUid: uid } });
+    if (referral) {
+      await prisma.user.update({
+        where: { id: req.userId },
+        data: { poUserId: uid },
+      });
+      await prisma.license.update({
+        where: { userId: req.userId },
+        data: {
+          plan: 'lifetime',
+          tradesLimit: null,
+          claimStatus: 'approved',
+          claimedPoUid: uid,
+          claimNote: null,
+        },
+      });
+      return res.json({ status: 'approved', message: 'Lifetime access granted!' });
+    }
+
+    // Not in AffiliateReferral — queue for manual review
     await prisma.license.update({
       where: { userId: req.userId },
       data: { claimStatus: 'pending', claimedPoUid: uid, claimNote: null },
