@@ -20,6 +20,8 @@ model User {
   trades       Trade[]
   settings     Settings?
   fingerprints DeviceFingerprint[]
+  aiSlot       AiSlot?
+  tokenUsage   UserTokenUsage[]
 }
 
 model License {
@@ -90,4 +92,21 @@ model AppConfig {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+model AiSlot {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  name      String   @default("My AI Bot")
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UserTokenUsage {
+  id         String @id @default(cuid())
+  userId     String
+  tokensUsed Int    @default(0)
+  month      String
+  user       User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([userId, month])
 }
