@@ -1,7 +1,7 @@
 #!/bin/bash
 # Pack the Chrome extension into a zip for Web Store submission
 
-OUTPUT="avalisa-extension-v2.zip"
+OUTPUT="avalisa-extension-v2.2.0.zip"
 
 echo "Packing Chrome extension..."
 cd "$(dirname "$0")"
