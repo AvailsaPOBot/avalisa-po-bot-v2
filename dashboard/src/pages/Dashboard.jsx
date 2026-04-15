@@ -427,6 +427,36 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* AI Signal config — shown in settings tab when AI Signal strategy is selected */}
+      {activeTab === 'settings' && settings?.strategy === 'ai-signal' && (
+        <div className="card mt-6">
+          <h2 className="text-lg font-semibold text-white mb-1">🤖 AI Signal Configuration</h2>
+          <p className="text-gray-400 text-sm mb-4">
+            {isAdmin
+              ? 'Set the strategy prompt sent to Gemini before every trade signal.'
+              : 'Powered by Gemini. Signal is generated from live candle data on your selected timeframe.'}
+          </p>
+          {isAdmin && (
+            <div className="space-y-3">
+              <textarea
+                rows={6}
+                value={aiPrompt}
+                onChange={e => setAiPrompt(e.target.value)}
+                className="input w-full font-mono text-xs"
+                placeholder="System prompt sent to Gemini for every signal request..."
+              />
+              <button
+                onClick={saveAiSettings}
+                disabled={aiSettingsSaving}
+                className="btn-primary"
+              >
+                {aiSettingsSaving ? 'Saving…' : 'Save Prompt'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Claim Free Access Card — settings tab, free plan users without linked UID only */}
       {activeTab === 'settings' && plan === 'free' && !user?.poUserId && claimStatus !== 'approved' && (
         <div className="card mt-6">
@@ -732,16 +762,6 @@ export default function Dashboard() {
           <h3 className="text-base font-semibold text-white mb-4">🤖 AI Settings</h3>
 
           <div className="space-y-4">
-            <div>
-              <label className="block text-xs text-gray-400 mb-1">Strategy Prompt</label>
-              <textarea
-                rows={5}
-                value={aiPrompt}
-                onChange={e => setAiPrompt(e.target.value)}
-                className="input w-full font-mono text-xs"
-                placeholder="System prompt sent to Gemini for every signal request"
-              />
-            </div>
             <div>
               <label className="block text-xs text-gray-400 mb-1">Monthly Token Budget per User</label>
               <input
