@@ -208,4 +208,88 @@ router.get('/users', async (req, res) => {
   }
 });
 
+// ─── AI Settings ─────────────────────────────────────────────────────────────
+
+// GET /api/admin/ai-settings
+router.get('/ai-settings', async (req, res) => {
+  try {
+    const keys = ['ai_strategy_prompt', 'ai_token_budget_per_user', 'timeframe_winrates'];
+    const rows = await prisma.appConfig.findMany({ where: { key: { in: keys } } });
+    const result = {};
+    rows.forEach(r => { result[r.key] = r.value; });
+    return res.json(result);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /api/admin/ai-settings
+// Body: { ai_strategy_prompt?, ai_token_budget_per_user?, timeframe_winrates? }
+router.put('/ai-settings', async (req, res) => {
+  const allowed = ['ai_strategy_prompt', 'ai_token_budget_per_user', 'timeframe_winrates'];
+  const updates = Object.entries(req.body)
+    .filter(([k]) => allowed.includes(k))
+    .map(([key, value]) =>
+      prisma.appConfig.upsert({
+        where: { key },
+        update: { value: String(value) },
+        create: { key, value: String(value) },
+      })
+    );
+  if (updates.length === 0) return res.status(400).json({ error: 'No valid keys provided' });
+  try {
+    await Promise.all(updates);
+    return res.json({ success: true });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Token Usage ──────────────────────────────────────────────────────────────
+
+function getCurrentMonth() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+// GET /api/admin/token-usage — top 10 users by tokens this month
+router.get('/token-usage', async (req, res) => {
+  try {
+    const month = getCurrentMonth();
+    const [rows, budgetConfig] = await Promise.all([
+      prisma.userTokenUsage.findMany({
+        where: { month },
+        orderBy: { tokensUsed: 'desc' },
+        take: 10,
+        include: { user: { select: { email: true } } },
+      }),
+      prisma.appConfig.findUnique({ where: { key: 'ai_token_budget_per_user' } }),
+    ]);
+    const budget = parseInt(budgetConfig?.value || '10000');
+    return res.json({
+      month,
+      budget,
+      users: rows.map(r => ({
+        email: r.user.email,
+        tokensUsed: r.tokensUsed,
+        percentOfBudget: Math.round((r.tokensUsed / budget) * 100),
+      })),
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/admin/token-reset — reset all UserTokenUsage for current month
+router.post('/token-reset', async (req, res) => {
+  try {
+    const month = getCurrentMonth();
+    const { count } = await prisma.userTokenUsage.deleteMany({ where: { month } });
+    console.log(`[Admin] Token usage reset for ${month} — ${count} records deleted`);
+    return res.json({ success: true, month, recordsDeleted: count });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
