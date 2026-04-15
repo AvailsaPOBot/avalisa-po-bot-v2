@@ -453,17 +453,18 @@ export default function Dashboard() {
           <p className="text-gray-400 text-sm mb-4">
             {isAdmin
               ? 'Set the strategy prompt sent to Gemini before every trade signal.'
-              : 'Powered by Gemini. Signal is generated from live candle data on your selected timeframe.'}
+              : 'Avalisa uses Gemini to analyze live candle data and generate CALL/PUT/SKIP signals on your selected timeframe.'}
           </p>
-          {isAdmin && (
-            <div className="space-y-3">
-              <textarea
-                rows={6}
-                value={aiPrompt}
-                onChange={e => setAiPrompt(e.target.value)}
-                className="input w-full font-mono text-xs"
-                placeholder="System prompt sent to Gemini for every signal request..."
-              />
+          <div className="space-y-3">
+            <textarea
+              rows={6}
+              value={aiPrompt}
+              onChange={e => isAdmin && setAiPrompt(e.target.value)}
+              readOnly={!isAdmin}
+              className={`input w-full font-mono text-xs ${!isAdmin ? 'opacity-40 cursor-not-allowed resize-none' : ''}`}
+              placeholder="System prompt sent to Gemini for every signal request..."
+            />
+            {isAdmin ? (
               <button
                 onClick={saveAiSettings}
                 disabled={aiSettingsSaving}
@@ -471,8 +472,12 @@ export default function Dashboard() {
               >
                 {aiSettingsSaving ? 'Saving…' : 'Save Prompt'}
               </button>
-            </div>
-          )}
+            ) : (
+              <p className="text-xs text-gray-500">
+                🔒 Custom strategy prompts available in v2.3 — bring your own AI key.
+              </p>
+            )}
+          </div>
         </div>
       )}
 
