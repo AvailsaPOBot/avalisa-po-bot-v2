@@ -799,9 +799,8 @@ export default function Dashboard() {
               </table>
             )}
           </div>
-        </div>
 
-        {/* AI Settings */}
+          {/* AI Settings */}
         <div className="card mt-6">
           <h3 className="text-base font-semibold text-white mb-4">🤖 AI Settings</h3>
 
@@ -915,6 +914,7 @@ export default function Dashboard() {
               </tbody>
             </table>
           )}
+        </div>
         </div>
       )}
       {/* User Trade History Modal */}
