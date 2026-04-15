@@ -185,7 +185,7 @@ router.delete('/users/:id', async (req, res) => {
   }
 });
 
-// GET /api/admin/users — list recent users with their plan
+// GET /api/admin/users — list recent users with plan + win rate + latest balance
 router.get('/users', async (req, res) => {
   try {
     const users = await prisma.user.findMany({
@@ -201,10 +201,74 @@ router.get('/users', async (req, res) => {
         },
       },
     });
-    return res.json({ users });
+
+    if (users.length === 0) return res.json({ users });
+
+    // Fetch real closed trades for all users in one query
+    const userIds = users.map(u => u.id);
+    const trades = await prisma.trade.findMany({
+      where: { userId: { in: userIds }, isDemo: false, result: { not: 'pending' } },
+      select: { userId: true, result: true, balanceAfter: true, strategy: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Build stats map per user
+    const statsMap = {};
+    for (const t of trades) {
+      if (!statsMap[t.userId]) {
+        statsMap[t.userId] = {
+          latestBalance: t.balanceAfter, // first seen = most recent (sorted desc)
+          total: 0, wins: 0,
+          martingale: { total: 0, wins: 0 },
+          aiSignal: { total: 0, wins: 0 },
+        };
+      }
+      const s = statsMap[t.userId];
+      s.total++;
+      if (t.result === 'win') s.wins++;
+      const bucket = t.strategy === 'ai-signal' ? 'aiSignal' : 'martingale';
+      s[bucket].total++;
+      if (t.result === 'win') s[bucket].wins++;
+    }
+
+    const enriched = users.map(u => {
+      const s = statsMap[u.id];
+      return {
+        ...u,
+        latestBalance: s?.latestBalance ?? null,
+        winRate: s?.total ? ((s.wins / s.total) * 100).toFixed(1) : null,
+        winRateByMode: s ? {
+          martingale: s.martingale.total ? ((s.martingale.wins / s.martingale.total) * 100).toFixed(1) : null,
+          aiSignal: s.aiSignal.total ? ((s.aiSignal.wins / s.aiSignal.total) * 100).toFixed(1) : null,
+          martingaleTotal: s.martingale.total,
+          aiSignalTotal: s.aiSignal.total,
+        } : null,
+      };
+    });
+
+    return res.json({ users: enriched });
   } catch (err) {
     console.error('[Admin] users list error:', err);
     return res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+// GET /api/admin/users/:id/trades — last 50 real trades for a user
+router.get('/users/:id/trades', async (req, res) => {
+  try {
+    const trades = await prisma.trade.findMany({
+      where: { userId: req.params.id, isDemo: false },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      select: {
+        id: true, pair: true, direction: true, amount: true,
+        result: true, balanceBefore: true, balanceAfter: true,
+        strategy: true, createdAt: true,
+      },
+    });
+    return res.json({ trades });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
   }
 });
 

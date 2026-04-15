@@ -54,6 +54,11 @@ export default function Dashboard() {
   const [editPlan, setEditPlan] = useState('free');
   const [editSaving, setEditSaving] = useState(false);
 
+  // User trade history modal state
+  const [tradeHistoryUser, setTradeHistoryUser] = useState(null); // { id, email }
+  const [userTrades, setUserTrades] = useState([]);
+  const [userTradesLoading, setUserTradesLoading] = useState(false);
+
   // AI settings state
   const AI_TF = ['S30', 'M1', 'M3', 'M5', 'M30', 'H1'];
   const [aiPrompt, setAiPrompt] = useState('');
@@ -115,6 +120,20 @@ export default function Dashboard() {
       setTokenUsage(res.data);
     } catch (err) { /* silent */ }
   }, [isAdmin]);
+
+  async function loadUserTrades(u) {
+    setTradeHistoryUser(u);
+    setUserTrades([]);
+    setUserTradesLoading(true);
+    try {
+      const res = await api.get(`/api/admin/users/${u.id}/trades`);
+      setUserTrades(res.data.trades || []);
+    } catch (err) {
+      toast.error('Failed to load trades');
+    } finally {
+      setUserTradesLoading(false);
+    }
+  }
 
   async function saveAiSettings() {
     setAiSettingsSaving(true);
@@ -716,9 +735,11 @@ export default function Dashboard() {
                 <thead>
                   <tr className="text-gray-400 border-b border-dark-600 text-left">
                     <th className="py-2 pr-4">Email</th>
-                    <th className="py-2 pr-4">PO UID</th>
                     <th className="py-2 pr-4">Plan</th>
-                    <th className="py-2 pr-4">Trades</th>
+                    <th className="py-2 pr-4">Balance</th>
+                    <th className="py-2 pr-4">Win Rate</th>
+                    <th className="py-2 pr-4">Martingale</th>
+                    <th className="py-2 pr-4">AI Signal</th>
                     <th className="py-2 pr-4">Joined</th>
                     <th className="py-2"></th>
                   </tr>
@@ -727,27 +748,45 @@ export default function Dashboard() {
                   {adminUsers.map(u => (
                     <tr key={u.id} className="border-b border-dark-600/50 text-gray-300">
                       <td className="py-2 pr-4 text-xs">{u.email}</td>
-                      <td className="py-2 pr-4 text-xs text-gray-500">
-                        {u.poUserId || '—'}
-                      </td>
                       <td className="py-2 pr-4">
                         <span className={`badge-${u.license?.plan || 'free'}`}>
                           {u.license?.plan || 'free'}
                         </span>
                       </td>
-                      <td className="py-2 pr-4 text-xs text-gray-500">
-                        {u.license ? `${u.license.tradesUsed} / ${u.license.tradesLimit ?? '∞'}` : '—'}
+                      <td className="py-2 pr-4 text-xs">
+                        {u.latestBalance != null ? `$${parseFloat(u.latestBalance).toFixed(2)}` : '—'}
+                      </td>
+                      <td className="py-2 pr-4 text-xs">
+                        {u.winRate != null ? `${u.winRate}%` : '—'}
+                      </td>
+                      <td className="py-2 pr-4 text-xs text-gray-400">
+                        {u.winRateByMode?.martingaleTotal > 0
+                          ? `${u.winRateByMode.martingale}% (${u.winRateByMode.martingaleTotal})`
+                          : '—'}
+                      </td>
+                      <td className="py-2 pr-4 text-xs text-purple-400">
+                        {u.winRateByMode?.aiSignalTotal > 0
+                          ? `${u.winRateByMode.aiSignal}% (${u.winRateByMode.aiSignalTotal})`
+                          : '—'}
                       </td>
                       <td className="py-2 pr-4 text-xs text-gray-500">
                         {new Date(u.createdAt).toLocaleDateString()}
                       </td>
                       <td className="py-2">
+                        <div className="flex gap-2">
+                        <button
+                          onClick={() => loadUserTrades(u)}
+                          className="text-xs text-green-400 hover:text-green-300"
+                        >
+                          Trades
+                        </button>
                         <button
                           onClick={() => openEditModal(u)}
                           className="text-xs text-blue-400 hover:text-blue-300"
                         >
                           Edit
                         </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -873,6 +912,65 @@ export default function Dashboard() {
           )}
         </div>
       )}
+      {/* User Trade History Modal */}
+      {tradeHistoryUser && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-dark-800 border border-dark-600 rounded-xl w-full max-w-3xl mx-4 flex flex-col max-h-[80vh]">
+            <div className="flex items-center justify-between p-5 border-b border-dark-600">
+              <div>
+                <h3 className="text-base font-semibold text-white">Trade History</h3>
+                <p className="text-xs text-gray-400 mt-0.5">{tradeHistoryUser.email} — last 50 real trades</p>
+              </div>
+              <button onClick={() => setTradeHistoryUser(null)} className="text-gray-500 hover:text-white text-xl leading-none">✕</button>
+            </div>
+            <div className="overflow-auto flex-1">
+              {userTradesLoading ? (
+                <p className="text-gray-400 text-sm text-center py-8">Loading...</p>
+              ) : userTrades.length === 0 ? (
+                <p className="text-gray-400 text-sm text-center py-8">No real trades yet.</p>
+              ) : (
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-dark-800">
+                    <tr className="text-gray-400 border-b border-dark-600">
+                      <th className="py-2 px-4 text-left">Time</th>
+                      <th className="py-2 px-4 text-left">Pair</th>
+                      <th className="py-2 px-4 text-left">Dir</th>
+                      <th className="py-2 px-4 text-left">Amount</th>
+                      <th className="py-2 px-4 text-left">Result</th>
+                      <th className="py-2 px-4 text-left">Balance</th>
+                      <th className="py-2 px-4 text-left">Mode</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {userTrades.map(t => (
+                      <tr key={t.id} className="border-b border-dark-600/40 text-gray-300">
+                        <td className="py-2 px-4 text-gray-500 whitespace-nowrap">
+                          {new Date(t.createdAt).toLocaleString()}
+                        </td>
+                        <td className="py-2 px-4 font-mono">{t.pair}</td>
+                        <td className={`py-2 px-4 font-medium ${t.direction === 'call' ? 'text-green-400' : 'text-red-400'}`}>
+                          {t.direction.toUpperCase()}
+                        </td>
+                        <td className="py-2 px-4">${t.amount.toFixed(2)}</td>
+                        <td className={`py-2 px-4 font-medium ${t.result === 'win' ? 'text-green-400' : 'text-red-400'}`}>
+                          {t.result.toUpperCase()}
+                        </td>
+                        <td className="py-2 px-4 text-gray-400">
+                          {t.balanceAfter != null ? `$${parseFloat(t.balanceAfter).toFixed(2)}` : '—'}
+                        </td>
+                        <td className={`py-2 px-4 ${t.strategy === 'ai-signal' ? 'text-purple-400' : 'text-gray-500'}`}>
+                          {t.strategy === 'ai-signal' ? '🤖 AI' : 'Martingale'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Edit User Modal */}
       {editingUser && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">

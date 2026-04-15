@@ -51,6 +51,7 @@ model Trade {
   balanceBefore Float?
   balanceAfter  Float?
   isDemo        Boolean  @default(false)
+  strategy      String   @default("martingale") // martingale | ai-signal
   createdAt     DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

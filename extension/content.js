@@ -693,6 +693,7 @@ async function runTradeCycle(generation) {
       balanceBefore,
       balanceAfter,
       isDemo: isDemoMode(),
+      strategy: state.settings?.strategy || 'martingale',
     })).catch(console.error);
   }
 

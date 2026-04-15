@@ -23,7 +23,7 @@ router.post('/log', authMiddleware, async (req, res) => {
   console.log('[trades/log] body received:', JSON.stringify(req.body));
 
   try {
-    const { pair, direction, amount, result, balanceBefore, balanceAfter, isDemo } = req.body;
+    const { pair, direction, amount, result, balanceBefore, balanceAfter, isDemo, strategy } = req.body;
 
     if (!direction || amount == null || amount === '' || !result) {
       return res.status(400).json({ error: 'Missing required fields: direction, amount, result' });
@@ -41,6 +41,7 @@ router.post('/log', authMiddleware, async (req, res) => {
         balanceBefore: balanceBefore != null ? parseFloat(balanceBefore) : null,
         balanceAfter: balanceAfter != null ? parseFloat(balanceAfter) : null,
         isDemo: isDemoVal,
+        strategy: strategy || 'martingale',
       },
     });
 
