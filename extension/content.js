@@ -24,7 +24,81 @@ const state = {
   stopRequested: false,
   cycleGeneration: 0,  // incremented on each start/stop; stale cycles self-terminate
   affiliateLink: AFFILIATE_LINK,  // updated from DB on startup
+  // AI mode
+  candleBuffer: {},   // { "EURUSD_otc:60": [{time,open,high,low,close},...] }
+  aiTokensRemaining: null,
+  winRates: {},       // { S30: 48, M1: 52, ... }
 };
+
+// ─── WebSocket Candle Interceptor ─────────────────────────────────────────────
+// Runs in page context via injected <script> — content scripts can't access window.WebSocket directly.
+function injectWsInterceptor() {
+  const script = document.createElement('script');
+  script.textContent = `(function(){
+    const _WS = window.WebSocket;
+    function AvalisaWS(url, proto) {
+      const ws = proto ? new _WS(url, proto) : new _WS(url);
+      ws.addEventListener('message', function(e) {
+        try { window.postMessage({type:'AVALISA_WS',data:e.data},'*'); } catch(_){}
+      });
+      return ws;
+    }
+    AvalisaWS.prototype = _WS.prototype;
+    ['CONNECTING','OPEN','CLOSING','CLOSED'].forEach(k => {
+      Object.defineProperty(AvalisaWS, k, {value: _WS[k]});
+    });
+    window.WebSocket = AvalisaWS;
+  })();`;
+  document.documentElement.appendChild(script);
+  script.remove();
+}
+
+const TF_TO_SECONDS = { S30: 30, M1: 60, M3: 180, M5: 300, M30: 1800, H1: 3600 };
+
+function parseWsMessage(raw) {
+  if (typeof raw !== 'string') return;
+  // Socket.IO messages: 42["event", payload]
+  const m = raw.match(/^42\["([^"]+)",([\s\S]+)\]$/);
+  if (!m) return;
+  const event = m[1];
+  let payload;
+  try { payload = JSON.parse(m[2]); } catch { return; }
+
+  // updateStream: real-time candle updates
+  // Format: [{"asset":"EURUSD_otc","time":1234567890,"open":1.1,"close":1.1,"high":1.1,"low":1.1,"period":60}]
+  if (event === 'updateStream' && Array.isArray(payload)) {
+    payload.forEach(candle => ingestCandle(candle));
+  }
+  // loadHistoryPeriod / successloadHistory: historical batch
+  if ((event === 'loadHistoryPeriod' || event === 'successloadHistory') && payload?.history) {
+    payload.history.forEach(candle => ingestCandle({ ...candle, asset: payload.asset, period: payload.period }));
+  }
+}
+
+function ingestCandle(c) {
+  if (!c || !c.asset || !c.period || !c.time) return;
+  const key = `${c.asset}:${c.period}`;
+  if (!state.candleBuffer[key]) state.candleBuffer[key] = [];
+  const buf = state.candleBuffer[key];
+  // Deduplicate by time
+  const existing = buf.findIndex(x => x.time === c.time);
+  const entry = { time: c.time, open: c.open, high: c.high, low: c.low, close: c.close };
+  if (existing >= 0) {
+    buf[existing] = entry; // update (candle still forming)
+  } else {
+    buf.push(entry);
+    if (buf.length > 100) buf.shift(); // keep last 100
+  }
+}
+
+function getBufferedCandles() {
+  // Return candles matching current pair + timeframe setting
+  const pair = getCurrentPair();
+  const tf = state.settings?.timeframe || 'M1';
+  const periodSec = TF_TO_SECONDS[tf] || 60;
+  const key = `${pair}:${periodSec}`;
+  return state.candleBuffer[key] || [];
+}
 
 // ─── Device Fingerprint ───────────────────────────────────────────────────────
 function getDeviceFingerprint() {
@@ -75,6 +149,7 @@ function getDefaultSettings() {
     martingaleSteps: 'infinite',
     delaySeconds: 6,
     startAmount: 1.0,
+    aiMode: false,
   };
 }
 
@@ -451,13 +526,96 @@ async function runTradeCycle(generation) {
     state.settings.strategy = 'martingale';
     updateStatus('error', 'Free plan: Martingale only. Upgrade for more strategies.');
   }
+  // AI mode guard: lifetime only
+  if (state.settings.strategy === 'ai-signal' && license.plan !== 'lifetime') {
+    state.settings.strategy = 'martingale';
+    updateStatus('error', 'AI Signal requires Lifetime plan.');
+  }
 
   const amount = state.currentAmount;
   if (!amount || amount <= 0) {
     state.currentAmount = parseFloat(state.settings.startAmount) || 1.0;
   }
   const safeAmount = state.currentAmount;
-  const direction = getNextDirection();
+
+  // ── AI Signal Mode ────────────────────────────────────────────────────────
+  let direction;
+  if (state.settings.strategy === 'ai-signal') {
+    // Check local token count first (fast fail)
+    if (state.aiTokensRemaining !== null && state.aiTokensRemaining <= 0) {
+      updateStatus('error', 'AI quota reached, resets 1st of month');
+      state.running = false;
+      updateUI();
+      return;
+    }
+
+    const candles = getBufferedCandles();
+    if (candles.length < 5) {
+      updateStatus('running', `⏳ Building candle data... (${candles.length}/50)`);
+      await sleep(5000);
+      if (state.running && !state.stopRequested && generation === state.cycleGeneration) {
+        runTradeCycle(generation).catch(console.error);
+      }
+      return;
+    }
+
+    updateStatus('running', '🤖 Asking AI for signal...');
+    try {
+      const signal = await apiPost('/api/ai/signal', {
+        candles,
+        timeframe: state.settings.timeframe || 'M1',
+        pair: getCurrentPair(),
+      });
+
+      if (signal.error === 'quota_exceeded') {
+        updateStatus('error', 'AI quota reached, resets 1st of month');
+        state.aiTokensRemaining = 0;
+        const el = document.getElementById('av-ai-tokens');
+        if (el) el.textContent = 'AI Tokens: 0 remaining';
+        state.running = false;
+        updateUI();
+        return;
+      }
+
+      if (signal.error) {
+        updateStatus('error', `AI error: ${signal.error}`);
+        await sleep(10000);
+        if (state.running && !state.stopRequested && generation === state.cycleGeneration) {
+          runTradeCycle(generation).catch(console.error);
+        }
+        return;
+      }
+
+      // Update token display
+      if (signal.remaining !== undefined) {
+        state.aiTokensRemaining = signal.remaining;
+        const el = document.getElementById('av-ai-tokens');
+        if (el) el.textContent = `AI Tokens: ${signal.remaining.toLocaleString()} remaining`;
+      }
+
+      if (signal.signal === 'SKIP') {
+        updateStatus('running', `⏭ AI says SKIP (${signal.confidence}%) — waiting...`);
+        await sleep((state.settings.delaySeconds || 6) * 1000);
+        if (state.running && !state.stopRequested && generation === state.cycleGeneration) {
+          runTradeCycle(generation).catch(console.error);
+        }
+        return;
+      }
+
+      direction = signal.signal === 'CALL' ? 'call' : 'put';
+      updateStatus('running', `🤖 AI: ${signal.signal} (${signal.confidence}%) — placing trade`);
+    } catch (err) {
+      console.error('[Avalisa] AI signal error:', err);
+      updateStatus('error', '❌ AI request failed. Retrying...');
+      await sleep(10000);
+      if (state.running && !state.stopRequested && generation === state.cycleGeneration) {
+        runTradeCycle(generation).catch(console.error);
+      }
+      return;
+    }
+  } else {
+    direction = getNextDirection();
+  }
 
   updateStatus('running', `Trade #${state.tradesCount + 1} — ${direction.toUpperCase()} $${safeAmount.toFixed(2)}`);
 
@@ -666,6 +824,16 @@ function getOverlayHTML() {
 
       <div class="av-section">
         <div class="av-row">
+          <label class="av-label">Strategy</label>
+          <select id="av-strategy" class="av-select">
+            <option value="martingale">Martingale</option>
+            <option value="ai-signal">🤖 AI Signal (Lifetime)</option>
+          </select>
+        </div>
+        <div id="av-ai-token-row" class="av-row" style="display:none">
+          <span id="av-ai-tokens" class="av-label" style="color:#7c3aed;font-size:11px;">AI Tokens: loading...</span>
+        </div>
+        <div class="av-row">
           <label class="av-label">Timeframe</label>
           <select id="av-timeframe" class="av-select">
             <option value="S30">S30 (30s)</option>
@@ -699,7 +867,7 @@ function getOverlayHTML() {
           <label class="av-label">Start Amount ($)</label>
           <input id="av-start-amount" type="number" min="1" step="1" value="1" class="av-input av-input-sm" />
         </div>
-        <div class="av-row">
+        <div class="av-row av-martingale-row">
           <label class="av-label">Martingale ×</label>
           <select id="av-multiplier" class="av-select">
             <option value="2.0" selected>2.0×</option>
@@ -710,7 +878,7 @@ function getOverlayHTML() {
             <option value="3.0">3.0×</option>
           </select>
         </div>
-        <div class="av-row">
+        <div class="av-row av-martingale-row">
           <label class="av-label">Martingale Steps</label>
           <select id="av-steps" class="av-select">
             <option value="infinite" selected>Infinite</option>
@@ -831,6 +999,17 @@ function bindOverlayEvents() {
   // Start/Stop
   document.getElementById('av-start-btn').addEventListener('click', startBot);
   document.getElementById('av-stop-btn').addEventListener('click', stopBot);
+
+  // Strategy toggle — show/hide martingale rows + AI token row
+  document.getElementById('av-strategy').addEventListener('change', (e) => {
+    const isAi = e.target.value === 'ai-signal';
+    document.getElementById('av-ai-token-row').style.display = isAi ? 'flex' : 'none';
+    document.querySelectorAll('.av-martingale-row').forEach(el => {
+      el.style.display = isAi ? 'none' : '';
+    });
+    if (isAi) loadAiTokenStatus();
+    saveCurrentSettings();
+  });
 
   // Settings changes — auto-save
   ['av-timeframe', 'av-direction', 'av-delay', 'av-multiplier', 'av-steps'].forEach(id => {
@@ -1059,6 +1238,7 @@ function stopBot() {
 
 async function saveCurrentSettings() {
   const settings = {
+    strategy: document.getElementById('av-strategy')?.value || 'martingale',
     timeframe: document.getElementById('av-timeframe').value,
     direction: document.getElementById('av-direction').value,
     delaySeconds: parseInt(document.getElementById('av-delay').value),
@@ -1100,12 +1280,21 @@ function updateUI() {
   const s = state.settings;
   if (s) {
     const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+    set('av-strategy', s.strategy || 'martingale');
     set('av-timeframe', (s.timeframe === 'S15' ? 'S30' : s.timeframe) || 'M1');
     set('av-direction', s.direction || 'alternating');
     set('av-delay', s.delaySeconds || 6);
     set('av-multiplier', parseFloat(s.martingaleMultiplier || 2.0).toFixed(1));
     set('av-steps', s.martingaleSteps || 'infinite');
     set('av-start-amount', s.startAmount || 1.0);
+
+    const isAi = s.strategy === 'ai-signal';
+    const tokenRow = document.getElementById('av-ai-token-row');
+    if (tokenRow) tokenRow.style.display = isAi ? 'flex' : 'none';
+    document.querySelectorAll('.av-martingale-row').forEach(el => {
+      el.style.display = isAi ? 'none' : '';
+    });
+    updateTimeframeLabels();
   }
 }
 
@@ -1161,6 +1350,46 @@ async function loadAffiliateLink() {
   if (btn) btn.dataset.href = state.affiliateLink;
 }
 
+// ─── AI Token Status ──────────────────────────────────────────────────────────
+async function loadAiTokenStatus() {
+  if (!state.jwt) return;
+  try {
+    const data = await apiGet('/api/ai/token-status');
+    if (data && data.remaining !== undefined) {
+      state.aiTokensRemaining = data.remaining;
+      const el = document.getElementById('av-ai-tokens');
+      if (el) el.textContent = `AI Tokens: ${data.remaining.toLocaleString()} remaining`;
+    }
+  } catch (err) {
+    console.warn('[Avalisa] Could not load AI token status');
+  }
+}
+
+// ─── Win Rates ────────────────────────────────────────────────────────────────
+async function loadWinRates() {
+  try {
+    const data = await apiGet('/api/config/winrates');
+    if (data && typeof data === 'object') {
+      state.winRates = data;
+      updateTimeframeLabels();
+    }
+  } catch {
+    // silent
+  }
+}
+
+function updateTimeframeLabels() {
+  const select = document.getElementById('av-timeframe');
+  if (!select) return;
+  const labels = { S30: 'S30 (30s)', M1: 'M1 (1m)', M3: 'M3 (3m)', M5: 'M5 (5m)', M30: 'M30 (30m)', H1: 'H1 (1h)' };
+  Array.from(select.options).forEach(opt => {
+    const tf = opt.value;
+    const wr = state.winRates[tf];
+    const pct = wr !== undefined ? ` — ${wr}%` : '';
+    opt.textContent = (labels[tf] || tf) + pct;
+  });
+}
+
 // ─── Load settings from backend on startup ────────────────────────────────────
 async function loadSettingsFromBackend() {
   if (!state.jwt) return;
@@ -1178,10 +1407,19 @@ async function loadSettingsFromBackend() {
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
+  injectWsInterceptor(); // must run before page WebSocket connects
+  window.addEventListener('message', (e) => {
+    if (e.data?.type === 'AVALISA_WS') parseWsMessage(e.data.data);
+  });
+
   await loadFromStorage();
   await loadSettingsFromBackend();
   injectOverlay();
   loadAffiliateLink(); // fire-and-forget — updates DOM links when ready
+  loadWinRates();      // fire-and-forget — updates timeframe labels when ready
+  if (state.jwt && state.settings?.strategy === 'ai-signal') {
+    loadAiTokenStatus(); // fire-and-forget
+  }
 
   // Wait for PO header to render before injecting button
   const headerInterval = setInterval(() => {
