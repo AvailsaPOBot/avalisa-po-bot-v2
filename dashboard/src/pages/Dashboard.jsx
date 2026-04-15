@@ -8,7 +8,7 @@ const STRATEGIES = [
   { id: 'martingale', label: 'Martingale', free: true, desc: 'Double on loss to recover' },
   { id: 'anti-martingale', label: 'Anti-Martingale', free: false, desc: 'Double on win, reset on loss' },
   { id: 'fixed', label: 'Fixed Amount', free: false, desc: 'Same amount every trade' },
-  { id: 'ai-signal', label: 'AI Signal', free: false, desc: 'AI-guided entry points', comingSoon: true },
+  { id: 'ai-signal', label: 'AI Signal', free: false, desc: 'Gemini-powered CALL/PUT signals (Lifetime)' },
 ];
 
 const TIMEFRAMES = ['M1', 'M3', 'M5', 'M30', 'H1', 'H4'];
@@ -54,6 +54,15 @@ export default function Dashboard() {
   const [editPlan, setEditPlan] = useState('free');
   const [editSaving, setEditSaving] = useState(false);
 
+  // AI settings state
+  const AI_TF = ['S30', 'M1', 'M3', 'M5', 'M30', 'H1'];
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiTokenBudget, setAiTokenBudget] = useState('10000');
+  const [aiWinRates, setAiWinRates] = useState({});
+  const [aiSettingsSaving, setAiSettingsSaving] = useState(false);
+  const [tokenUsage, setTokenUsage] = useState(null);
+  const [tokenResetting, setTokenResetting] = useState(false);
+
   const loadAdminUsers = useCallback(async () => {
     if (!isAdmin) return;
     try {
@@ -87,6 +96,62 @@ export default function Dashboard() {
       // silent
     }
   }, [plan]);
+
+  const loadAiSettings = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      const res = await api.get('/api/admin/ai-settings');
+      setAiPrompt(res.data.ai_strategy_prompt || '');
+      setAiTokenBudget(res.data.ai_token_budget_per_user || '10000');
+      const wr = res.data.timeframe_winrates ? JSON.parse(res.data.timeframe_winrates) : {};
+      setAiWinRates(wr);
+    } catch (err) { /* silent */ }
+  }, [isAdmin]);
+
+  const loadTokenUsage = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      const res = await api.get('/api/admin/token-usage');
+      setTokenUsage(res.data);
+    } catch (err) { /* silent */ }
+  }, [isAdmin]);
+
+  async function saveAiSettings() {
+    setAiSettingsSaving(true);
+    try {
+      await api.put('/api/admin/ai-settings', {
+        ai_strategy_prompt: aiPrompt,
+        ai_token_budget_per_user: aiTokenBudget,
+        timeframe_winrates: JSON.stringify(aiWinRates),
+      });
+      toast.success('AI settings saved.');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to save');
+    } finally {
+      setAiSettingsSaving(false);
+    }
+  }
+
+  function updateWinRate(tf, field, value) {
+    setAiWinRates(prev => ({
+      ...prev,
+      [tf]: { ...(prev[tf] || { manual: 50, real: null, mode: 'manual' }), [field]: value },
+    }));
+  }
+
+  async function resetTokens() {
+    if (!window.confirm('Reset ALL users token usage for this month?')) return;
+    setTokenResetting(true);
+    try {
+      const res = await api.post('/api/admin/token-reset');
+      toast.success(`Reset complete — ${res.data.recordsDeleted} records deleted.`);
+      loadTokenUsage();
+    } catch (err) {
+      toast.error('Failed to reset tokens');
+    } finally {
+      setTokenResetting(false);
+    }
+  }
 
   async function grantAccess() {
     if (!adminIdentifier.trim()) return;
@@ -211,6 +276,7 @@ export default function Dashboard() {
   useEffect(() => { loadAdminUsers(); }, [loadAdminUsers]);
   useEffect(() => { loadPendingClaims(); }, [loadPendingClaims]);
   useEffect(() => { loadClaimStatus(); }, [loadClaimStatus]);
+  useEffect(() => { loadAiSettings(); loadTokenUsage(); }, [loadAiSettings, loadTokenUsage]);
 
   async function refreshAfterSave() { loadStats(); loadHistory(historyType); }
 
@@ -659,6 +725,132 @@ export default function Dashboard() {
               </table>
             )}
           </div>
+        </div>
+
+        {/* AI Settings */}
+        <div className="card mt-6">
+          <h3 className="text-base font-semibold text-white mb-4">🤖 AI Settings</h3>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Strategy Prompt</label>
+              <textarea
+                rows={5}
+                value={aiPrompt}
+                onChange={e => setAiPrompt(e.target.value)}
+                className="input w-full font-mono text-xs"
+                placeholder="System prompt sent to Gemini for every signal request"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Monthly Token Budget per User</label>
+              <input
+                type="number"
+                value={aiTokenBudget}
+                onChange={e => setAiTokenBudget(e.target.value)}
+                className="input w-40"
+                min="0"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-400 mb-2">Timeframe Win Rates</label>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-gray-400 text-xs border-b border-dark-600">
+                    <th className="py-1 pr-4 text-left">Timeframe</th>
+                    <th className="py-1 pr-4 text-left">Manual %</th>
+                    <th className="py-1 pr-4 text-left">Mode</th>
+                    <th className="py-1 text-left">Real % (auto)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {AI_TF.map(tf => {
+                    const entry = aiWinRates[tf] || { manual: 50, real: null, mode: 'manual' };
+                    return (
+                      <tr key={tf} className="border-b border-dark-600/50 text-gray-300">
+                        <td className="py-1.5 pr-4 font-mono text-xs">{tf}</td>
+                        <td className="py-1.5 pr-4">
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={entry.manual ?? 50}
+                            onChange={e => updateWinRate(tf, 'manual', parseInt(e.target.value))}
+                            className="input w-20 py-0.5 text-xs"
+                          />
+                        </td>
+                        <td className="py-1.5 pr-4">
+                          <select
+                            value={entry.mode || 'manual'}
+                            onChange={e => updateWinRate(tf, 'mode', e.target.value)}
+                            className="input py-0.5 text-xs"
+                          >
+                            <option value="manual">Manual</option>
+                            <option value="real">Real</option>
+                          </select>
+                        </td>
+                        <td className="py-1.5 text-xs text-gray-500">
+                          {entry.real !== null && entry.real !== undefined ? `${entry.real}%` : '—'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <button
+              onClick={saveAiSettings}
+              disabled={aiSettingsSaving}
+              className="btn-primary"
+            >
+              {aiSettingsSaving ? 'Saving…' : 'Save AI Settings'}
+            </button>
+          </div>
+        </div>
+
+        {/* Token Usage */}
+        <div className="card mt-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base font-semibold text-white">
+              📊 Token Usage — {tokenUsage?.month || '…'}
+            </h3>
+            <button
+              onClick={resetTokens}
+              disabled={tokenResetting}
+              className="text-xs text-red-400 border border-red-800 rounded px-3 py-1 hover:bg-red-900/30 transition"
+            >
+              {tokenResetting ? 'Resetting…' : 'Reset All Tokens'}
+            </button>
+          </div>
+          {tokenUsage && (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-gray-400 text-xs border-b border-dark-600">
+                  <th className="py-1 pr-4 text-left">Email</th>
+                  <th className="py-1 pr-4 text-left">Tokens Used</th>
+                  <th className="py-1 text-left">% of Budget</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(tokenUsage.users || []).map((u, i) => (
+                  <tr key={i} className="border-b border-dark-600/50 text-gray-300">
+                    <td className="py-1.5 pr-4 text-xs">{u.email}</td>
+                    <td className="py-1.5 pr-4 text-xs">{u.tokensUsed.toLocaleString()}</td>
+                    <td className="py-1.5 text-xs">
+                      <span className={u.percentOfBudget >= 80 ? 'text-red-400' : 'text-gray-300'}>
+                        {u.percentOfBudget}%
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+                {(tokenUsage.users || []).length === 0 && (
+                  <tr><td colSpan={3} className="py-4 text-center text-gray-500 text-xs">No usage this month</td></tr>
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
       )}
       {/* Edit User Modal */}
