@@ -446,8 +446,8 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* AI Signal config — shown in settings tab when AI Signal strategy is selected */}
-      {activeTab === 'settings' && settings?.strategy === 'ai-signal' && (
+      {/* AI Signal config — always shown in settings tab; admin can edit, users see grayed-out */}
+      {activeTab === 'settings' && (
         <div className="card mt-6">
           <h2 className="text-lg font-semibold text-white mb-1">🤖 AI Signal Configuration</h2>
           <p className="text-gray-400 text-sm mb-4">
