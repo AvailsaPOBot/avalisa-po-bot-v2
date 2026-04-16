@@ -740,6 +740,7 @@ export default function Dashboard() {
                   <tr className="text-gray-400 border-b border-dark-600 text-left">
                     <th className="py-2 pr-4">Email</th>
                     <th className="py-2 pr-4">Plan</th>
+                    <th className="py-2 pr-4">Trades</th>
                     <th className="py-2 pr-4">Balance</th>
                     <th className="py-2 pr-4">Win Rate</th>
                     <th className="py-2 pr-4">Martingale</th>
@@ -756,6 +757,13 @@ export default function Dashboard() {
                         <span className={`badge-${u.license?.plan || 'free'}`}>
                           {u.license?.plan || 'free'}
                         </span>
+                      </td>
+                      <td className="py-2 pr-4 text-xs">
+                        {u.license?.tradesLimit != null
+                          ? <span className={u.license.tradesUsed >= u.license.tradesLimit ? 'text-red-400' : 'text-gray-300'}>
+                              {u.license.tradesUsed}/{u.license.tradesLimit}
+                            </span>
+                          : <span className="text-gray-500">{u.license?.tradesUsed ?? 0}/∞</span>}
                       </td>
                       <td className="py-2 pr-4 text-xs">
                         {u.latestBalance != null ? `$${parseFloat(u.latestBalance).toFixed(2)}` : '—'}
