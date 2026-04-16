@@ -1,5 +1,5 @@
 # Avalisa PO Bot v2 — Project Memory
-Last updated: 2026-04-11
+Last updated: 2026-04-16
 
 ---
 
@@ -173,14 +173,33 @@ CWS listing language: "trading assistant" / "strategy tool" — NEVER "bot" or "
 
 ---
 
+## Admin Dashboard — Current Columns (2026-04-16)
+Email | Plan | Trades (X/limit, red when maxed) | Balance (real only, post-2026-04-15) | M / AI (win rates stacked) | User AI (All% / Now% since uaiResetAt) | Joined | Trades / Edit
+
+- AI prompt card in Settings tab always visible (admin = editable, users = grayed out, v2.3 label)
+- Stats: isDemo=false AND createdAt >= 2026-04-15 only
+- Trade history modal: Trades button → last 50 real trades per user
+- Admin AI Settings: token budget + timeframe win rate table
+- Token Usage: per-user token consumption + Reset All
+
+## DB State (2026-04-16)
+- All migrations applied — see vault 212-status.md for full list
+- uaiResetAt TIMESTAMPTZ added to Settings (nullable — for v2.3 User AI prompt reset tracking)
+- 68 legacy customer UIDs in AffiliateReferral (auto-grant lifetime on claim)
+- Old trades before 2026-04-15 deleted (pre-isDemo era cleanup)
+- Latest commit: 6f63fb1
+
+## Next: v2.3
+Extension chatbot with BYOK (user's own API key, stored in chrome.storage only — never in DB).
+Fed with backend context (plan, stats, settings). Seed: martingale guidance text.
+Issue reporting: avalisapobot@gmail.com. Spec: vault 214-research/2143-v2.3-spec.md.
+Also: "Prompt" button in admin table to view each user's strategy text.
+
 ## Known Issues / Pending Work
-- ⚠️ Forgot Password: success response but no email sent yet (RESEND_API_KEY ready)
-- ⚠️ isDemo missing from Trade table — add via Supabase SQL Editor
-- ⚠️ History tab needs Real/Demo/All toggle (after isDemo added)
-- ⚠️ Settings reset on Chrome restart (not loaded from backend on init)
-- ⚠️ Navbar.jsx: portrait mobile hides login/dashboard buttons (hamburger needed)
+- CWS v2.2.0 approval pending (submitted 2026-04-15, ETA 1–7 days)
+- Whop live payment: test real purchase end-to-end when ready
 - Render free tier: ~30sec cold start after 15min inactivity
-- CWS v2.0.3 approval pending (ETA 1–7 days)
+- Vercel CI strict ESLint — no unused vars allowed or build fails
 
 ---
 
