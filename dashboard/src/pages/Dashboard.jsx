@@ -741,8 +741,10 @@ export default function Dashboard() {
                     <th className="py-2 pr-4">Email</th>
                     <th className="py-2 pr-4">Plan</th>
                     <th className="py-2 pr-4">Trades</th>
+                    <th className="py-2 pr-4">Strategy</th>
                     <th className="py-2 pr-4">Balance</th>
-                    <th className="py-2 pr-4">M / AI / User AI</th>
+                    <th className="py-2 pr-4">M / AI</th>
+                    <th className="py-2 pr-4">User AI</th>
                     <th className="py-2 pr-4">Joined</th>
                     <th className="py-2"></th>
                   </tr>
@@ -764,6 +766,17 @@ export default function Dashboard() {
                           : <span className="text-gray-500">{u.license?.tradesUsed ?? 0}/∞</span>}
                       </td>
                       <td className="py-2 pr-4 text-xs">
+                        <span className={
+                          u.currentStrategy === 'ai-signal' ? 'text-purple-400' :
+                          u.currentStrategy === 'user-ai' ? 'text-blue-400' :
+                          'text-gray-400'
+                        }>
+                          {u.currentStrategy === 'ai-signal' ? 'AI Signal' :
+                           u.currentStrategy === 'user-ai' ? 'User AI' :
+                           'Martingale'}
+                        </span>
+                      </td>
+                      <td className="py-2 pr-4 text-xs">
                         {u.latestBalance != null ? `$${parseFloat(u.latestBalance).toFixed(2)}` : '—'}
                       </td>
                       <td className="py-2 pr-4 text-xs">
@@ -774,10 +787,23 @@ export default function Dashboard() {
                           <span className="text-purple-400">
                             AI: {u.winRateByMode?.aiSignalTotal > 0 ? `${u.winRateByMode.aiSignal}% (${u.winRateByMode.aiSignalTotal})` : '—'}
                           </span>
-                          <span className="text-blue-400">
-                            UAI: {u.winRateByMode?.userAiTotal > 0 ? `${u.winRateByMode.userAi}% (${u.winRateByMode.userAiTotal})` : '—'}
-                          </span>
                         </div>
+                      </td>
+                      <td className="py-2 pr-4 text-xs">
+                        {u.winRateByMode?.userAiTotal > 0 ? (
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-blue-400">
+                              All: {u.winRateByMode.userAi}% ({u.winRateByMode.userAiTotal})
+                            </span>
+                            {u.winRateByMode.uaiResetAt && (
+                              <span className="text-blue-300">
+                                Now: {u.winRateByMode.userAiCurrentTotal > 0
+                                  ? `${u.winRateByMode.userAiCurrent}% (${u.winRateByMode.userAiCurrentTotal})`
+                                  : '—'}
+                              </span>
+                            )}
+                          </div>
+                        ) : <span className="text-gray-600">—</span>}
                       </td>
                       <td className="py-2 pr-4 text-xs text-gray-500">
                         {new Date(u.createdAt).toLocaleDateString()}

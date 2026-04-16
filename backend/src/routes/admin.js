@@ -199,6 +199,9 @@ router.get('/users', async (req, res) => {
         license: {
           select: { plan: true, tradesUsed: true, tradesLimit: true },
         },
+        settings: {
+          select: { strategy: true, uaiResetAt: true },
+        },
       },
     });
 
@@ -212,24 +215,32 @@ router.get('/users', async (req, res) => {
       orderBy: { createdAt: 'desc' },
     });
 
-    // Build stats map per user
+    // Build stats map per user — UAI tracked overall + since last prompt reset
+    const resetMap = {};
+    for (const u of users) {
+      if (u.settings?.uaiResetAt) resetMap[u.id] = new Date(u.settings.uaiResetAt);
+    }
+
     const statsMap = {};
     for (const t of trades) {
       if (!statsMap[t.userId]) {
         statsMap[t.userId] = {
-          latestBalance: t.balanceAfter, // first seen = most recent (sorted desc)
-          total: 0, wins: 0,
+          latestBalance: t.balanceAfter,
           martingale: { total: 0, wins: 0 },
           aiSignal: { total: 0, wins: 0 },
           userAi: { total: 0, wins: 0 },
+          userAiCurrent: { total: 0, wins: 0 },
         };
       }
       const s = statsMap[t.userId];
-      s.total++;
-      if (t.result === 'win') s.wins++;
       const bucket = t.strategy === 'ai-signal' ? 'aiSignal' : t.strategy === 'user-ai' ? 'userAi' : 'martingale';
       s[bucket].total++;
       if (t.result === 'win') s[bucket].wins++;
+      // Track UAI since last prompt reset
+      if (bucket === 'userAi' && resetMap[t.userId] && new Date(t.createdAt) >= resetMap[t.userId]) {
+        s.userAiCurrent.total++;
+        if (t.result === 'win') s.userAiCurrent.wins++;
+      }
     }
 
     const enriched = users.map(u => {
@@ -237,7 +248,7 @@ router.get('/users', async (req, res) => {
       return {
         ...u,
         latestBalance: s?.latestBalance ?? null,
-        winRate: s?.total ? ((s.wins / s.total) * 100).toFixed(1) : null,
+        currentStrategy: u.settings?.strategy || 'martingale',
         winRateByMode: s ? {
           martingale: s.martingale.total ? ((s.martingale.wins / s.martingale.total) * 100).toFixed(1) : null,
           martingaleTotal: s.martingale.total,
@@ -245,6 +256,9 @@ router.get('/users', async (req, res) => {
           aiSignalTotal: s.aiSignal.total,
           userAi: s.userAi.total ? ((s.userAi.wins / s.userAi.total) * 100).toFixed(1) : null,
           userAiTotal: s.userAi.total,
+          userAiCurrent: s.userAiCurrent.total ? ((s.userAiCurrent.wins / s.userAiCurrent.total) * 100).toFixed(1) : null,
+          userAiCurrentTotal: s.userAiCurrent.total,
+          uaiResetAt: u.settings?.uaiResetAt || null,
         } : null,
       };
     });
