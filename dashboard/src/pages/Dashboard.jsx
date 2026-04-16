@@ -743,8 +743,7 @@ export default function Dashboard() {
                     <th className="py-2 pr-4">Trades</th>
                     <th className="py-2 pr-4">Balance</th>
                     <th className="py-2 pr-4">Win Rate</th>
-                    <th className="py-2 pr-4">Martingale</th>
-                    <th className="py-2 pr-4">AI Signal</th>
+                    <th className="py-2 pr-4">M / AI / User AI</th>
                     <th className="py-2 pr-4">Joined</th>
                     <th className="py-2"></th>
                   </tr>
@@ -771,15 +770,18 @@ export default function Dashboard() {
                       <td className="py-2 pr-4 text-xs">
                         {u.winRate != null ? `${u.winRate}%` : '—'}
                       </td>
-                      <td className="py-2 pr-4 text-xs text-gray-400">
-                        {u.winRateByMode?.martingaleTotal > 0
-                          ? `${u.winRateByMode.martingale}% (${u.winRateByMode.martingaleTotal})`
-                          : '—'}
-                      </td>
-                      <td className="py-2 pr-4 text-xs text-purple-400">
-                        {u.winRateByMode?.aiSignalTotal > 0
-                          ? `${u.winRateByMode.aiSignal}% (${u.winRateByMode.aiSignalTotal})`
-                          : '—'}
+                      <td className="py-2 pr-4 text-xs">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-gray-400">
+                            M: {u.winRateByMode?.martingaleTotal > 0 ? `${u.winRateByMode.martingale}% (${u.winRateByMode.martingaleTotal})` : '—'}
+                          </span>
+                          <span className="text-purple-400">
+                            AI: {u.winRateByMode?.aiSignalTotal > 0 ? `${u.winRateByMode.aiSignal}% (${u.winRateByMode.aiSignalTotal})` : '—'}
+                          </span>
+                          <span className="text-blue-400">
+                            UAI: {u.winRateByMode?.userAiTotal > 0 ? `${u.winRateByMode.userAi}% (${u.winRateByMode.userAiTotal})` : '—'}
+                          </span>
+                        </div>
                       </td>
                       <td className="py-2 pr-4 text-xs text-gray-500">
                         {new Date(u.createdAt).toLocaleDateString()}

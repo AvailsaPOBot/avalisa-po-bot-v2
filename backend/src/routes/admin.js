@@ -221,12 +221,13 @@ router.get('/users', async (req, res) => {
           total: 0, wins: 0,
           martingale: { total: 0, wins: 0 },
           aiSignal: { total: 0, wins: 0 },
+          userAi: { total: 0, wins: 0 },
         };
       }
       const s = statsMap[t.userId];
       s.total++;
       if (t.result === 'win') s.wins++;
-      const bucket = t.strategy === 'ai-signal' ? 'aiSignal' : 'martingale';
+      const bucket = t.strategy === 'ai-signal' ? 'aiSignal' : t.strategy === 'user-ai' ? 'userAi' : 'martingale';
       s[bucket].total++;
       if (t.result === 'win') s[bucket].wins++;
     }
@@ -239,9 +240,11 @@ router.get('/users', async (req, res) => {
         winRate: s?.total ? ((s.wins / s.total) * 100).toFixed(1) : null,
         winRateByMode: s ? {
           martingale: s.martingale.total ? ((s.martingale.wins / s.martingale.total) * 100).toFixed(1) : null,
-          aiSignal: s.aiSignal.total ? ((s.aiSignal.wins / s.aiSignal.total) * 100).toFixed(1) : null,
           martingaleTotal: s.martingale.total,
+          aiSignal: s.aiSignal.total ? ((s.aiSignal.wins / s.aiSignal.total) * 100).toFixed(1) : null,
           aiSignalTotal: s.aiSignal.total,
+          userAi: s.userAi.total ? ((s.userAi.wins / s.userAi.total) * 100).toFixed(1) : null,
+          userAiTotal: s.userAi.total,
         } : null,
       };
     });
