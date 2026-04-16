@@ -207,7 +207,7 @@ router.get('/users', async (req, res) => {
     // Fetch real closed trades for all users in one query
     const userIds = users.map(u => u.id);
     const trades = await prisma.trade.findMany({
-      where: { userId: { in: userIds }, isDemo: false, result: { not: 'pending' } },
+      where: { userId: { in: userIds }, isDemo: false, result: { not: 'pending' }, createdAt: { gte: new Date('2026-04-15T00:00:00Z') } },
       select: { userId: true, result: true, balanceAfter: true, strategy: true, createdAt: true },
       orderBy: { createdAt: 'desc' },
     });

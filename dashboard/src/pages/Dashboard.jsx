@@ -742,7 +742,6 @@ export default function Dashboard() {
                     <th className="py-2 pr-4">Plan</th>
                     <th className="py-2 pr-4">Trades</th>
                     <th className="py-2 pr-4">Balance</th>
-                    <th className="py-2 pr-4">Win Rate</th>
                     <th className="py-2 pr-4">M / AI / User AI</th>
                     <th className="py-2 pr-4">Joined</th>
                     <th className="py-2"></th>
@@ -766,9 +765,6 @@ export default function Dashboard() {
                       </td>
                       <td className="py-2 pr-4 text-xs">
                         {u.latestBalance != null ? `$${parseFloat(u.latestBalance).toFixed(2)}` : '—'}
-                      </td>
-                      <td className="py-2 pr-4 text-xs">
-                        {u.winRate != null ? `${u.winRate}%` : '—'}
                       </td>
                       <td className="py-2 pr-4 text-xs">
                         <div className="flex flex-col gap-0.5">
