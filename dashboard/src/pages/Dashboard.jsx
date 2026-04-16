@@ -297,7 +297,6 @@ export default function Dashboard() {
   useEffect(() => { loadClaimStatus(); }, [loadClaimStatus]);
   useEffect(() => { loadAiSettings(); loadTokenUsage(); }, [loadAiSettings, loadTokenUsage]);
 
-  async function refreshAfterSave() { loadStats(); loadHistory(historyType); }
 
   async function saveSettings() {
     if (!settings) return;
