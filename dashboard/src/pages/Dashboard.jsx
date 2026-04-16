@@ -741,7 +741,6 @@ export default function Dashboard() {
                     <th className="py-2 pr-4">Email</th>
                     <th className="py-2 pr-4">Plan</th>
                     <th className="py-2 pr-4">Trades</th>
-                    <th className="py-2 pr-4">Strategy</th>
                     <th className="py-2 pr-4">Balance</th>
                     <th className="py-2 pr-4">M / AI</th>
                     <th className="py-2 pr-4">User AI</th>
@@ -764,17 +763,6 @@ export default function Dashboard() {
                               {u.license.tradesUsed}/{u.license.tradesLimit}
                             </span>
                           : <span className="text-gray-500">{u.license?.tradesUsed ?? 0}/∞</span>}
-                      </td>
-                      <td className="py-2 pr-4 text-xs">
-                        <span className={
-                          u.currentStrategy === 'ai-signal' ? 'text-purple-400' :
-                          u.currentStrategy === 'user-ai' ? 'text-blue-400' :
-                          'text-gray-400'
-                        }>
-                          {u.currentStrategy === 'ai-signal' ? 'AI Signal' :
-                           u.currentStrategy === 'user-ai' ? 'User AI' :
-                           'Martingale'}
-                        </span>
                       </td>
                       <td className="py-2 pr-4 text-xs">
                         {u.latestBalance != null ? `$${parseFloat(u.latestBalance).toFixed(2)}` : '—'}
