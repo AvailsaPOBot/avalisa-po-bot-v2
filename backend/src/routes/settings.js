@@ -7,7 +7,7 @@ const router = express.Router();
 const VALID_TIMEFRAMES = ['S15', 'S30', 'M1', 'M3', 'M5', 'M30', 'H1'];
 const VALID_DIRECTIONS = ['alternating', 'call', 'put'];
 const VALID_STRATEGIES = ['martingale', 'anti-martingale', 'fixed', 'ai-signal'];
-const VALID_DELAYS = [4, 6, 8, 10, 12];
+const VALID_DELAYS = [2, 4, 6, 8, 10, 12];
 
 // GET /api/settings
 router.get('/', authMiddleware, async (req, res) => {

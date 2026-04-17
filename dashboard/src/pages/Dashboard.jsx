@@ -11,7 +11,7 @@ const STRATEGIES = [
   { id: 'ai-signal', label: 'AI Signal', free: false, desc: 'Gemini-powered CALL/PUT signals (Lifetime)' },
 ];
 
-const TIMEFRAMES = ['M1', 'M3', 'M5', 'M30', 'H1', 'H4'];
+const TIMEFRAMES = ['S30', 'M1', 'M3', 'M5', 'M30', 'H1'];
 const DIRECTIONS = [{ id: 'alternating', label: 'Alternating' }, { id: 'call', label: 'Always Call' }, { id: 'put', label: 'Always Put' }];
 const DELAYS = [4, 6, 8, 10, 12];
 const MULTIPLIERS = [1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8, 3.0];

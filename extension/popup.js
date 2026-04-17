@@ -13,7 +13,7 @@ chrome.storage.local.get('affiliateLink', data => {
 async function init() {
   // Check if current tab is on PO
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  const isOnPO = tab?.url?.includes('pocketoption.com') || tab?.url?.includes('po.cash');
+  const isOnPO = tab?.url?.includes('pocketoption.com') || tab?.url?.includes('po.cash') || tab?.url?.includes('po.trade');
 
   document.getElementById('not-on-po').style.display = isOnPO ? 'none' : 'block';
   document.getElementById('on-po').style.display = isOnPO ? 'block' : 'none';

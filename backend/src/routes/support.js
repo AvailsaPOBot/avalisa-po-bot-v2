@@ -17,7 +17,7 @@ YouTube: https://youtube.com/@avalisapobot
 === PLANS & PRICING ===
 
 Free: Register a NEW Pocket Option account via our affiliate link and get free bot access.
-Affiliate/free signup link: https://instabio.cc/Avalisapobot
+Affiliate/free signup link: https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50
 (Must be a NEW account — existing accounts do not qualify for free access)
 
 Basic Plan: $50 one-time — 100 trades

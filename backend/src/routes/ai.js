@@ -71,7 +71,7 @@ router.post('/signal', authMiddleware, async (req, res) => {
   const userMessage = `Pair: ${pair || 'unknown'}\nTimeframe: ${timeframe || 'M1'}\nCandles (last ${last50.length}, oldest first): ${JSON.stringify(last50)}`;
 
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GOOGLE_AI_API_KEY;
     const geminiRes = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

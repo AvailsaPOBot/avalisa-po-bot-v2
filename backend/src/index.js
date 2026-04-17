@@ -33,6 +33,7 @@ const allowedOrigins = [
   process.env.FRONTEND_URL,
   'https://avalisabot.vercel.app',
   'https://pocketoption.com',
+  'https://po.trade',
   'https://po.cash',
   'chrome-extension://', // handled by wildcard below
 ].filter(Boolean);

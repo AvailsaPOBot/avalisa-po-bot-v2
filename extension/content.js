@@ -24,39 +24,42 @@ const state = {
   stopRequested: false,
   cycleGeneration: 0,  // incremented on each start/stop; stale cycles self-terminate
   affiliateLink: AFFILIATE_LINK,  // updated from DB on startup
-  // AI mode
+  // AI assist (background, non-blocking)
   candleBuffer: {},   // { "EURUSD_otc:60": [{time,open,high,low,close},...] }
   aiTokensRemaining: null,
+  aiSignal: null,     // { direction: 'call'|'put'|null, confidence, fetchedAt }
   winRates: {},       // { S30: 48, M1: 52, ... }
 };
 
 // ─── WebSocket Candle Interceptor ─────────────────────────────────────────────
 // Runs in page context via injected <script> — content scripts can't access window.WebSocket directly.
 function injectWsInterceptor() {
+  // Load as a real file — bypasses PocketOption's CSP which blocks inline scripts
   const script = document.createElement('script');
-  script.textContent = `(function(){
-    const _WS = window.WebSocket;
-    function AvalisaWS(url, proto) {
-      const ws = proto ? new _WS(url, proto) : new _WS(url);
-      ws.addEventListener('message', function(e) {
-        try { window.postMessage({type:'AVALISA_WS',data:e.data},'*'); } catch(_){}
-      });
-      return ws;
-    }
-    AvalisaWS.prototype = _WS.prototype;
-    ['CONNECTING','OPEN','CLOSING','CLOSED'].forEach(k => {
-      Object.defineProperty(AvalisaWS, k, {value: _WS[k]});
-    });
-    window.WebSocket = AvalisaWS;
-  })();`;
+  script.src = chrome.runtime.getURL('injected.js');
+  script.onload = () => script.remove();
   document.documentElement.appendChild(script);
-  script.remove();
 }
 
 const TF_TO_SECONDS = { S30: 30, M1: 60, M3: 180, M5: 300, M30: 1800, H1: 3600 };
 
+let _wsDebugCount = 0;
+let _tickLogCount = 0;
 function parseWsMessage(raw) {
   if (typeof raw !== 'string') return;
+
+  // Debug: log first 10 raw WS messages so we can see the actual format
+  if (_wsDebugCount < 10) {
+    console.log('[Avalisa] WS raw msg #' + _wsDebugCount + ':', raw.substring(0, 200));
+    _wsDebugCount++;
+  }
+
+  // Socket.IO binary event placeholder (451- prefix)
+  if (raw.startsWith('451-') || raw.startsWith('452-')) {
+    console.log('[Avalisa] Socket.IO binary placeholder:', raw.substring(0, 200));
+    return; // actual data arrives in next binary frame, handled by AVALISA_WS_HISTORY
+  }
+
   // Socket.IO messages: 42["event", payload]
   const m = raw.match(/^42\["([^"]+)",([\s\S]+)\]$/);
   if (!m) return;
@@ -64,14 +67,14 @@ function parseWsMessage(raw) {
   let payload;
   try { payload = JSON.parse(m[2]); } catch { return; }
 
-  // updateStream: real-time candle updates
-  // Format: [{"asset":"EURUSD_otc","time":1234567890,"open":1.1,"close":1.1,"high":1.1,"low":1.1,"period":60}]
-  if (event === 'updateStream' && Array.isArray(payload)) {
-    payload.forEach(candle => ingestCandle(candle));
+  // Log ALL events — helps map PO's AI signal event names
+  const skip = new Set(['updateStream', 'setTime', 'ping', 'pong']);
+  if (!skip.has(event)) {
+    console.log('[Avalisa] WS EVENT:', event, JSON.stringify(payload).substring(0, 400));
   }
-  // loadHistoryPeriod / successloadHistory: historical batch
-  if ((event === 'loadHistoryPeriod' || event === 'successloadHistory') && payload?.history) {
-    payload.history.forEach(candle => ingestCandle({ ...candle, asset: payload.asset, period: payload.period }));
+
+  if (event === 'updateHistoryNewFast' || event === 'successloadHistory') {
+    console.log('[Avalisa] History text frame:', event, JSON.stringify(payload).substring(0, 200));
   }
 }
 
@@ -91,13 +94,63 @@ function ingestCandle(c) {
   }
 }
 
+// Build OHLCV candles from raw ticks (asset, unix_ts_float, price)
+function ingestTick(asset, timestamp, price) {
+  if (!asset || !timestamp || !price) return;
+  const periods = [30, 60, 180, 300, 1800, 3600];
+  periods.forEach(period => {
+    const key = `${asset}:${period}`;
+    const candleTime = Math.floor(timestamp / period) * period;
+    if (!state.candleBuffer[key]) state.candleBuffer[key] = [];
+    const buf = state.candleBuffer[key];
+    const last = buf[buf.length - 1];
+    if (last && last.time === candleTime) {
+      last.high = Math.max(last.high, price);
+      last.low = Math.min(last.low, price);
+      last.close = price;
+    } else {
+      buf.push({ time: candleTime, open: price, high: price, low: price, close: price });
+      if (buf.length > 100) buf.shift();
+    }
+  });
+}
+
+function normalizeAssetName(name) {
+  // Convert DOM display name to WS asset key format
+  // "AED/CNY OTC" → "AEDCNY_otc"
+  // "EUR/USD OTC" → "EURUSD_otc"
+  // "EUR/USD"     → "EURUSD"
+  if (!name) return name;
+  return name
+    .replace(/\s+OTC$/i, '_otc')
+    .replace(/\//g, '')
+    .trim();
+}
+
 function getBufferedCandles() {
-  // Return candles matching current pair + timeframe setting
   const pair = getCurrentPair();
   const tf = state.settings?.timeframe || 'M1';
   const periodSec = TF_TO_SECONDS[tf] || 60;
-  const key = `${pair}:${periodSec}`;
-  return state.candleBuffer[key] || [];
+
+  // 1. Exact match (e.g. buffer key already uses same format as DOM)
+  const exactKey = `${pair}:${periodSec}`;
+  if (state.candleBuffer[exactKey]?.length > 0) return state.candleBuffer[exactKey];
+
+  // 2. Normalized match — DOM "AED/CNY OTC" → WS "AEDCNY_otc"
+  const normalizedKey = `${normalizeAssetName(pair)}:${periodSec}`;
+  if (state.candleBuffer[normalizedKey]?.length > 0) return state.candleBuffer[normalizedKey];
+
+  // 3. Fuzzy fallback — find any key with the right period that has data
+  const suffix = `:${periodSec}`;
+  for (const key of Object.keys(state.candleBuffer)) {
+    if (key.endsWith(suffix) && state.candleBuffer[key].length > 0) {
+      console.log('[Avalisa] getBufferedCandles: fuzzy match key:', key, '(DOM pair:', pair + ')');
+      return state.candleBuffer[key];
+    }
+  }
+
+  console.log('[Avalisa] getBufferedCandles: 0 candles. Buffer keys:', Object.keys(state.candleBuffer), '| pair:', pair, '| period:', periodSec);
+  return [];
 }
 
 // ─── Device Fingerprint ───────────────────────────────────────────────────────
@@ -149,7 +202,7 @@ function getDefaultSettings() {
     martingaleSteps: 'infinite',
     delaySeconds: 6,
     startAmount: 1.0,
-    aiMode: false,
+    aiAssist: false,
   };
 }
 
@@ -447,19 +500,25 @@ function sleep(ms) {
  * Returns milliseconds, defaulting to 60000 if unreadable.
  */
 function getExpiryMs() {
+  // Primary: use bot's own timeframe setting (reliable, user-selected)
+  const tf = state.settings?.timeframe || 'M1';
+  const settingsMs = (TF_TO_SECONDS[tf] || 60) * 1000;
+
+  // Secondary: try reading from PO DOM for validation
   const el = document.querySelector('.block--expiration-inputs');
   if (el) {
     const match = el.textContent.match(/(\d{2}):(\d{2}):(\d{2})/);
     if (match) {
-      const ms = (+match[1] * 3600 + +match[2] * 60 + +match[3]) * 1000;
-      if (ms > 0 && ms <= 3600000) {
-        console.log('[Avalisa] Expiry read from PO UI:', ms / 1000 + 's');
-        return ms;
+      const domMs = (+match[1] * 3600 + +match[2] * 60 + +match[3]) * 1000;
+      if (domMs > 0 && domMs <= 3600000) {
+        console.log('[Avalisa] Expiry from DOM:', domMs / 1000 + 's | from settings:', settingsMs / 1000 + 's');
+        return domMs;
       }
     }
   }
-  console.warn('[Avalisa] Could not read expiry time — defaulting to 60s');
-  return 60000;
+
+  console.log('[Avalisa] Expiry from settings (DOM failed):', settingsMs / 1000 + 's');
+  return settingsMs;
 }
 
 /**
@@ -489,6 +548,14 @@ function waitForBalanceDrop(balanceBefore, amount, timeoutMs = 8000) {
 
 // ─── Trading Engine ───────────────────────────────────────────────────────────
 function getNextDirection() {
+  // AI assist override — use fresh signal if available (< 2 min old)
+  if (state.settings.aiAssist && state.aiSignal) {
+    const age = Date.now() - state.aiSignal.fetchedAt;
+    if (age < 120000 && state.aiSignal.direction) {
+      console.log(`[Avalisa] AI assist: ${state.aiSignal.direction.toUpperCase()} (${state.aiSignal.confidence}%, ${Math.round(age / 1000)}s old)`);
+      return state.aiSignal.direction;
+    }
+  }
   const dir = state.settings.direction;
   if (dir === 'call') return 'call';
   if (dir === 'put') return 'put';
@@ -521,15 +588,13 @@ async function runTradeCycle(generation) {
     return;
   }
 
-  // Strategy guard: free users can only use martingale
-  if (license.plan === 'free' && state.settings.strategy !== 'martingale') {
-    state.settings.strategy = 'martingale';
-    updateStatus('error', 'Free plan: Martingale only. Upgrade for more strategies.');
-  }
-  // AI mode guard: lifetime only
-  if (state.settings.strategy === 'ai-signal' && license.plan !== 'lifetime') {
-    state.settings.strategy = 'martingale';
-    updateStatus('error', 'AI Signal requires Lifetime plan.');
+  // AI assist guard: disable for non-lifetime silently
+  if (state.settings.aiAssist && license.plan !== 'lifetime') {
+    state.settings.aiAssist = false;
+    const toggle = document.getElementById('av-ai-assist');
+    if (toggle) toggle.checked = false;
+    document.getElementById('av-ai-signal-row').style.display = 'none';
+    updateStatus('error', 'AI Assist requires Lifetime plan.');
   }
 
   const amount = state.currentAmount;
@@ -538,84 +603,9 @@ async function runTradeCycle(generation) {
   }
   const safeAmount = state.currentAmount;
 
-  // ── AI Signal Mode ────────────────────────────────────────────────────────
-  let direction;
-  if (state.settings.strategy === 'ai-signal') {
-    // Check local token count first (fast fail)
-    if (state.aiTokensRemaining !== null && state.aiTokensRemaining <= 0) {
-      updateStatus('error', 'AI quota reached, resets 1st of month');
-      state.running = false;
-      updateUI();
-      return;
-    }
-
-    const candles = getBufferedCandles();
-    if (candles.length < 5) {
-      updateStatus('running', `⏳ Building candle data... (${candles.length}/50)`);
-      await sleep(5000);
-      if (state.running && !state.stopRequested && generation === state.cycleGeneration) {
-        runTradeCycle(generation).catch(console.error);
-      }
-      return;
-    }
-
-    updateStatus('running', '🤖 Asking AI for signal...');
-    try {
-      const signal = await apiPost('/api/ai/signal', {
-        candles,
-        timeframe: state.settings.timeframe || 'M1',
-        pair: getCurrentPair(),
-      });
-
-      if (signal.error === 'quota_exceeded') {
-        updateStatus('error', 'AI quota reached, resets 1st of month');
-        state.aiTokensRemaining = 0;
-        const el = document.getElementById('av-ai-tokens');
-        if (el) el.textContent = 'AI Tokens: 0 remaining';
-        state.running = false;
-        updateUI();
-        return;
-      }
-
-      if (signal.error) {
-        updateStatus('error', `AI error: ${signal.error}`);
-        await sleep(10000);
-        if (state.running && !state.stopRequested && generation === state.cycleGeneration) {
-          runTradeCycle(generation).catch(console.error);
-        }
-        return;
-      }
-
-      // Update token display
-      if (signal.remaining !== undefined) {
-        state.aiTokensRemaining = signal.remaining;
-        const el = document.getElementById('av-ai-tokens');
-        if (el) el.textContent = `AI Tokens: ${signal.remaining.toLocaleString()} remaining`;
-      }
-
-      if (signal.signal === 'SKIP') {
-        updateStatus('running', `⏭ AI says SKIP (${signal.confidence}%) — waiting...`);
-        await sleep((state.settings.delaySeconds || 6) * 1000);
-        if (state.running && !state.stopRequested && generation === state.cycleGeneration) {
-          runTradeCycle(generation).catch(console.error);
-        }
-        return;
-      }
-
-      direction = signal.signal === 'CALL' ? 'call' : 'put';
-      updateStatus('running', `🤖 AI: ${signal.signal} (${signal.confidence}%) — placing trade`);
-    } catch (err) {
-      console.error('[Avalisa] AI signal error:', err);
-      updateStatus('error', '❌ AI request failed. Retrying...');
-      await sleep(10000);
-      if (state.running && !state.stopRequested && generation === state.cycleGeneration) {
-        runTradeCycle(generation).catch(console.error);
-      }
-      return;
-    }
-  } else {
-    direction = getNextDirection();
-  }
+  // AI Assist: direction-only mode — never blocks trades.
+  // getNextDirection() uses AI signal when fresh & directional; falls back to user setting on SKIP/stale.
+  const direction = getNextDirection();
 
   updateStatus('running', `Trade #${state.tradesCount + 1} — ${direction.toUpperCase()} $${safeAmount.toFixed(2)}`);
 
@@ -629,6 +619,7 @@ async function runTradeCycle(generation) {
   }
   await sleep(300);
 
+  await sleep(500); // let any pending balance animation settle
   const balanceBefore = getBalance();
   console.log('[Avalisa] Balance before trade:', balanceBefore);
 
@@ -825,16 +816,6 @@ function getOverlayHTML() {
 
       <div class="av-section">
         <div class="av-row">
-          <label class="av-label">Strategy</label>
-          <select id="av-strategy" class="av-select">
-            <option value="martingale">Martingale</option>
-            <option value="ai-signal">🤖 AI Signal (Lifetime)</option>
-          </select>
-        </div>
-        <div id="av-ai-token-row" class="av-row" style="display:none">
-          <span id="av-ai-tokens" class="av-label" style="color:#7c3aed;font-size:11px;">AI Tokens: loading...</span>
-        </div>
-        <div class="av-row">
           <label class="av-label">Timeframe</label>
           <select id="av-timeframe" class="av-select">
             <option value="S30">S30 (30s)</option>
@@ -863,6 +844,19 @@ function getOverlayHTML() {
             <option value="10">10s</option>
             <option value="12">12s</option>
           </select>
+        </div>
+        <div class="av-row" style="margin-top:4px;">
+          <label class="av-label">🤖 AI Assist <span style="font-size:10px;color:#7c3aed">(Lifetime)</span></label>
+          <label class="av-toggle">
+            <input type="checkbox" id="av-ai-assist" />
+            <span class="av-toggle-slider"></span>
+          </label>
+        </div>
+        <div id="av-ai-threshold-row" class="av-row" style="display:none">
+          <label class="av-label" style="color:#7c3aed;font-size:11px;">🤖 AI guiding direction</label>
+        </div>
+        <div id="av-ai-signal-row" style="display:none; text-align:center; margin-top:2px; margin-bottom:4px;">
+          <span id="av-ai-signal" style="font-size:11px;color:#7c3aed;">🤖 –</span>
         </div>
         <div class="av-row">
           <label class="av-label">Start Amount ($)</label>
@@ -971,6 +965,12 @@ function getOverlayCSS() {
     .av-status.error { color: #f87171; }
     .av-status.running { color: #34d399; }
     .av-counter { font-size: 11px; color: #64748b; }
+    .av-toggle { position: relative; display: inline-block; width: 36px; height: 20px; }
+    .av-toggle input { opacity: 0; width: 0; height: 0; }
+    .av-toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #2d2d5b; border-radius: 20px; transition: .3s; }
+    .av-toggle-slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background: #94a3b8; border-radius: 50%; transition: .3s; }
+    input:checked + .av-toggle-slider { background: #7c3aed; }
+    input:checked + .av-toggle-slider:before { transform: translateX(16px); background: white; }
     .av-limit-msg { text-align: center; font-size: 12px; }
     .av-limit-msg p { color: #fbbf24; margin-bottom: 8px; }
     .av-limit-msg .av-btn { display: block; text-align: center; text-decoration: none; margin-bottom: 6px; }
@@ -1001,14 +1001,12 @@ function bindOverlayEvents() {
   document.getElementById('av-start-btn').addEventListener('click', startBot);
   document.getElementById('av-stop-btn').addEventListener('click', stopBot);
 
-  // Strategy toggle — show/hide martingale rows + AI token row
-  document.getElementById('av-strategy').addEventListener('change', (e) => {
-    const isAi = e.target.value === 'ai-signal';
-    document.getElementById('av-ai-token-row').style.display = isAi ? 'flex' : 'none';
-    document.querySelectorAll('.av-martingale-row').forEach(el => {
-      el.style.display = isAi ? 'none' : '';
-    });
-    if (isAi) loadAiTokenStatus();
+  // AI assist toggle
+  document.getElementById('av-ai-assist').addEventListener('change', (e) => {
+    const on = e.target.checked;
+    document.getElementById('av-ai-threshold-row').style.display = on ? 'flex' : 'none';
+    document.getElementById('av-ai-signal-row').style.display = on ? 'block' : 'none';
+    if (on) updateAiSignalDisplay();
     saveCurrentSettings();
   });
 
@@ -1202,6 +1200,66 @@ function diagnosePOInterface() {
   console.log('[Avalisa] === END DIAGNOSTIC ===');
 }
 
+// ─── Candle History Prefill ───────────────────────────────────────────────────
+async function prefillCandleHistory() {
+  console.log('[Avalisa] prefillCandleHistory: passive mode — waiting for updateHistoryNewFast from PO');
+  // History data arrives automatically via updateHistoryNewFast on page load and pair changes.
+  // No manual request needed — handled by AVALISA_WS_HISTORY message handler.
+}
+
+// ─── AI Background Loop ───────────────────────────────────────────────────────
+function updateAiSignalDisplay() {
+  const el = document.getElementById('av-ai-signal');
+  if (!el) return;
+  const s = state.aiSignal;
+  if (!s) { el.textContent = '🤖 –'; el.style.color = '#7c3aed'; return; }
+  const age = Math.round((Date.now() - s.fetchedAt) / 1000);
+  const dir = s.direction ? s.direction.toUpperCase() : 'SKIP';
+  el.style.color = dir === 'CALL' ? '#34d399' : dir === 'PUT' ? '#f87171' : '#94a3b8';
+  el.textContent = `🤖 ${dir} ${s.confidence}% · ${age}s ago`;
+}
+
+async function runAiLoop(generation) {
+  console.log('[Avalisa] AI assist loop started');
+  while (state.running && generation === state.cycleGeneration) {
+    if (!state.settings.aiAssist || !state.jwt) {
+      await sleep(5000);
+      continue;
+    }
+    const candles = getBufferedCandles();
+    const el = document.getElementById('av-ai-signal');
+    if (candles.length < 10) {
+      if (el) { el.textContent = `🤖 Building data… (${candles.length}/10)`; el.style.color = '#94a3b8'; }
+      await sleep(15000);
+      continue;
+    }
+    try {
+      const signal = await apiPost('/api/ai/signal', {
+        candles: candles.slice(-50),
+        timeframe: state.settings.timeframe || 'M1',
+        pair: getCurrentPair(),
+      });
+      if (signal.error === 'quota_exceeded') {
+        if (el) { el.textContent = '🤖 Quota reached'; el.style.color = '#f87171'; }
+        break;
+      }
+      if (!signal.error && signal.signal) {
+        state.aiSignal = {
+          direction: signal.signal === 'CALL' ? 'call' : signal.signal === 'PUT' ? 'put' : null,
+          confidence: signal.confidence || 0,
+          fetchedAt: Date.now(),
+        };
+        if (signal.remaining !== undefined) state.aiTokensRemaining = signal.remaining;
+        updateAiSignalDisplay();
+      }
+    } catch (err) {
+      console.warn('[Avalisa] AI loop error:', err);
+    }
+    await sleep(30000); // poll every 30s
+  }
+  console.log('[Avalisa] AI assist loop ended');
+}
+
 async function startBot() {
   if (state.running) return;
 
@@ -1223,9 +1281,14 @@ async function startBot() {
   state.martingaleStep = 0;
 
   const gen = state.cycleGeneration;
+  state.aiSignal = null; // clear stale signal on new start
   updateUI();
   updateStatus('running', 'Starting...');
+  prefillCandleHistory().catch(console.error);
   runTradeCycle(gen);
+  if (state.settings.aiAssist) {
+    runAiLoop(gen).catch(console.error); // background, non-blocking
+  }
 }
 
 function stopBot() {
@@ -1239,13 +1302,14 @@ function stopBot() {
 
 async function saveCurrentSettings() {
   const settings = {
-    strategy: document.getElementById('av-strategy')?.value || 'martingale',
+    strategy: 'martingale',
     timeframe: document.getElementById('av-timeframe').value,
     direction: document.getElementById('av-direction').value,
     delaySeconds: parseInt(document.getElementById('av-delay').value),
     martingaleMultiplier: parseFloat(document.getElementById('av-multiplier').value),
     martingaleSteps: document.getElementById('av-steps').value,
     startAmount: parseFloat(document.getElementById('av-start-amount').value) || 1.0,
+    aiAssist: document.getElementById('av-ai-assist')?.checked || false,
   };
   await saveSettings(settings);
 
@@ -1281,7 +1345,6 @@ function updateUI() {
   const s = state.settings;
   if (s) {
     const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
-    set('av-strategy', s.strategy || 'martingale');
     set('av-timeframe', (s.timeframe === 'S15' ? 'S30' : s.timeframe) || 'M1');
     set('av-direction', s.direction || 'alternating');
     set('av-delay', s.delaySeconds || 6);
@@ -1289,13 +1352,15 @@ function updateUI() {
     set('av-steps', s.martingaleSteps || 'infinite');
     set('av-start-amount', s.startAmount || 1.0);
 
-    const isAi = s.strategy === 'ai-signal';
-    const tokenRow = document.getElementById('av-ai-token-row');
-    if (tokenRow) tokenRow.style.display = isAi ? 'flex' : 'none';
-    document.querySelectorAll('.av-martingale-row').forEach(el => {
-      el.style.display = isAi ? 'none' : '';
-    });
+    const aiToggle = document.getElementById('av-ai-assist');
+    if (aiToggle) aiToggle.checked = !!s.aiAssist;
+    const thresholdRow = document.getElementById('av-ai-threshold-row');
+    if (thresholdRow) thresholdRow.style.display = s.aiAssist ? 'flex' : 'none';
+    const signalRow = document.getElementById('av-ai-signal-row');
+    if (signalRow) signalRow.style.display = s.aiAssist ? 'block' : 'none';
+
     updateTimeframeLabels();
+    updateAiSignalDisplay();
   }
 }
 
@@ -1351,20 +1416,6 @@ async function loadAffiliateLink() {
   if (btn) btn.dataset.href = state.affiliateLink;
 }
 
-// ─── AI Token Status ──────────────────────────────────────────────────────────
-async function loadAiTokenStatus() {
-  if (!state.jwt) return;
-  try {
-    const data = await apiGet('/api/ai/token-status');
-    if (data && data.remaining !== undefined) {
-      state.aiTokensRemaining = data.remaining;
-      const el = document.getElementById('av-ai-tokens');
-      if (el) el.textContent = `AI Tokens: ${data.remaining.toLocaleString()} remaining`;
-    }
-  } catch (err) {
-    console.warn('[Avalisa] Could not load AI token status');
-  }
-}
 
 // ─── Win Rates ────────────────────────────────────────────────────────────────
 async function loadWinRates() {
@@ -1378,6 +1429,7 @@ async function loadWinRates() {
     // silent
   }
 }
+
 
 function updateTimeframeLabels() {
   const select = document.getElementById('av-timeframe');
@@ -1406,21 +1458,107 @@ async function loadSettingsFromBackend() {
   }
 }
 
+// ─── WS Interceptor — runs immediately at script load (document_start) ────────
+// Must be outside init() so it fires before any page WebSocket connects.
+injectWsInterceptor();
+window.addEventListener('message', (e) => {
+  const t = e.data?.type;
+  if (t === 'AVALISA_WS') {
+    parseWsMessage(e.data.data);
+  } else if (t === 'AVALISA_WS_TICK') {
+    // Binary Blob decoded: [[asset, timestamp, price], ...]
+    try {
+      const ticks = JSON.parse(e.data.data);
+      if (Array.isArray(ticks)) {
+        // Log first blob so we can verify format
+        if (_tickLogCount < 3) {
+          console.log('[Avalisa] WS_TICK sample:', JSON.stringify(ticks).substring(0, 300));
+          _tickLogCount++;
+        }
+        ticks.forEach(tick => {
+          if (Array.isArray(tick) && tick.length >= 3) {
+            ingestTick(tick[0], tick[1], tick[2]);
+          }
+        });
+      }
+    } catch (_) {}
+  } else if (t === 'AVALISA_WS_HISTORY') {
+    console.log('[Avalisa] HISTORY binary received, length:', e.data.data.length);
+    console.log('[Avalisa] HISTORY response raw:', e.data.data.substring(0, 500));
+    try {
+      const parsed = JSON.parse(e.data.data);
+      console.log('[Avalisa] HISTORY parsed type:', typeof parsed, 'isArray:', Array.isArray(parsed), 'length:', parsed?.length, 'sample[0]:', JSON.stringify(parsed?.[0])?.substring(0, 200));
+
+      const pair = getCurrentPair();
+      const asset = normalizeAssetName(pair) || 'UNKNOWN';
+      const tf = state.settings?.timeframe || 'M1';
+      const periodSec = TF_TO_SECONDS[tf] || 60;
+
+      if (Array.isArray(parsed)) {
+        let ingested = 0;
+        parsed.forEach(item => {
+          let candle = null;
+
+          if (Array.isArray(item)) {
+            if (ingested < 3) console.log('[Avalisa] HISTORY candle raw:', JSON.stringify(item));
+            if (item.length >= 5) {
+              // Assume [time, open, close, high, low] — adjust if logs show different order
+              candle = { time: item[0], open: item[1], high: item[3], low: item[4], close: item[2], asset, period: periodSec };
+            } else if (item.length >= 4) {
+              candle = { time: item[0], open: item[1], high: item[2], low: item[3], close: item[1], asset, period: periodSec };
+            }
+          } else if (item && typeof item === 'object') {
+            if (ingested < 3) console.log('[Avalisa] HISTORY candle obj:', JSON.stringify(item));
+            candle = {
+              time: item.time || item.timestamp || item.t,
+              open: item.open || item.o,
+              high: item.high || item.h,
+              low: item.low || item.l,
+              close: item.close || item.c,
+              asset, period: periodSec
+            };
+          }
+
+          if (candle && candle.time && candle.open) {
+            ingestCandle(candle);
+            ingested++;
+          }
+        });
+        console.log('[Avalisa] HISTORY ingested', ingested, 'candles for', asset + ':' + periodSec);
+
+        const el = document.getElementById('av-ai-signal');
+        if (el && state.settings.aiAssist) {
+          el.textContent = '🤖 ' + ingested + ' candles loaded';
+          el.style.color = '#34d399';
+        }
+      }
+    } catch (err) {
+      console.warn('[Avalisa] HISTORY parse error:', err, 'raw:', e.data.data.substring(0, 200));
+    }
+  } else if (t === 'AVALISA_WS_SEND') {
+    // Log outgoing WS — helps identify what PO sends to trigger AI
+    if (e.data.data && !e.data.data.startsWith('2') && !e.data.data.startsWith('3')) {
+      console.log('[Avalisa] WS SEND:', e.data.data.substring(0, 300));
+    }
+  } else if (t === 'AVALISA_FETCH') {
+    console.log('[Avalisa] FETCH', e.data.method, e.data.url, e.data.body ? '| body:' + e.data.body : '');
+  } else if (t === 'AVALISA_FETCH_RES') {
+    console.log('[Avalisa] FETCH_RES', e.data.url, '|', e.data.body);
+  } else if (t === 'AVALISA_XHR') {
+    console.log('[Avalisa] XHR', e.data.method, e.data.url, '|', e.data.response);
+  }
+});
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
-  injectWsInterceptor(); // must run before page WebSocket connects
-  window.addEventListener('message', (e) => {
-    if (e.data?.type === 'AVALISA_WS') parseWsMessage(e.data.data);
-  });
-
   await loadFromStorage();
   await loadSettingsFromBackend();
   injectOverlay();
-  loadAffiliateLink(); // fire-and-forget — updates DOM links when ready
-  loadWinRates();      // fire-and-forget — updates timeframe labels when ready
-  if (state.jwt && state.settings?.strategy === 'ai-signal') {
-    loadAiTokenStatus(); // fire-and-forget
-  }
+  loadAffiliateLink(); // fire-and-forget
+  loadWinRates();      // fire-and-forget
+  setTimeout(() => prefillCandleHistory().catch(console.error), 3000); // prefill after WS connects
+  // Refresh AI signal age display every 10s
+  setInterval(updateAiSignalDisplay, 10000);
 
   // Wait for PO header to render before injecting button
   const headerInterval = setInterval(() => {
@@ -1441,9 +1579,5 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
 });
 
-// Wait for page to be ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
-} else {
-  init();
-}
+// At document_start the DOM is never ready yet — always wait for DOMContentLoaded
+document.addEventListener('DOMContentLoaded', init);
