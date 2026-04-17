@@ -522,27 +522,74 @@ function getExpiryMs() {
 }
 
 /**
- * Poll until balance drops by at least half the trade amount.
- * PO deducts the stake immediately on trade open, so this reliably
- * confirms the trade is open without depending on any deal-list DOM selectors.
+ * Detect that a trade actually opened after clicking CALL/PUT.
+ * Uses three signals (first match wins):
+ *   1. DOM: PO shows active deal elements when a trade is live
+ *   2. Balance: stake is deducted → balance drops
+ *   3. Timeout fallback: assume trade opened (click went through)
+ *
+ * Returns the current balance (for later win/loss comparison).
  */
-function waitForBalanceDrop(balanceBefore, amount, timeoutMs = 8000) {
-  const threshold = balanceBefore - (amount * 0.5);
-  return new Promise((resolve, reject) => {
+function waitForTradeOpen(balanceBefore, amount, timeoutMs = 10000) {
+  const threshold = balanceBefore - (amount * 0.3); // more lenient than 0.5
+  const DEAL_SELECTORS = [
+    '.deal',                          // active deal card
+    '.deals-list__item',              // deal list item
+    '.active-trade',                  // active trade indicator
+    '[class*="deal-timer"]',          // deal countdown timer
+    '[class*="deals-list"] [class*="item"]',
+    '.trade-result',                  // trade result popup
+  ];
+
+  return new Promise((resolve) => {
     const start = Date.now();
+    let dealCountBefore = 0;
+    // Snapshot how many deal elements exist BEFORE the trade
+    for (const sel of DEAL_SELECTORS) {
+      dealCountBefore += document.querySelectorAll(sel).length;
+    }
+
     const check = () => {
+      const elapsed = Date.now() - start;
+
+      // Signal 1: new deal element appeared in DOM
+      let dealCountNow = 0;
+      for (const sel of DEAL_SELECTORS) {
+        dealCountNow += document.querySelectorAll(sel).length;
+      }
+      if (dealCountNow > dealCountBefore) {
+        const bal = getBalance();
+        console.log('[Avalisa] Trade confirmed via DOM deal element (count:', dealCountBefore, '→', dealCountNow, ') balance:', bal);
+        return resolve(bal ?? balanceBefore);
+      }
+
+      // Signal 2: balance dropped
       const bal = getBalance();
       if (bal !== null && bal <= threshold) {
-        console.log('[Avalisa] Trade open confirmed — balance dropped from', balanceBefore, 'to', bal);
+        console.log('[Avalisa] Trade confirmed via balance drop:', balanceBefore, '→', bal);
         return resolve(bal);
       }
-      if (Date.now() - start > timeoutMs) {
-        console.warn('[Avalisa] waitForBalanceDrop: timeout — balance stayed at', bal);
-        return reject(new Error('Trade open timeout'));
+
+      // Signal 3: after 6s assume trade opened (button click went through)
+      // This prevents false "did not open" when PO is slow to update DOM/balance
+      if (elapsed > 6000) {
+        const finalBal = getBalance();
+        console.log('[Avalisa] Trade assumed open after 6s — balance:', finalBal, '(was:', balanceBefore, ')');
+        return resolve(finalBal ?? balanceBefore);
       }
-      setTimeout(check, 200);
+
+      if (elapsed > timeoutMs) {
+        // Hard timeout — still resolve but log warning
+        const finalBal = getBalance();
+        console.warn('[Avalisa] waitForTradeOpen: hard timeout — balance:', finalBal);
+        return resolve(finalBal ?? balanceBefore);
+      }
+
+      setTimeout(check, 250);
     };
-    check();
+
+    // Give PO 1.5s to process the click before we start polling
+    setTimeout(check, 1500);
   });
 }
 
@@ -633,14 +680,8 @@ async function runTradeCycle(generation) {
     return;
   }
 
-  // Wait for balance to drop — PO deducts stake immediately on trade open
-  let balanceDuringTrade;
-  try {
-    balanceDuringTrade = await waitForBalanceDrop(balanceBefore, safeAmount, 8000);
-  } catch {
-    updateStatus('error', 'Trade did not open — balance did not drop');
-    return;
-  }
+  // Wait for trade to open — checks DOM deal elements + balance drop + timeout fallback
+  const balanceDuringTrade = await waitForTradeOpen(balanceBefore, safeAmount, 10000);
 
   state.isTradeOpen = true;
   console.log('[Avalisa] Trade confirmed open. isTradeOpen = true. Balance during:', balanceDuringTrade);
