@@ -330,26 +330,31 @@ function extractResultFromCloseEvent(payload) {
   return null;
 }
 
-function scrapeLatestClosedDealResult() {
-  const selectors = [
-    '.deals-list__item:first-child',
-    '[class*="deals-list"] [class*="item"]:first-child',
-    '[class*="closed-deal"]:first-child',
-    '[class*="trade-history"] [class*="item"]:first-child',
-  ];
-  for (const sel of selectors) {
-    const el = document.querySelector(sel);
-    if (!el) continue;
-    const txt = el.innerText || '';
-    const hasWinClass = el.querySelector('[class*="win"], [class*="success"], [class*="green"]') || /win|\+\$/i.test(txt);
-    const hasLossClass = el.querySelector('[class*="loss"], [class*="lose"], [class*="red"]') || /loss|\-\$/i.test(txt);
-    if (hasWinClass && !hasLossClass) { console.log('[Avalisa] DOM deal result WIN via', sel); return 'win'; }
-    if (hasLossClass && !hasWinClass) { console.log('[Avalisa] DOM deal result LOSS via', sel); return 'loss'; }
-  }
+function getLatestDealSignature() {
+  const first = document.querySelector('.deals-list__item');
+  if (!first) return null;
+  const time = first.querySelector('.item-row div:nth-child(2)')?.innerText?.trim() || '';
+  const amount = first.querySelector('.item-row:nth-child(2) div:first-child')?.innerText?.trim() || '';
+  const payout = first.querySelector('.item-row .centered')?.innerText?.trim() || '';
+  return `${time}|${amount}|${payout}`;
+}
+
+function readFirstDealResult() {
+  const first = document.querySelector('.deals-list__item');
+  if (!first) return null;
+  const payoutCell = first.querySelector('.item-row .centered');
+  if (!payoutCell) return null;
+  if (payoutCell.classList.contains('price-up')) return 'win';
+  const text = payoutCell.innerText.trim();
+  if (text === '$0' || text === '$0.00') return 'loss';
   return null;
 }
 
-async function resolveTradeResult(balanceBefore, balanceDuringTrade, amount, tradeStartTs) {
+function scrapeLatestClosedDealResult() {
+  return readFirstDealResult();
+}
+
+async function resolveTradeResult(balanceBefore, balanceDuringTrade, amount, tradeStartTs, preTradeSignature) {
   // Tier 1: WS close event captured after trade start
   const recentWs = state.recentCloseEvents.filter(e => e.ts >= tradeStartTs);
   for (const ev of recentWs.slice().reverse()) {
@@ -359,13 +364,19 @@ async function resolveTradeResult(balanceBefore, balanceDuringTrade, amount, tra
       return r;
     }
   }
-  // Tier 2: DOM deal list scrape
-  await sleep(500);
-  const domResult = scrapeLatestClosedDealResult();
-  if (domResult) {
-    console.log('[Avalisa] RESULT:', domResult.toUpperCase(), 'via DOM scrape');
-    return domResult;
+  // Tier 2: DOM deal list — wait for signature change (new deal appeared)
+  for (let i = 0; i < 20; i++) {
+    const sig = getLatestDealSignature();
+    if (sig && sig !== preTradeSignature) {
+      const r = readFirstDealResult();
+      if (r) {
+        console.log(`[Avalisa] RESULT: ${r.toUpperCase()} via DOM deal scrape (sig ${preTradeSignature} → ${sig})`);
+        return r;
+      }
+    }
+    await sleep(500);
   }
+  console.warn('[Avalisa] Tier 2 timeout — new deal never appeared or result unreadable');
   // Tier 3: balance diff (with retry)
   for (let i = 0; i < 3; i++) {
     const bal = await getBalance();
@@ -842,6 +853,9 @@ async function runTradeCycle(generation) {
 
   const expiryMs = getExpiryMs();
 
+  const preTradeSignature = getLatestDealSignature();
+  console.log('[Avalisa] pre-trade deal signature:', preTradeSignature);
+
   const tradeStartTs = Date.now();
   const placed = direction === 'call' ? clickCall() : clickPut();
   if (!placed) {
@@ -872,7 +886,7 @@ async function runTradeCycle(generation) {
   state.isTradeOpen = false;
 
   // 3-tier result detection: WS close event → DOM scrape → balance diff
-  const result = await resolveTradeResult(balanceBefore, balanceDuringTrade, safeAmount, tradeStartTs);
+  const result = await resolveTradeResult(balanceBefore, balanceDuringTrade, safeAmount, tradeStartTs, preTradeSignature);
   const balanceAfter = await getBalance();
 
   if (state.jwt) {
