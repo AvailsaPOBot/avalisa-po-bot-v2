@@ -80,7 +80,8 @@ router.get('/claims', async (req, res) => {
     }));
     return res.json(claims);
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    console.error('[Admin] claims list error:', err);
+    return res.status(500).json({ error: 'Failed to fetch claims' });
   }
 });
 
@@ -114,7 +115,8 @@ router.post('/claims/approve', async (req, res) => {
 
     return res.json({ message: 'Claim approved. User now has lifetime access.' });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    console.error('[Admin] approve claim error:', err);
+    return res.status(500).json({ error: 'Failed to approve claim' });
   }
 });
 
@@ -134,7 +136,8 @@ router.post('/claims/reject', async (req, res) => {
 
     return res.json({ message: 'Claim rejected.' });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    console.error('[Admin] reject claim error:', err);
+    return res.status(500).json({ error: 'Failed to reject claim' });
   }
 });
 
@@ -163,7 +166,7 @@ router.patch('/users/:id', async (req, res) => {
     return res.json({ success: true });
   } catch (err) {
     console.error('[Admin] patch user error:', err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: 'Failed to update user' });
   }
 });
 
@@ -181,7 +184,7 @@ router.delete('/users/:id', async (req, res) => {
     return res.json({ success: true });
   } catch (err) {
     console.error('[Admin] delete user error:', err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: 'Failed to delete user' });
   }
 });
 
@@ -285,7 +288,8 @@ router.get('/users/:id/trades', async (req, res) => {
     });
     return res.json({ trades });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    console.error('[Admin] user trades error:', err);
+    return res.status(500).json({ error: 'Failed to fetch user trades' });
   }
 });
 
@@ -300,7 +304,8 @@ router.get('/ai-settings', async (req, res) => {
     rows.forEach(r => { result[r.key] = r.value; });
     return res.json(result);
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    console.error('[Admin] AI settings fetch error:', err);
+    return res.status(500).json({ error: 'Failed to fetch AI settings' });
   }
 });
 
@@ -322,7 +327,8 @@ router.put('/ai-settings', async (req, res) => {
     await Promise.all(updates);
     return res.json({ success: true });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    console.error('[Admin] AI settings update error:', err);
+    return res.status(500).json({ error: 'Failed to update AI settings' });
   }
 });
 
@@ -358,7 +364,8 @@ router.get('/token-usage', async (req, res) => {
       })),
     });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    console.error('[Admin] token usage error:', err);
+    return res.status(500).json({ error: 'Failed to fetch token usage' });
   }
 });
 
@@ -370,7 +377,8 @@ router.post('/token-reset', async (req, res) => {
     console.log(`[Admin] Token usage reset for ${month} — ${count} records deleted`);
     return res.json({ success: true, month, recordsDeleted: count });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    console.error('[Admin] token reset error:', err);
+    return res.status(500).json({ error: 'Failed to reset token usage' });
   }
 });
 

@@ -30,7 +30,7 @@ router.get('/token-status', authMiddleware, async (req, res) => {
     return res.json({ tokensUsed: used, budget, remaining: Math.max(0, budget - used), tokensLimit: budget, unlimited: false, month });
   } catch (err) {
     console.error('[AI] token-status error:', err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: 'Failed to fetch token status' });
   }
 });
 
