@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Avalisa Trading Strategy Tool",
-  "version": "2.2.1",
+  "version": "2.2.2",
   "description": "Advanced trading strategy assistant for Pocket Option. Automate your strategies with precision and full control.",
   "permissions": [
     "storage"
@@ -38,7 +38,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["injected.js"],
+      "resources": ["injected.js", "icons/AvalisaBot_Logo.png"],
       "matches": ["https://pocketoption.com/*", "https://po.cash/*", "https://po.trade/*"]
     }
   ]

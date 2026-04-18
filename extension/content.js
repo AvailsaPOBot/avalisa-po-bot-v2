@@ -201,16 +201,22 @@ async function loadFromStorage() {
   });
 }
 
-// Live-update payout monitor settings when popup writes to chrome.storage.
+// Live-update payout monitor settings when any storage writer changes them.
 if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;
     if (changes.payoutMinPercent) {
       const v = Number(changes.payoutMinPercent.newValue);
-      if (Number.isFinite(v) && v >= 1 && v <= 100) state.payoutMinPercent = v;
+      if (Number.isFinite(v) && v >= 1 && v <= 100) {
+        state.payoutMinPercent = v;
+        const el = document.getElementById('av-payout-min');
+        if (el && Number(el.value) !== v) el.value = v;
+      }
     }
     if (changes.payoutAction && ['stop', 'switch', 'keep'].includes(changes.payoutAction.newValue)) {
       state.payoutAction = changes.payoutAction.newValue;
+      const radio = document.querySelector(`input[name="av-payout-action"][value="${state.payoutAction}"]`);
+      if (radio && !radio.checked) radio.checked = true;
     }
   });
 }
@@ -1221,10 +1227,14 @@ function injectHeaderButton() {
 }
 
 function getOverlayHTML() {
+  const logoUrl = chrome.runtime.getURL('icons/AvalisaBot_Logo.png');
   return `
     <div id="avalisa-panel">
       <div class="av-header">
-        <span class="av-logo">⚡ Avalisa Bot</span>
+        <span class="av-logo">
+          <img src="${logoUrl}" alt="Avalisa" class="av-logo-img" />
+          <span>Avalisa Bot</span>
+        </span>
         <button id="av-close" class="av-icon-btn">✕</button>
       </div>
 
@@ -1314,6 +1324,29 @@ function getOverlayHTML() {
         </div>
       </div>
 
+      <div class="av-section">
+        <div class="av-section-title">Payout Monitor</div>
+        <div class="av-row">
+          <label class="av-label" for="av-payout-min">Minimum payout %</label>
+          <input id="av-payout-min" type="number" min="1" max="100" step="1" value="90"
+            class="av-input av-input-sm" />
+        </div>
+        <div class="av-radio-group">
+          <label class="av-radio-item">
+            <input type="radio" name="av-payout-action" value="stop" checked />
+            <span>Stop bot</span>
+          </label>
+          <label class="av-radio-item">
+            <input type="radio" name="av-payout-action" value="switch" />
+            <span>Auto-switch to highest-payout favorite</span>
+          </label>
+          <label class="av-radio-item">
+            <input type="radio" name="av-payout-action" value="keep" />
+            <span>Keep trading (ignore payout)</span>
+          </label>
+        </div>
+      </div>
+
       <div class="av-section av-controls">
         <button id="av-start-btn" class="av-btn av-btn-green">▶ Start</button>
         <button id="av-stop-btn" class="av-btn av-btn-red" disabled>■ Stop</button>
@@ -1345,6 +1378,12 @@ function getOverlayHTML() {
           <div id="av-claim-status" style="font-size:11px; margin-top:6px; display:none;"></div>
         </div>
       </div>
+
+      <div class="av-footer">
+        <a href="https://avalisabot.vercel.app" target="_blank" rel="noopener">avalisabot.vercel.app</a>
+        <span class="av-footer-sep"> · </span>
+        <a href="mailto:AvalisaPOBot@gmail.com">AvalisaPOBot@gmail.com</a>
+      </div>
     </div>
   `;
 }
@@ -1361,7 +1400,11 @@ function getOverlayCSS() {
       color: #e2e8f0;
     }
     .av-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-    .av-logo { font-size: 15px; font-weight: 700; color: #a78bfa; }
+    .av-logo {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 15px; font-weight: 700; color: #a78bfa;
+    }
+    .av-logo-img { height: 24px; width: auto; display: block; flex-shrink: 0; }
     .av-icon-btn { background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 14px; }
     .av-icon-btn:hover { color: #e2e8f0; }
     .av-section { margin-bottom: 12px; border-bottom: 1px solid #2d2d5b; padding-bottom: 12px; }
@@ -1408,6 +1451,23 @@ function getOverlayCSS() {
     #av-auth-section input.av-input { margin-bottom: 6px; }
     #av-login-btn, #av-register-free-btn { width: 100%; margin-bottom: 6px; }
     #av-logged-in { display: flex; justify-content: space-between; align-items: center; }
+    .av-section-title {
+      font-size: 11px; font-weight: 700; color: #a78bfa; text-transform: uppercase;
+      letter-spacing: 0.5px; margin-bottom: 8px;
+    }
+    .av-radio-group { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+    .av-radio-item {
+      display: flex; align-items: center; gap: 8px; cursor: pointer;
+      font-size: 12px; color: #cbd5e1;
+    }
+    .av-radio-item input[type="radio"] { accent-color: #7c3aed; cursor: pointer; margin: 0; }
+    .av-footer {
+      margin-top: 12px; padding-top: 10px; border-top: 1px solid #2d2d5b;
+      font-size: 10px; color: #64748b; text-align: center;
+    }
+    .av-footer a { color: #94a3b8; text-decoration: none; }
+    .av-footer a:hover { color: #a78bfa; }
+    .av-footer-sep { color: #475569; }
   `;
 }
 
@@ -1439,6 +1499,29 @@ function bindOverlayEvents() {
     document.getElementById(id).addEventListener('change', saveCurrentSettings);
   });
   document.getElementById('av-start-amount').addEventListener('change', saveCurrentSettings);
+
+  // Payout Monitor inputs — persist directly to chrome.storage.local
+  const payoutMin = document.getElementById('av-payout-min');
+  if (payoutMin) {
+    const commit = () => {
+      let v = parseInt(payoutMin.value, 10);
+      if (!Number.isFinite(v)) v = 90;
+      v = Math.max(1, Math.min(100, v));
+      payoutMin.value = v;
+      state.payoutMinPercent = v;
+      chrome.storage.local.set({ payoutMinPercent: v });
+    };
+    payoutMin.addEventListener('change', commit);
+    payoutMin.addEventListener('blur', commit);
+  }
+  document.querySelectorAll('input[name="av-payout-action"]').forEach(r => {
+    r.addEventListener('change', () => {
+      const sel = document.querySelector('input[name="av-payout-action"]:checked');
+      if (!sel) return;
+      state.payoutAction = sel.value;
+      chrome.storage.local.set({ payoutAction: sel.value });
+    });
+  });
 
   document.getElementById('av-affiliate-link').href = state.affiliateLink;
   document.getElementById('av-upgrade-link').href = `${DASHBOARD_URL}/pricing`;
@@ -1778,6 +1861,16 @@ function updateUI() {
     const delayEl = document.getElementById('av-delay');
     if (dirEl) dirEl.disabled = isAi;
     if (delayEl) delayEl.disabled = isAi;
+
+    // Payout Monitor values from state (seeded from chrome.storage.local)
+    const payoutMin = document.getElementById('av-payout-min');
+    if (payoutMin) {
+      const v = Number.isFinite(+state.payoutMinPercent) ? +state.payoutMinPercent : 90;
+      payoutMin.value = Math.max(1, Math.min(100, v));
+    }
+    const action = ['stop', 'switch', 'keep'].includes(state.payoutAction) ? state.payoutAction : 'stop';
+    const radio = document.querySelector(`input[name="av-payout-action"][value="${action}"]`);
+    if (radio) radio.checked = true;
 
     updateBottomStatus();
   }

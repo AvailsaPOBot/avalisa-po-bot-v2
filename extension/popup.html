@@ -42,28 +42,6 @@
       text-align: center; color: #94a3b8; font-size: 13px; padding: 10px 0;
     }
     .not-on-po a { color: #a78bfa; }
-    .section-title {
-      font-size: 12px; font-weight: 700; color: #a78bfa; text-transform: uppercase;
-      letter-spacing: 0.5px; margin-bottom: 10px;
-    }
-    .payout-row {
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 10px;
-    }
-    .payout-row label { font-size: 12px; color: #94a3b8; }
-    .payout-input {
-      background: #0f0f23; border: 1px solid #2d2d5b; border-radius: 6px;
-      color: #e2e8f0; font-size: 12px; padding: 5px 8px; width: 72px;
-      text-align: right;
-    }
-    .payout-input:focus { outline: none; border-color: #7c3aed; }
-    .radio-group { display: flex; flex-direction: column; gap: 6px; }
-    .radio-item {
-      display: flex; align-items: center; gap: 8px; cursor: pointer;
-      font-size: 12px; color: #cbd5e1;
-    }
-    .radio-item input[type="radio"] { accent-color: #7c3aed; cursor: pointer; }
-    .radio-item .hint { color: #64748b; font-size: 11px; margin-left: 6px; }
   </style>
 </head>
 <body>
@@ -91,31 +69,6 @@
 
       <button class="btn btn-green" id="open-panel-btn">Open Bot Panel on Page</button>
       <a class="btn btn-primary" id="dashboard-link" href="#" target="_blank">Open Dashboard</a>
-
-      <div class="divider"></div>
-
-      <div class="section-title">Payout Monitor</div>
-      <div class="payout-row">
-        <label for="payout-min">Minimum payout %</label>
-        <input id="payout-min" type="number" min="1" max="100" step="1" value="90" class="payout-input" />
-      </div>
-      <div class="radio-group">
-        <label class="radio-item">
-          <input type="radio" name="payout-action" value="stop" checked />
-          <span>Stop bot</span>
-          <span class="hint">— below threshold</span>
-        </label>
-        <label class="radio-item">
-          <input type="radio" name="payout-action" value="switch" />
-          <span>Auto-switch</span>
-          <span class="hint">— to highest-payout favorite</span>
-        </label>
-        <label class="radio-item">
-          <input type="radio" name="payout-action" value="keep" />
-          <span>Keep trading</span>
-          <span class="hint">— ignore payout</span>
-        </label>
-      </div>
 
       <div class="divider"></div>
 

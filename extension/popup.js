@@ -10,48 +10,6 @@ chrome.storage.local.get('affiliateLink', data => {
   document.getElementById('affiliate-link').href = data.affiliateLink || FALLBACK_AFFILIATE_LINK;
 });
 
-// ─── Payout Monitor settings ────────────────────────────────────────────────
-function loadPayoutSettings() {
-  chrome.storage.local.get(['payoutMinPercent', 'payoutAction'], data => {
-    const minInput = document.getElementById('payout-min');
-    if (minInput) {
-      const v = Number(data.payoutMinPercent);
-      minInput.value = Number.isFinite(v) && v >= 1 && v <= 100 ? v : 90;
-    }
-    const action = ['stop', 'switch', 'keep'].includes(data.payoutAction) ? data.payoutAction : 'stop';
-    const radio = document.querySelector(`input[name="payout-action"][value="${action}"]`);
-    if (radio) radio.checked = true;
-  });
-}
-
-function savePayoutMin() {
-  const el = document.getElementById('payout-min');
-  if (!el) return;
-  let v = parseInt(el.value, 10);
-  if (!Number.isFinite(v)) v = 90;
-  v = Math.max(1, Math.min(100, v));
-  el.value = v;
-  chrome.storage.local.set({ payoutMinPercent: v });
-}
-
-function savePayoutAction() {
-  const selected = document.querySelector('input[name="payout-action"]:checked');
-  if (!selected) return;
-  chrome.storage.local.set({ payoutAction: selected.value });
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  loadPayoutSettings();
-  const minInput = document.getElementById('payout-min');
-  if (minInput) {
-    minInput.addEventListener('change', savePayoutMin);
-    minInput.addEventListener('blur', savePayoutMin);
-  }
-  document.querySelectorAll('input[name="payout-action"]').forEach(r => {
-    r.addEventListener('change', savePayoutAction);
-  });
-});
-
 async function init() {
   // Check if current tab is on PO
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
