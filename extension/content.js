@@ -30,6 +30,9 @@ const state = {
   aiTokensLimit: null,
   aiUnlimited: false,
   recentCloseEvents: [], // [{ ts, event, payload }]
+  // Payout monitor (populated from chrome.storage.local)
+  payoutMinPercent: 90,
+  payoutAction: 'stop',
 };
 
 // ─── WebSocket Candle Interceptor ─────────────────────────────────────────────
@@ -186,12 +189,29 @@ function getDeviceFingerprint() {
 // ─── Storage Helpers ──────────────────────────────────────────────────────────
 async function loadFromStorage() {
   return new Promise(resolve => {
-    chrome.storage.local.get(['jwt', 'userId', 'settings'], data => {
+    chrome.storage.local.get(['jwt', 'userId', 'settings', 'payoutMinPercent', 'payoutAction'], data => {
       state.jwt = data.jwt || null;
       state.userId = data.userId || null;
       state.settings = data.settings || getDefaultSettings();
+      const minPct = Number(data.payoutMinPercent);
+      state.payoutMinPercent = Number.isFinite(minPct) && minPct >= 1 && minPct <= 100 ? minPct : 90;
+      state.payoutAction = ['stop', 'switch', 'keep'].includes(data.payoutAction) ? data.payoutAction : 'stop';
       resolve();
     });
+  });
+}
+
+// Live-update payout monitor settings when popup writes to chrome.storage.
+if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local') return;
+    if (changes.payoutMinPercent) {
+      const v = Number(changes.payoutMinPercent.newValue);
+      if (Number.isFinite(v) && v >= 1 && v <= 100) state.payoutMinPercent = v;
+    }
+    if (changes.payoutAction && ['stop', 'switch', 'keep'].includes(changes.payoutAction.newValue)) {
+      state.payoutAction = changes.payoutAction.newValue;
+    }
   });
 }
 
@@ -784,6 +804,136 @@ function buildIndicators() {
   };
 }
 
+// ─── Payout Monitor ──────────────────────────────────────────────────────────
+function parsePayoutPercent(text) {
+  if (!text) return null;
+  const m = String(text).match(/\+?\s*(\d{1,3})\s*%/);
+  if (!m) return null;
+  const v = parseInt(m[1], 10);
+  return v >= 0 && v <= 200 ? v : null;
+}
+
+/**
+ * Read the active pair's payout %. Tries several PO layouts and falls back to
+ * scanning nearby header text for a +NN% pattern.
+ */
+function getCurrentPayoutPercent() {
+  const directSelectors = [
+    '.asset-select .asset__profit',
+    '.current-symbol__profit',
+    '.block--payout .value__val',
+    '.block--profit .value__val',
+    '.estimated-profit__val',
+    '.profit-value',
+    '[class*="payout"] .value__val',
+    '[class*="profit"] .value__val',
+  ];
+  for (const sel of directSelectors) {
+    const el = document.querySelector(sel);
+    const v = parsePayoutPercent(el?.textContent);
+    if (v !== null) return v;
+  }
+  // Fallback: scan the asset/header area for a +NN% token
+  const header = document.querySelector('.asset-select, .current-symbol, .assets-block, .header__asset');
+  const v = parsePayoutPercent(header?.textContent);
+  if (v !== null) return v;
+  return null;
+}
+
+/**
+ * Scan the Favorites panel for starred pairs and their payouts.
+ * Returns [{name, payout, el}] — empty array if no favorites found.
+ */
+function getFavoritePairs() {
+  const containerSelectors = [
+    '.assets-favorites-list__item',
+    '.favorite-list__item',
+    '.pair-favorites__item',
+    '.assets-block .favorites-list__item',
+    '[class*="favorit"] [class*="item"]',
+  ];
+  const seen = new Set();
+  const results = [];
+  for (const sel of containerSelectors) {
+    const nodes = document.querySelectorAll(sel);
+    if (nodes.length === 0) continue;
+    nodes.forEach(node => {
+      if (seen.has(node)) return;
+      seen.add(node);
+      const nameEl = node.querySelector(
+        '.assets-favorites-list__label, .asset__name, .pair-name, [class*="label"], [class*="name"]'
+      );
+      const name = (nameEl?.textContent || node.getAttribute('data-asset') || '').trim();
+      const payout = parsePayoutPercent(node.textContent);
+      if (name && payout !== null) results.push({ name, payout, el: node });
+    });
+    if (results.length > 0) break;
+  }
+  return results;
+}
+
+function clickFavoritePair(fav) {
+  if (!fav || !fav.el) return false;
+  try {
+    fav.el.click();
+    return true;
+  } catch (err) {
+    console.warn('[Avalisa] Payout Monitor: click favorite failed', err);
+    return false;
+  }
+}
+
+function getPayoutSettings() {
+  const minPct = Number.isFinite(+state.payoutMinPercent) ? +state.payoutMinPercent : 90;
+  const action = ['stop', 'switch', 'keep'].includes(state.payoutAction) ? state.payoutAction : 'stop';
+  return { minPct, action };
+}
+
+/**
+ * Enforce the payout monitor rules. Only call on fresh martingale sequence start.
+ * Returns { proceed:boolean, halt?:boolean, reason?:string }.
+ */
+async function checkPayoutBeforeTrade() {
+  const { minPct, action } = getPayoutSettings();
+  const current = getCurrentPayoutPercent();
+
+  if (current === null) {
+    console.warn('[Avalisa] Payout Monitor: could not read current pair payout — proceeding');
+    return { proceed: true };
+  }
+  console.log(`[Avalisa] Payout Monitor: current=${current}% threshold=${minPct}% action=${action}`);
+
+  if (action === 'keep' || current >= minPct) return { proceed: true };
+
+  if (action === 'stop') {
+    return { proceed: false, halt: true, reason: `Payout ${current}% below ${minPct}% threshold` };
+  }
+
+  // action === 'switch'
+  const favorites = getFavoritePairs();
+  if (favorites.length === 0) {
+    return { proceed: false, halt: true, reason: 'Star at least 1 pair in PO Favorites to use Auto-switch.' };
+  }
+  favorites.sort((a, b) => b.payout - a.payout);
+  const best = favorites[0];
+  if (best.payout < minPct) {
+    return { proceed: false, halt: true, reason: `No favorite >= ${minPct}% (highest ${best.payout}%)` };
+  }
+
+  const currentPair = (getCurrentPair() || '').trim();
+  if (best.payout === current || best.name === currentPair) {
+    // Tied with current or already on the best favorite — stay put
+    return { proceed: true };
+  }
+
+  console.log(`[Avalisa] Payout Monitor: switching to ${best.name} (${best.payout}%)`);
+  if (!clickFavoritePair(best)) {
+    return { proceed: false, halt: true, reason: `Could not switch to ${best.name}` };
+  }
+  await sleep(1500);
+  return { proceed: true };
+}
+
 // ─── Trading Engine ───────────────────────────────────────────────────────────
 function getNextDirection() {
   // Martingale mode — use user direction setting
@@ -815,6 +965,21 @@ async function runTradeCycle(generation) {
     state.running = false;
     updateUI();
     return;
+  }
+
+  // Payout monitor — only on fresh martingale sequence starts (never mid-sequence)
+  if (state.martingaleStep === 0) {
+    const pay = await checkPayoutBeforeTrade();
+    if (!pay.proceed) {
+      if (pay.halt) {
+        console.warn('[Avalisa] Payout Monitor: halting bot —', pay.reason);
+        updateStatus('error', `Payout Monitor: ${pay.reason}`);
+        state.running = false;
+        state.stopRequested = true;
+        updateUI();
+        return;
+      }
+    }
   }
 
   // AI strategy guard: requires lifetime plan
