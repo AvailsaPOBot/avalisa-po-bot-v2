@@ -24,7 +24,10 @@ router.get('/token-status', authMiddleware, async (req, res) => {
     ]);
     const budget = parseInt(budgetConfig?.value || '10000');
     const used = usage?.tokensUsed || 0;
-    return res.json({ tokensUsed: used, budget, remaining: Math.max(0, budget - used), month });
+    if (req.user?.isAdmin) {
+      return res.json({ tokensUsed: used, budget: null, remaining: null, tokensLimit: null, unlimited: true, month });
+    }
+    return res.json({ tokensUsed: used, budget, remaining: Math.max(0, budget - used), tokensLimit: budget, unlimited: false, month });
   } catch (err) {
     console.error('[AI] token-status error:', err);
     return res.status(500).json({ error: err.message });
@@ -32,21 +35,20 @@ router.get('/token-status', authMiddleware, async (req, res) => {
 });
 
 // POST /api/ai/signal
-// Body: { candles: [...], timeframe, pair }
+// Body: { indicators: {...} }
 router.post('/signal', authMiddleware, async (req, res) => {
-  // Lifetime plan only
   const license = await prisma.license.findUnique({ where: { userId: req.userId } });
   if (!license || license.plan !== 'lifetime') {
     return res.status(403).json({ error: 'AI trading requires Lifetime plan' });
   }
 
-  const { candles, timeframe, pair } = req.body;
-  if (!candles || !Array.isArray(candles) || candles.length === 0) {
-    return res.status(400).json({ error: 'candles array required' });
+  const { indicators } = req.body;
+  if (!indicators || typeof indicators !== 'object') {
+    return res.status(400).json({ error: 'indicators object required' });
   }
 
-  // Check token budget
   const month = getCurrentMonth();
+  const isAdmin = req.user?.isAdmin === true;
   const [usage, budgetConfig] = await Promise.all([
     prisma.userTokenUsage.findUnique({
       where: { userId_month: { userId: req.userId, month } },
@@ -55,20 +57,15 @@ router.post('/signal', authMiddleware, async (req, res) => {
   ]);
   const budget = parseInt(budgetConfig?.value || '10000');
   const used = usage?.tokensUsed || 0;
-  if (used >= budget) {
-    return res.status(429).json({
-      error: 'quota_exceeded',
-      message: 'AI quota reached, resets 1st of month',
-    });
+  if (!isAdmin && used >= budget) {
+    return res.status(429).json({ error: 'quota_exceeded', message: 'AI quota reached, resets 1st of month' });
   }
 
-  // Get strategy prompt
   const promptConfig = await prisma.appConfig.findUnique({ where: { key: 'ai_strategy_prompt' } });
   const systemPrompt = promptConfig?.value ||
-    'You are a binary options trading assistant. Analyze the last 50 candles of OHLCV data and return only a JSON object: {"signal": "CALL"|"PUT"|"SKIP", "confidence": 0-100, "reasoning": "brief reason"}. CALL = price will go up. PUT = price will go down. SKIP = unclear signal, do not trade.';
+    'You are a binary options trading signal generator. Given technical indicators, respond ONLY with a JSON object: {"signal": "CALL"|"PUT"|"SKIP", "confidence": 0-100, "reasoning": "<15 words"}. CALL = expect price up next candle. PUT = expect down. SKIP = unclear, do not trade. Be conservative — prefer SKIP over low-confidence trades.';
 
-  const last50 = candles.slice(-50);
-  const userMessage = `Pair: ${pair || 'unknown'}\nTimeframe: ${timeframe || 'M1'}\nCandles (last ${last50.length}, oldest first): ${JSON.stringify(last50)}`;
+  const userMessage = `Indicators: ${JSON.stringify(indicators)}`;
 
   try {
     const apiKey = process.env.GOOGLE_AI_API_KEY;
@@ -78,34 +75,22 @@ router.post('/signal', authMiddleware, async (req, res) => {
       body: JSON.stringify({
         system_instruction: { parts: [{ text: systemPrompt }] },
         contents: [{ role: 'user', parts: [{ text: userMessage }] }],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 256 },
+        generationConfig: { temperature: 0.2, maxOutputTokens: 128 },
       }),
     });
-
     if (!geminiRes.ok) {
       const errText = await geminiRes.text();
       console.error('[AI] Gemini error:', geminiRes.status, errText);
       return res.status(502).json({ error: 'Gemini API error' });
     }
-
     const geminiData = await geminiRes.json();
     const text = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
     const tokensUsed = geminiData.usageMetadata?.totalTokenCount || 0;
 
-    // Parse signal from response
     let parsed = { signal: 'SKIP', confidence: 0, reasoning: '' };
-    try {
-      const match = text.match(/\{[\s\S]*?\}/);
-      if (match) parsed = JSON.parse(match[0]);
-    } catch {
-      console.warn('[AI] Failed to parse Gemini response:', text);
-    }
+    try { const m = text.match(/\{[\s\S]*?\}/); if (m) parsed = JSON.parse(m[0]); } catch {}
+    const signal = ['CALL', 'PUT', 'SKIP'].includes((parsed.signal || '').toUpperCase()) ? parsed.signal.toUpperCase() : 'SKIP';
 
-    const signal = ['CALL', 'PUT', 'SKIP'].includes((parsed.signal || '').toUpperCase())
-      ? parsed.signal.toUpperCase()
-      : 'SKIP';
-
-    // Track token usage
     if (tokensUsed > 0) {
       await prisma.userTokenUsage.upsert({
         where: { userId_month: { userId: req.userId, month } },
@@ -113,15 +98,16 @@ router.post('/signal', authMiddleware, async (req, res) => {
         create: { userId: req.userId, month, tokensUsed },
       });
     }
-
-    console.log(`[AI] Signal for ${req.userId}: ${signal} (${parsed.confidence}%) — ${tokensUsed} tokens`);
+    console.log(`[AI] ${req.user.email} ${signal} (${parsed.confidence}%) — ${tokensUsed} tok${isAdmin ? ' [ADMIN]' : ''}`);
 
     return res.json({
       signal,
       confidence: parsed.confidence || 0,
       reasoning: parsed.reasoning || '',
       tokensUsed,
-      remaining: Math.max(0, budget - used - tokensUsed),
+      remaining: isAdmin ? null : Math.max(0, budget - used - tokensUsed),
+      tokensLimit: isAdmin ? null : budget,
+      unlimited: isAdmin,
     });
   } catch (err) {
     console.error('[AI] signal error:', err);

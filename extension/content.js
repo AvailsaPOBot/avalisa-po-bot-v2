@@ -27,8 +27,9 @@ const state = {
   // AI assist (background, non-blocking)
   candleBuffer: {},   // { "EURUSD_otc:60": [{time,open,high,low,close},...] }
   aiTokensRemaining: null,
-  aiSignal: null,     // { direction: 'call'|'put'|null, confidence, fetchedAt }
-  winRates: {},       // { S30: 48, M1: 52, ... }
+  aiTokensLimit: null,
+  aiUnlimited: false,
+  recentCloseEvents: [], // [{ ts, event, payload }]
 };
 
 // ─── WebSocket Candle Interceptor ─────────────────────────────────────────────
@@ -67,6 +68,14 @@ function parseWsMessage(raw) {
   let payload;
   try { payload = JSON.parse(m[2]); } catch { return; }
 
+  // Capture close-like events for trade result detection
+  const CLOSE_EVENT_PATTERNS = /close|deal.*end|order.*close|profit|expir|update.*deal|success.*close/i;
+  if (CLOSE_EVENT_PATTERNS.test(event)) {
+    state.recentCloseEvents.push({ ts: Date.now(), event, payload });
+    if (state.recentCloseEvents.length > 20) state.recentCloseEvents.shift();
+    console.log('[Avalisa] CLOSE EVENT CAPTURED:', event, JSON.stringify(payload).substring(0, 500));
+  }
+
   // Log ALL events — helps map PO's AI signal event names
   const skip = new Set(['updateStream', 'setTime', 'ping', 'pong']);
   if (!skip.has(event)) {
@@ -90,7 +99,7 @@ function ingestCandle(c) {
     buf[existing] = entry; // update (candle still forming)
   } else {
     buf.push(entry);
-    if (buf.length > 100) buf.shift(); // keep last 100
+    if (buf.length > 50) buf.shift(); // keep last 50
   }
 }
 
@@ -110,7 +119,7 @@ function ingestTick(asset, timestamp, price) {
       last.close = price;
     } else {
       buf.push({ time: candleTime, open: price, high: price, low: price, close: price });
-      if (buf.length > 100) buf.shift();
+      if (buf.length > 50) buf.shift();
     }
   });
 }
@@ -277,26 +286,99 @@ async function incrementTrade() {
 }
 
 // ─── DOM Helpers ──────────────────────────────────────────────────────────────
-function getBalance() {
+async function getBalance() {
+  const demo = isDemoMode();
+  const selectors = demo
+    ? ['.js-balance-demo', '.js-hd.js-balance-demo', '[class*="balance-demo"]', '.balance__value', '.header-balance']
+    : ['.js-balance-real-USD', '.js-balance-real', '.js-hd.js-balance-real', '[class*="balance-real"]', '.balance__value', '.header-balance'];
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    for (const sel of selectors) {
+      const el = document.querySelector(sel);
+      if (el) {
+        const text = el.textContent.replace(/[^0-9.]/g, '');
+        const val = parseFloat(text);
+        if (val > 0) {
+          console.log(`[Avalisa] Balance found via: ${sel} = ${val} (mode=${demo ? 'demo' : 'real'}, attempt=${attempt})`);
+          return val;
+        }
+      }
+    }
+    if (attempt < 3) await sleep(300);
+  }
+  console.warn('[Avalisa] Balance not found after 3 attempts — mode:', demo ? 'demo' : 'real');
+  return null;
+}
+
+function extractResultFromCloseEvent(payload) {
+  if (!payload) return null;
+  if (typeof payload.profit === 'number') return payload.profit > 0 ? 'win' : 'loss';
+  if (typeof payload.profitAmount === 'number') return payload.profitAmount > 0 ? 'win' : 'loss';
+  if (payload.result === 'win' || payload.status === 'win') return 'win';
+  if (payload.result === 'loss' || payload.status === 'loss' || payload.result === 'lose') return 'loss';
+  if (payload.openPrice && payload.closePrice && payload.command !== undefined) {
+    const up = payload.closePrice > payload.openPrice;
+    const wasCall = payload.command === 0 || payload.direction === 'call' || payload.type === 'call';
+    return (up === wasCall) ? 'win' : 'loss';
+  }
+  if (Array.isArray(payload) && payload.length > 0) {
+    return extractResultFromCloseEvent(payload[payload.length - 1]);
+  }
+  if (Array.isArray(payload.deals) && payload.deals.length > 0) {
+    return extractResultFromCloseEvent(payload.deals[payload.deals.length - 1]);
+  }
+  return null;
+}
+
+function scrapeLatestClosedDealResult() {
   const selectors = [
-    '.js-balance-demo', '.js-balance-real-USD', '.js-balance-real',
-    '.js-hd.js-balance-demo', '.js-hd.js-balance-real',
-    '[class*="balance-demo"]', '[class*="balance-real"]',
-    '.balance__value', '.header-balance',
+    '.deals-list__item:first-child',
+    '[class*="deals-list"] [class*="item"]:first-child',
+    '[class*="closed-deal"]:first-child',
+    '[class*="trade-history"] [class*="item"]:first-child',
   ];
   for (const sel of selectors) {
     const el = document.querySelector(sel);
-    if (el) {
-      const text = el.textContent.replace(/[^0-9.]/g, '');
-      const val = parseFloat(text);
-      if (val > 0) {
-        console.log('[Avalisa] Balance found via:', sel, '=', val);
-        return val;
-      }
+    if (!el) continue;
+    const txt = el.innerText || '';
+    const hasWinClass = el.querySelector('[class*="win"], [class*="success"], [class*="green"]') || /win|\+\$/i.test(txt);
+    const hasLossClass = el.querySelector('[class*="loss"], [class*="lose"], [class*="red"]') || /loss|\-\$/i.test(txt);
+    if (hasWinClass && !hasLossClass) { console.log('[Avalisa] DOM deal result WIN via', sel); return 'win'; }
+    if (hasLossClass && !hasWinClass) { console.log('[Avalisa] DOM deal result LOSS via', sel); return 'loss'; }
+  }
+  return null;
+}
+
+async function resolveTradeResult(balanceBefore, balanceDuringTrade, amount, tradeStartTs) {
+  // Tier 1: WS close event captured after trade start
+  const recentWs = state.recentCloseEvents.filter(e => e.ts >= tradeStartTs);
+  for (const ev of recentWs.slice().reverse()) {
+    const r = extractResultFromCloseEvent(ev.payload);
+    if (r) {
+      console.log('[Avalisa] RESULT:', r.toUpperCase(), 'via WS event:', ev.event);
+      return r;
     }
   }
-  console.warn('[Avalisa] Balance not found — tried all selectors');
-  return null;
+  // Tier 2: DOM deal list scrape
+  await sleep(500);
+  const domResult = scrapeLatestClosedDealResult();
+  if (domResult) {
+    console.log('[Avalisa] RESULT:', domResult.toUpperCase(), 'via DOM scrape');
+    return domResult;
+  }
+  // Tier 3: balance diff (with retry)
+  for (let i = 0; i < 3; i++) {
+    const bal = await getBalance();
+    if (bal !== null && balanceDuringTrade !== null) {
+      const delta = bal - balanceDuringTrade;
+      if (delta > amount * 0.5) { console.log('[Avalisa] RESULT: WIN via balance delta +' + delta.toFixed(2)); return 'win'; }
+      if (delta < -amount * 0.1) { console.log('[Avalisa] RESULT: LOSS via balance delta ' + delta.toFixed(2)); return 'loss'; }
+    }
+    await sleep(500);
+  }
+  // All tiers inconclusive — default WIN to avoid runaway martingale
+  console.warn('[Avalisa] RESULT: WIN (inconclusive, defaulted to prevent runaway stack)');
+  return 'win';
 }
 
 function setTradeAmount(amount) {
@@ -530,79 +612,121 @@ function getExpiryMs() {
  *
  * Returns the current balance (for later win/loss comparison).
  */
-function waitForTradeOpen(balanceBefore, amount, timeoutMs = 10000) {
-  const threshold = balanceBefore - (amount * 0.3); // more lenient than 0.5
+async function waitForTradeOpen(balanceBefore, amount, timeoutMs = 10000) {
+  const threshold = balanceBefore - (amount * 0.3);
   const DEAL_SELECTORS = [
-    '.deal',                          // active deal card
-    '.deals-list__item',              // deal list item
-    '.active-trade',                  // active trade indicator
-    '[class*="deal-timer"]',          // deal countdown timer
-    '[class*="deals-list"] [class*="item"]',
-    '.trade-result',                  // trade result popup
+    '.deal', '.deals-list__item', '.active-trade',
+    '[class*="deal-timer"]', '[class*="deals-list"] [class*="item"]', '.trade-result',
   ];
 
-  return new Promise((resolve) => {
-    const start = Date.now();
-    let dealCountBefore = 0;
-    // Snapshot how many deal elements exist BEFORE the trade
+  let dealCountBefore = 0;
+  for (const sel of DEAL_SELECTORS) {
+    dealCountBefore += document.querySelectorAll(sel).length;
+  }
+
+  await sleep(1500); // give PO time to process click
+  const start = Date.now();
+
+  while (Date.now() - start < timeoutMs) {
+    // Signal 1: new deal element appeared
+    let dealCountNow = 0;
     for (const sel of DEAL_SELECTORS) {
-      dealCountBefore += document.querySelectorAll(sel).length;
+      dealCountNow += document.querySelectorAll(sel).length;
+    }
+    if (dealCountNow > dealCountBefore) {
+      const bal = await getBalance();
+      console.log('[Avalisa] Trade confirmed via DOM deal element (count:', dealCountBefore, '→', dealCountNow, ') balance:', bal);
+      return bal ?? balanceBefore;
     }
 
-    const check = () => {
-      const elapsed = Date.now() - start;
+    // Signal 2: balance dropped
+    const bal = await getBalance();
+    if (bal !== null && bal <= threshold) {
+      console.log('[Avalisa] Trade confirmed via balance drop:', balanceBefore, '→', bal);
+      return bal;
+    }
 
-      // Signal 1: new deal element appeared in DOM
-      let dealCountNow = 0;
-      for (const sel of DEAL_SELECTORS) {
-        dealCountNow += document.querySelectorAll(sel).length;
-      }
-      if (dealCountNow > dealCountBefore) {
-        const bal = getBalance();
-        console.log('[Avalisa] Trade confirmed via DOM deal element (count:', dealCountBefore, '→', dealCountNow, ') balance:', bal);
-        return resolve(bal ?? balanceBefore);
-      }
+    // Signal 3: after 6s assume trade opened
+    if (Date.now() - start > 6000) {
+      const finalBal = await getBalance();
+      console.log('[Avalisa] Trade assumed open after 6s — balance:', finalBal, '(was:', balanceBefore, ')');
+      return finalBal ?? balanceBefore;
+    }
 
-      // Signal 2: balance dropped
-      const bal = getBalance();
-      if (bal !== null && bal <= threshold) {
-        console.log('[Avalisa] Trade confirmed via balance drop:', balanceBefore, '→', bal);
-        return resolve(bal);
-      }
+    await sleep(250);
+  }
 
-      // Signal 3: after 6s assume trade opened (button click went through)
-      // This prevents false "did not open" when PO is slow to update DOM/balance
-      if (elapsed > 6000) {
-        const finalBal = getBalance();
-        console.log('[Avalisa] Trade assumed open after 6s — balance:', finalBal, '(was:', balanceBefore, ')');
-        return resolve(finalBal ?? balanceBefore);
-      }
+  const finalBal = await getBalance();
+  console.warn('[Avalisa] waitForTradeOpen: hard timeout — balance:', finalBal);
+  return finalBal ?? balanceBefore;
+}
 
-      if (elapsed > timeoutMs) {
-        // Hard timeout — still resolve but log warning
-        const finalBal = getBalance();
-        console.warn('[Avalisa] waitForTradeOpen: hard timeout — balance:', finalBal);
-        return resolve(finalBal ?? balanceBefore);
-      }
+// ─── Indicator Helpers ────────────────────────────────────────────────────────
+function calcSMA(vals, period) {
+  if (vals.length < period) return null;
+  const slice = vals.slice(-period);
+  return slice.reduce((a, b) => a + b, 0) / period;
+}
 
-      setTimeout(check, 250);
-    };
+function calcRSI(closes, period = 14) {
+  if (closes.length < period + 1) return null;
+  let gains = 0, losses = 0;
+  for (let i = closes.length - period; i < closes.length; i++) {
+    const diff = closes[i] - closes[i - 1];
+    if (diff > 0) gains += diff; else losses -= diff;
+  }
+  const avgGain = gains / period;
+  const avgLoss = losses / period;
+  if (avgLoss === 0) return 100;
+  const rs = avgGain / avgLoss;
+  return +(100 - 100 / (1 + rs)).toFixed(1);
+}
 
-    // Give PO 1.5s to process the click before we start polling
-    setTimeout(check, 1500);
-  });
+function calcStdev(vals) {
+  if (vals.length < 2) return null;
+  const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+  const variance = vals.reduce((a, b) => a + (b - mean) ** 2, 0) / vals.length;
+  return Math.sqrt(variance);
+}
+
+function buildIndicators() {
+  const candles = getBufferedCandles();
+  if (candles.length < 20) return null;
+  const closes = candles.map(c => c.close);
+  const highs = candles.map(c => c.high);
+  const lows = candles.map(c => c.low);
+  const price = closes[closes.length - 1];
+  const sma10 = calcSMA(closes, 10);
+  const sma20 = calcSMA(closes, 20);
+  const rsi14 = calcRSI(closes, 14);
+  const recentHigh = Math.max(...highs.slice(-20));
+  const recentLow = Math.min(...lows.slice(-20));
+  const vol = calcStdev(closes.slice(-20));
+  const momentum5 = closes.length >= 6
+    ? +(((price - closes[closes.length - 6]) / closes[closes.length - 6]) * 100).toFixed(3)
+    : null;
+  const last3 = candles.slice(-3).map(c => c.close > c.open ? 'bull' : 'bear');
+  return {
+    pair: getCurrentPair(),
+    tf: state.settings?.timeframe || 'M1',
+    price: +price.toFixed(5),
+    rsi14,
+    sma10: sma10 ? +sma10.toFixed(5) : null,
+    sma20: sma20 ? +sma20.toFixed(5) : null,
+    priceVsSma20Pct: sma20 ? +(((price - sma20) / sma20) * 100).toFixed(3) : null,
+    recentHigh: +recentHigh.toFixed(5),
+    recentLow: +recentLow.toFixed(5),
+    rangeFromLowPct: +(((price - recentLow) / (recentHigh - recentLow || 1)) * 100).toFixed(1),
+    volatility: vol ? +vol.toFixed(6) : null,
+    momentum5,
+    last3Candles: last3,
+    candleCount: candles.length,
+  };
 }
 
 // ─── Trading Engine ───────────────────────────────────────────────────────────
 function getNextDirection() {
-  // AI assist override — use fresh signal if available (< 2 min old)
-  if (state.settings.aiAssist && state.aiSignal) {
-    const age = Date.now() - state.aiSignal.fetchedAt;
-    if (age < 120000 && state.aiSignal.direction) {
-      console.log(`[Avalisa] AI assist: ${state.aiSignal.direction.toUpperCase()} (${state.aiSignal.confidence}%, ${Math.round(age / 1000)}s old)`);
-      return state.aiSignal.direction;
-    }
-  }
+  // Martingale mode — use user direction setting
   const dir = state.settings.direction;
   if (dir === 'call') return 'call';
   if (dir === 'put') return 'put';
@@ -612,11 +736,9 @@ function getNextDirection() {
 }
 
 async function runTradeCycle(generation) {
-  // Stale cycle check — if bot was restarted this generation won't match
   if (generation !== state.cycleGeneration) return;
   if (state.stopRequested) return;
 
-  // Guard: don't place a new trade while one is still open
   if (state.isTradeOpen) {
     console.log('[Avalisa] Trade already open, waiting...');
     updateStatus('running', 'Trade already open, waiting...');
@@ -635,13 +757,65 @@ async function runTradeCycle(generation) {
     return;
   }
 
-  // AI assist guard: disable for non-lifetime silently
-  if (state.settings.aiAssist && license.plan !== 'lifetime') {
+  // AI strategy guard: requires lifetime plan
+  if (state.settings.strategy === 'ai' && license.plan !== 'lifetime') {
+    state.settings.strategy = 'martingale';
     state.settings.aiAssist = false;
-    const toggle = document.getElementById('av-ai-assist');
-    if (toggle) toggle.checked = false;
-    document.getElementById('av-ai-signal-row').style.display = 'none';
-    updateStatus('error', 'AI Assist requires Lifetime plan.');
+    const stratEl = document.getElementById('av-strategy');
+    if (stratEl) stratEl.value = 'martingale';
+    updateUI();
+    updateStatus('error', 'AI strategy requires Lifetime plan. Switched to Martingale.');
+  }
+
+  // AI on-demand: compute indicators locally, call API synchronously
+  let aiDecidedDirection = null;
+  if (state.settings.strategy === 'ai' || state.settings.aiAssist) {
+    // Wait for 25-candle warmup
+    let candles = getBufferedCandles();
+    while (candles.length < 25 && state.running && !state.stopRequested) {
+      updateStatus('running', `Collecting candles: ${candles.length}/25`);
+      updateBottomStatus();
+      await sleep(2000);
+      candles = getBufferedCandles();
+    }
+    if (!state.running || state.stopRequested) return;
+
+    const indicators = buildIndicators();
+    if (!indicators) {
+      updateStatus('error', 'Could not build indicators — skipping cycle');
+      await sleep(5000);
+      if (state.running) runTradeCycle(generation).catch(console.error);
+      return;
+    }
+
+    updateStatus('running', 'Analyzing…');
+    try {
+      const sig = await apiPost('/api/ai/signal', { indicators });
+      if (sig.error === 'quota_exceeded') {
+        updateStatus('error', 'Token quota reached');
+        state.running = false; updateUI(); return;
+      }
+      if (sig.remaining !== undefined) state.aiTokensRemaining = sig.remaining;
+      if (sig.tokensLimit !== undefined) state.aiTokensLimit = sig.tokensLimit;
+      if (sig.unlimited) state.aiUnlimited = true;
+      updateBottomStatus();
+
+      const s = (sig.signal || 'SKIP').toUpperCase();
+      console.log(`[Avalisa] AI signal: ${s} (${sig.confidence}%) — ${sig.reasoning}`);
+      if (s === 'SKIP') {
+        updateStatus('running', `SKIP (${sig.confidence}%) — waiting 30s`);
+        await sleep(30000);
+        if (state.running) runTradeCycle(generation).catch(console.error);
+        return;
+      }
+      aiDecidedDirection = s === 'CALL' ? 'call' : 'put';
+    } catch (err) {
+      console.error('[Avalisa] AI signal error:', err);
+      updateStatus('error', 'AI signal failed — retrying in 15s');
+      await sleep(15000);
+      if (state.running) runTradeCycle(generation).catch(console.error);
+      return;
+    }
   }
 
   const amount = state.currentAmount;
@@ -650,43 +824,36 @@ async function runTradeCycle(generation) {
   }
   const safeAmount = state.currentAmount;
 
-  // AI Assist: direction-only mode — never blocks trades.
-  // getNextDirection() uses AI signal when fresh & directional; falls back to user setting on SKIP/stale.
-  const direction = getNextDirection();
+  const direction = aiDecidedDirection || getNextDirection();
 
   updateStatus('running', `Trade #${state.tradesCount + 1} — ${direction.toUpperCase()} $${safeAmount.toFixed(2)}`);
 
-  // Set timeframe on page
   await setTimeframe(state.settings.timeframe || 'M1');
 
-  // Set amount on page, then wait for React to process the change
   if (!setTradeAmount(safeAmount)) {
     updateStatus('error', 'Could not set trade amount — page may have changed');
     return;
   }
   await sleep(300);
 
-  await sleep(500); // let any pending balance animation settle
-  const balanceBefore = getBalance();
+  await sleep(500);
+  const balanceBefore = await getBalance();
   console.log('[Avalisa] Balance before trade:', balanceBefore);
 
-  // Read PO's expiry duration BEFORE clicking (timer is always visible in the UI)
   const expiryMs = getExpiryMs();
 
-  // Place trade
+  const tradeStartTs = Date.now();
   const placed = direction === 'call' ? clickCall() : clickPut();
   if (!placed) {
     updateStatus('error', `Could not find ${direction.toUpperCase()} button`);
     return;
   }
 
-  // Wait for trade to open — checks DOM deal elements + balance drop + timeout fallback
   const balanceDuringTrade = await waitForTradeOpen(balanceBefore, safeAmount, 10000);
 
   state.isTradeOpen = true;
   console.log('[Avalisa] Trade confirmed open. isTradeOpen = true. Balance during:', balanceDuringTrade);
 
-  // Safety: auto-clear after expiry + 30s buffer
   const tradeGuardTimeout = setTimeout(() => {
     if (state.isTradeOpen) {
       console.warn('[Avalisa] Safety timeout — clearing isTradeOpen');
@@ -698,24 +865,16 @@ async function runTradeCycle(generation) {
   await incrementTrade();
   updateTradeCounter();
 
-  // Wait for the trade to expire, then read balance change
   updateStatus('running', `Trade open — waiting ${Math.round(expiryMs / 1000)}s for result…`);
   await sleep(expiryMs + 3000);
 
   clearTimeout(tradeGuardTimeout);
   state.isTradeOpen = false;
 
-  const balanceAfter = getBalance();
-  // Compare against balanceDuringTrade (after stake was deducted):
-  // WIN  → payout credited, balance rises above balanceDuringTrade
-  // LOSS → no payout, balance stays at balanceDuringTrade
-  const result = (balanceAfter !== null && balanceDuringTrade !== null && balanceAfter > balanceDuringTrade)
-    ? 'win'
-    : 'loss';
-  console.log(`[Avalisa] Balance BEFORE: ${balanceBefore} | DURING: ${balanceDuringTrade} | AFTER: ${balanceAfter} → ${result.toUpperCase()}`);
-  console.log('[Avalisa] Trade closed. Result:', result, '| isTradeOpen = false');
+  // 3-tier result detection: WS close event → DOM scrape → balance diff
+  const result = await resolveTradeResult(balanceBefore, balanceDuringTrade, safeAmount, tradeStartTs);
+  const balanceAfter = await getBalance();
 
-  // Log trade to backend
   if (state.jwt) {
     withRetry(() => apiPost('/api/trades/log', {
       pair: getCurrentPair(),
@@ -729,16 +888,15 @@ async function runTradeCycle(generation) {
     })).catch(console.error);
   }
 
-  // Martingale logic
   applyMartingaleLogic(result);
 
   updateStatus('running', `Last: ${result.toUpperCase()} | Next: $${state.currentAmount.toFixed(2)}`);
+  updateBottomStatus();
 
-  // Check if still running after update
   if (!state.running || state.stopRequested || generation !== state.cycleGeneration) return;
 
-  // Delay between trades
-  const delay = (state.settings.delaySeconds || 6) * 1000;
+  // AI mode: short delay (AI decides timing). Martingale mode: user delay.
+  const delay = state.settings.strategy === 'ai' ? 1500 : (state.settings.delaySeconds || 6) * 1000;
   await sleep(delay);
 
   if (state.running && !state.stopRequested && generation === state.cycleGeneration) {
@@ -850,12 +1008,22 @@ function getOverlayHTML() {
           <button id="av-register-free-btn" class="av-btn av-btn-outline">Register Free</button>
         </div>
         <div id="av-logged-in" style="display:none">
-          <span id="av-user-email" class="av-label"></span>
-          <button id="av-logout-btn" class="av-btn av-btn-sm">Logout</button>
+          <div class="av-user-row">
+            <span id="av-user-email" class="av-label"></span>
+            <span id="av-plan-badge" class="av-plan-badge"></span>
+            <button id="av-logout-btn" class="av-btn av-btn-sm">Logout</button>
+          </div>
         </div>
       </div>
 
       <div class="av-section">
+        <div class="av-row">
+          <label class="av-label">Strategy</label>
+          <select id="av-strategy" class="av-select">
+            <option value="martingale">Martingale</option>
+            <option value="ai">AI</option>
+          </select>
+        </div>
         <div class="av-row">
           <label class="av-label">Timeframe</label>
           <select id="av-timeframe" class="av-select">
@@ -886,24 +1054,11 @@ function getOverlayHTML() {
             <option value="12">12s</option>
           </select>
         </div>
-        <div class="av-row" style="margin-top:4px;">
-          <label class="av-label">🤖 AI Assist <span style="font-size:10px;color:#7c3aed">(Lifetime)</span></label>
-          <label class="av-toggle">
-            <input type="checkbox" id="av-ai-assist" />
-            <span class="av-toggle-slider"></span>
-          </label>
-        </div>
-        <div id="av-ai-threshold-row" class="av-row" style="display:none">
-          <label class="av-label" style="color:#7c3aed;font-size:11px;">🤖 AI guiding direction</label>
-        </div>
-        <div id="av-ai-signal-row" style="display:none; text-align:center; margin-top:2px; margin-bottom:4px;">
-          <span id="av-ai-signal" style="font-size:11px;color:#7c3aed;">🤖 –</span>
-        </div>
         <div class="av-row">
           <label class="av-label">Start Amount ($)</label>
           <input id="av-start-amount" type="number" min="1" step="1" value="1" class="av-input av-input-sm" />
         </div>
-        <div class="av-row av-martingale-row">
+        <div class="av-row">
           <label class="av-label">Martingale ×</label>
           <select id="av-multiplier" class="av-select">
             <option value="2.0" selected>2.0×</option>
@@ -914,7 +1069,7 @@ function getOverlayHTML() {
             <option value="3.0">3.0×</option>
           </select>
         </div>
-        <div class="av-row av-martingale-row">
+        <div class="av-row">
           <label class="av-label">Martingale Steps</label>
           <select id="av-steps" class="av-select">
             <option value="infinite" selected>Infinite</option>
@@ -936,19 +1091,21 @@ function getOverlayHTML() {
         <button id="av-stop-btn" class="av-btn av-btn-red" disabled>■ Stop</button>
       </div>
 
-      <div class="av-section">
+      <div class="av-section av-status-block">
         <div id="av-status" class="av-status">Status: Stopped</div>
-        <div id="av-trade-counter" class="av-counter">Trades: 0</div>
+        <div id="av-candle-status" class="av-counter" style="display:none">Candles: 0/50</div>
+        <div id="av-token-status" class="av-counter" style="display:none"></div>
+        <div id="av-trade-counter" class="av-counter">Trades this session: 0</div>
       </div>
 
       <div id="av-limit-msg" class="av-limit-msg" style="display:none">
-        <p>🚫 Trade limit reached!</p>
+        <p>Trade limit reached!</p>
         <a id="av-affiliate-link" class="av-btn av-btn-primary" target="_blank">Register Free Account</a>
         <a id="av-upgrade-link" class="av-btn av-btn-outline" target="_blank">Upgrade Plan</a>
         <div id="av-claim-section" style="margin-top:8px; border-top:1px solid #2a4060; padding-top:8px;">
           <p style="font-size:11px; color:#8fa8c8; margin:0 0 6px 0;">Already registered via affiliate link?</p>
           <button id="av-claim-btn" style="width:100%; padding:6px; background:#7c3aed; color:white; border:none; border-radius:4px; font-size:12px; cursor:pointer;">
-            🎯 Claim Free Access
+            Claim Free Access
           </button>
           <div id="av-claim-uid-input" style="display:none; margin-top:6px;">
             <input id="av-claim-uid" type="text" placeholder="Enter your Pocket Option UID"
@@ -988,6 +1145,7 @@ function getOverlayCSS() {
       color: #e2e8f0; font-size: 12px; padding: 4px 8px;
     }
     .av-select { min-width: 110px; }
+    .av-select:disabled { opacity: 0.4; cursor: not-allowed; }
     .av-input { width: 100%; box-sizing: border-box; margin-top: 4px; padding: 6px 10px; }
     .av-input-sm { width: 90px; }
     .av-controls { display: flex; gap: 8px; }
@@ -1002,16 +1160,20 @@ function getOverlayCSS() {
     .av-btn-red { background: #dc2626; color: #fff; }
     .av-btn-sm { padding: 4px 10px; font-size: 11px; flex: none; }
     #av-logout-btn { background: #dc2626; color: #ffffff; }
+    .av-user-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .av-user-row .av-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .av-plan-badge {
+      font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px;
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .av-plan-badge.plan-lifetime { background: #7c3aed; color: #fff; }
+    .av-plan-badge.plan-basic { background: #059669; color: #fff; }
+    .av-plan-badge.plan-free { background: #3b82f6; color: #fff; }
+    .av-status-block { }
     .av-status { font-size: 12px; color: #a78bfa; margin-bottom: 4px; }
     .av-status.error { color: #f87171; }
     .av-status.running { color: #34d399; }
-    .av-counter { font-size: 11px; color: #64748b; }
-    .av-toggle { position: relative; display: inline-block; width: 36px; height: 20px; }
-    .av-toggle input { opacity: 0; width: 0; height: 0; }
-    .av-toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #2d2d5b; border-radius: 20px; transition: .3s; }
-    .av-toggle-slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background: #94a3b8; border-radius: 50%; transition: .3s; }
-    input:checked + .av-toggle-slider { background: #7c3aed; }
-    input:checked + .av-toggle-slider:before { transform: translateX(16px); background: white; }
+    .av-counter { font-size: 11px; color: #64748b; margin-bottom: 2px; }
     .av-limit-msg { text-align: center; font-size: 12px; }
     .av-limit-msg p { color: #fbbf24; margin-bottom: 8px; }
     .av-limit-msg .av-btn { display: block; text-align: center; text-decoration: none; margin-bottom: 6px; }
@@ -1022,32 +1184,25 @@ function getOverlayCSS() {
 }
 
 function bindOverlayEvents() {
-  // Close button
   document.getElementById('av-close').addEventListener('click', () => {
     document.getElementById('avalisa-overlay').style.display = 'none';
   });
 
-  // Login
   document.getElementById('av-login-btn').addEventListener('click', handleLogin);
-
-  // Register free
   document.getElementById('av-register-free-btn').addEventListener('click', () => {
     chrome.runtime.sendMessage({ type: 'OPEN_TAB', url: state.affiliateLink });
   });
-
-  // Logout
   document.getElementById('av-logout-btn').addEventListener('click', handleLogout);
-
-  // Start/Stop
   document.getElementById('av-start-btn').addEventListener('click', startBot);
   document.getElementById('av-stop-btn').addEventListener('click', stopBot);
 
-  // AI assist toggle
-  document.getElementById('av-ai-assist').addEventListener('change', (e) => {
-    const on = e.target.checked;
-    document.getElementById('av-ai-threshold-row').style.display = on ? 'flex' : 'none';
-    document.getElementById('av-ai-signal-row').style.display = on ? 'block' : 'none';
-    if (on) updateAiSignalDisplay();
+  // Strategy dropdown — derive aiAssist, toggle disabled on direction/delay
+  document.getElementById('av-strategy').addEventListener('change', (e) => {
+    const isAi = e.target.value === 'ai';
+    state.settings.aiAssist = isAi;
+    document.getElementById('av-direction').disabled = isAi;
+    document.getElementById('av-delay').disabled = isAi;
+    updateBottomStatus();
     saveCurrentSettings();
   });
 
@@ -1057,11 +1212,9 @@ function bindOverlayEvents() {
   });
   document.getElementById('av-start-amount').addEventListener('change', saveCurrentSettings);
 
-  // Limit message links
   document.getElementById('av-affiliate-link').href = state.affiliateLink;
   document.getElementById('av-upgrade-link').href = `${DASHBOARD_URL}/pricing`;
 
-  // Claim Free Access
   document.getElementById('av-claim-btn').addEventListener('click', handleClaimClick);
   document.getElementById('av-claim-submit').addEventListener('click', handleClaimSubmit);
 }
@@ -1194,6 +1347,16 @@ async function handleLogin() {
     state.jwt = data.token;
     state.userId = data.user.id;
     await chrome.storage.local.set({ jwt: data.token, userId: data.user.id, userEmail: email });
+    // Seed token status + license info
+    checkLicense().then(lic => { state.licenseInfo = lic; updateUI(); }).catch(() => {});
+    apiGet('/api/ai/token-status').then(ts => {
+      if (ts) {
+        if (ts.remaining !== undefined) state.aiTokensRemaining = ts.remaining;
+        if (ts.tokensLimit !== undefined) state.aiTokensLimit = ts.tokensLimit;
+        if (ts.unlimited) state.aiUnlimited = true;
+      }
+      updateBottomStatus();
+    }).catch(() => {});
     updateUI();
     updateStatus('running', 'Logged in!');
   } catch (err) {
@@ -1248,57 +1411,40 @@ async function prefillCandleHistory() {
   // No manual request needed — handled by AVALISA_WS_HISTORY message handler.
 }
 
-// ─── AI Background Loop ───────────────────────────────────────────────────────
-function updateAiSignalDisplay() {
-  const el = document.getElementById('av-ai-signal');
-  if (!el) return;
-  const s = state.aiSignal;
-  if (!s) { el.textContent = '🤖 –'; el.style.color = '#7c3aed'; return; }
-  const age = Math.round((Date.now() - s.fetchedAt) / 1000);
-  const dir = s.direction ? s.direction.toUpperCase() : 'SKIP';
-  el.style.color = dir === 'CALL' ? '#34d399' : dir === 'PUT' ? '#f87171' : '#94a3b8';
-  el.textContent = `🤖 ${dir} ${s.confidence}% · ${age}s ago`;
-}
-
-async function runAiLoop(generation) {
-  console.log('[Avalisa] AI assist loop started');
-  while (state.running && generation === state.cycleGeneration) {
-    if (!state.settings.aiAssist || !state.jwt) {
-      await sleep(5000);
-      continue;
+// ─── Status Display ──────────────────────────────────────────────────────────
+function updateBottomStatus() {
+  // Candle count — only visible when strategy=ai
+  const candleEl = document.getElementById('av-candle-status');
+  if (candleEl) {
+    if (state.settings?.strategy === 'ai') {
+      const candles = getBufferedCandles();
+      candleEl.textContent = `Candles: ${candles.length}/25`;
+      candleEl.style.display = 'block';
+    } else {
+      candleEl.style.display = 'none';
     }
-    const candles = getBufferedCandles();
-    const el = document.getElementById('av-ai-signal');
-    if (candles.length < 10) {
-      if (el) { el.textContent = `🤖 Building data… (${candles.length}/10)`; el.style.color = '#94a3b8'; }
-      await sleep(15000);
-      continue;
-    }
-    try {
-      const signal = await apiPost('/api/ai/signal', {
-        candles: candles.slice(-50),
-        timeframe: state.settings.timeframe || 'M1',
-        pair: getCurrentPair(),
-      });
-      if (signal.error === 'quota_exceeded') {
-        if (el) { el.textContent = '🤖 Quota reached'; el.style.color = '#f87171'; }
-        break;
-      }
-      if (!signal.error && signal.signal) {
-        state.aiSignal = {
-          direction: signal.signal === 'CALL' ? 'call' : signal.signal === 'PUT' ? 'put' : null,
-          confidence: signal.confidence || 0,
-          fetchedAt: Date.now(),
-        };
-        if (signal.remaining !== undefined) state.aiTokensRemaining = signal.remaining;
-        updateAiSignalDisplay();
-      }
-    } catch (err) {
-      console.warn('[Avalisa] AI loop error:', err);
-    }
-    await sleep(30000); // poll every 30s
   }
-  console.log('[Avalisa] AI assist loop ended');
+
+  // Token count — only visible when plan=lifetime AND strategy=ai
+  const tokenEl = document.getElementById('av-token-status');
+  if (tokenEl) {
+    const plan = state.licenseInfo?.plan;
+    const isAi = state.settings?.strategy === 'ai';
+    if (plan === 'lifetime' && isAi) {
+      if (state.aiUnlimited) {
+        tokenEl.textContent = 'Tokens: Unlimited';
+        tokenEl.style.display = '';
+      } else if (state.aiTokensLimit != null && state.aiTokensRemaining != null) {
+        const used = state.aiTokensLimit - state.aiTokensRemaining;
+        tokenEl.textContent = `Tokens: ${used.toLocaleString()} / ${state.aiTokensLimit.toLocaleString()}`;
+        tokenEl.style.display = '';
+      } else {
+        tokenEl.style.display = 'none';
+      }
+    } else {
+      tokenEl.style.display = 'none';
+    }
+  }
 }
 
 async function startBot() {
@@ -1322,14 +1468,10 @@ async function startBot() {
   state.martingaleStep = 0;
 
   const gen = state.cycleGeneration;
-  state.aiSignal = null; // clear stale signal on new start
   updateUI();
   updateStatus('running', 'Starting...');
   prefillCandleHistory().catch(console.error);
   runTradeCycle(gen);
-  if (state.settings.aiAssist) {
-    runAiLoop(gen).catch(console.error); // background, non-blocking
-  }
 }
 
 function stopBot() {
@@ -1342,19 +1484,19 @@ function stopBot() {
 }
 
 async function saveCurrentSettings() {
+  const strategy = document.getElementById('av-strategy')?.value || 'martingale';
   const settings = {
-    strategy: 'martingale',
+    strategy,
     timeframe: document.getElementById('av-timeframe').value,
     direction: document.getElementById('av-direction').value,
     delaySeconds: parseInt(document.getElementById('av-delay').value),
     martingaleMultiplier: parseFloat(document.getElementById('av-multiplier').value),
     martingaleSteps: document.getElementById('av-steps').value,
     startAmount: parseFloat(document.getElementById('av-start-amount').value) || 1.0,
-    aiAssist: document.getElementById('av-ai-assist')?.checked || false,
+    aiAssist: strategy === 'ai',
   };
   await saveSettings(settings);
 
-  // Sync to backend if logged in
   if (state.jwt) {
     apiPost('/api/settings', settings).catch(console.error);
   }
@@ -1377,6 +1519,14 @@ function updateUI() {
       const emailEl = document.getElementById('av-user-email');
       if (emailEl && data.userEmail) emailEl.textContent = data.userEmail;
     });
+    // Plan badge
+    const badgeEl = document.getElementById('av-plan-badge');
+    if (badgeEl && state.licenseInfo?.plan) {
+      const plan = state.licenseInfo.plan;
+      const cls = plan === 'lifetime' ? 'plan-lifetime' : plan === 'basic' ? 'plan-basic' : 'plan-free';
+      badgeEl.className = `av-plan-badge ${cls}`;
+      badgeEl.textContent = plan;
+    }
   } else {
     if (loginForm) loginForm.style.display = 'block';
     if (loggedIn) loggedIn.style.display = 'none';
@@ -1386,6 +1536,7 @@ function updateUI() {
   const s = state.settings;
   if (s) {
     const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+    set('av-strategy', s.strategy || 'martingale');
     set('av-timeframe', (s.timeframe === 'S15' ? 'S30' : s.timeframe) || 'M1');
     set('av-direction', s.direction || 'alternating');
     set('av-delay', s.delaySeconds || 6);
@@ -1393,15 +1544,14 @@ function updateUI() {
     set('av-steps', s.martingaleSteps || 'infinite');
     set('av-start-amount', s.startAmount || 1.0);
 
-    const aiToggle = document.getElementById('av-ai-assist');
-    if (aiToggle) aiToggle.checked = !!s.aiAssist;
-    const thresholdRow = document.getElementById('av-ai-threshold-row');
-    if (thresholdRow) thresholdRow.style.display = s.aiAssist ? 'flex' : 'none';
-    const signalRow = document.getElementById('av-ai-signal-row');
-    if (signalRow) signalRow.style.display = s.aiAssist ? 'block' : 'none';
+    // Disable direction/delay when AI strategy
+    const isAi = s.strategy === 'ai';
+    const dirEl = document.getElementById('av-direction');
+    const delayEl = document.getElementById('av-delay');
+    if (dirEl) dirEl.disabled = isAi;
+    if (delayEl) delayEl.disabled = isAi;
 
-    updateTimeframeLabels();
-    updateAiSignalDisplay();
+    updateBottomStatus();
   }
 }
 
@@ -1458,31 +1608,6 @@ async function loadAffiliateLink() {
 }
 
 
-// ─── Win Rates ────────────────────────────────────────────────────────────────
-async function loadWinRates() {
-  try {
-    const data = await apiGet('/api/config/winrates');
-    if (data && typeof data === 'object') {
-      state.winRates = data;
-      updateTimeframeLabels();
-    }
-  } catch {
-    // silent
-  }
-}
-
-
-function updateTimeframeLabels() {
-  const select = document.getElementById('av-timeframe');
-  if (!select) return;
-  const labels = { S30: 'S30 (30s)', M1: 'M1 (1m)', M3: 'M3 (3m)', M5: 'M5 (5m)', M30: 'M30 (30m)', H1: 'H1 (1h)' };
-  Array.from(select.options).forEach(opt => {
-    const tf = opt.value;
-    const wr = state.winRates[tf];
-    const pct = wr !== undefined ? ` — ${wr}%` : '';
-    opt.textContent = (labels[tf] || tf) + pct;
-  });
-}
 
 // ─── Load settings from backend on startup ────────────────────────────────────
 async function loadSettingsFromBackend() {
@@ -1535,7 +1660,26 @@ window.addEventListener('message', (e) => {
       const tf = state.settings?.timeframe || 'M1';
       const periodSec = TF_TO_SECONDS[tf] || 60;
 
-      if (Array.isArray(parsed)) {
+      if (parsed && !Array.isArray(parsed) && Array.isArray(parsed.history)) {
+        // New format: {asset, period, history: [[ts_float, price_float], ...]}
+        const histAsset = normalizeAssetName(parsed.asset) || asset;
+        let ingested = 0;
+        parsed.history.forEach(entry => {
+          if (Array.isArray(entry) && entry.length >= 2) {
+            ingestTick(histAsset, entry[0], entry[1]);
+            ingested++;
+          }
+        });
+        const periods = [30, 60, 180, 300, 1800, 3600];
+        const candleCounts = {};
+        periods.forEach(p => {
+          const key = `${histAsset}:${p}`;
+          candleCounts[p + 's'] = state.candleBuffer[key]?.length || 0;
+        });
+        console.log('[Avalisa] HISTORY ingested', ingested, 'ticks → candles by tf:', JSON.stringify(candleCounts));
+        updateBottomStatus();
+      } else if (Array.isArray(parsed)) {
+        // Legacy array format
         let ingested = 0;
         parsed.forEach(item => {
           let candle = null;
@@ -1543,7 +1687,6 @@ window.addEventListener('message', (e) => {
           if (Array.isArray(item)) {
             if (ingested < 3) console.log('[Avalisa] HISTORY candle raw:', JSON.stringify(item));
             if (item.length >= 5) {
-              // Assume [time, open, close, high, low] — adjust if logs show different order
               candle = { time: item[0], open: item[1], high: item[3], low: item[4], close: item[2], asset, period: periodSec };
             } else if (item.length >= 4) {
               candle = { time: item[0], open: item[1], high: item[2], low: item[3], close: item[1], asset, period: periodSec };
@@ -1566,12 +1709,7 @@ window.addEventListener('message', (e) => {
           }
         });
         console.log('[Avalisa] HISTORY ingested', ingested, 'candles for', asset + ':' + periodSec);
-
-        const el = document.getElementById('av-ai-signal');
-        if (el && state.settings.aiAssist) {
-          el.textContent = '🤖 ' + ingested + ' candles loaded';
-          el.style.color = '#34d399';
-        }
+        updateBottomStatus();
       }
     } catch (err) {
       console.warn('[Avalisa] HISTORY parse error:', err, 'raw:', e.data.data.substring(0, 200));
@@ -1596,10 +1734,19 @@ async function init() {
   await loadSettingsFromBackend();
   injectOverlay();
   loadAffiliateLink(); // fire-and-forget
-  loadWinRates();      // fire-and-forget
-  setTimeout(() => prefillCandleHistory().catch(console.error), 3000); // prefill after WS connects
-  // Refresh AI signal age display every 10s
-  setInterval(updateAiSignalDisplay, 10000);
+  // Seed token status if logged in
+  if (state.jwt) {
+    apiGet('/api/ai/token-status').then(ts => {
+      if (ts) {
+        if (ts.remaining !== undefined) state.aiTokensRemaining = ts.remaining;
+        if (ts.tokensLimit !== undefined) state.aiTokensLimit = ts.tokensLimit;
+        if (ts.unlimited) state.aiUnlimited = true;
+      }
+      updateBottomStatus();
+    }).catch(() => {});
+  }
+  setTimeout(() => prefillCandleHistory().catch(console.error), 3000);
+  setInterval(updateBottomStatus, 10000);
 
   // Wait for PO header to render before injecting button
   const headerInterval = setInterval(() => {

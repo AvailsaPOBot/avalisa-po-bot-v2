@@ -13,7 +13,7 @@ const STRATEGIES = [
 
 const TIMEFRAMES = ['S30', 'M1', 'M3', 'M5', 'M30', 'H1'];
 const DIRECTIONS = [{ id: 'alternating', label: 'Alternating' }, { id: 'call', label: 'Always Call' }, { id: 'put', label: 'Always Put' }];
-const DELAYS = [4, 6, 8, 10, 12];
+const DELAYS = [2, 4, 6, 8, 10, 12];
 const MULTIPLIERS = [1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8, 3.0];
 const STEPS = ['infinite', 1, 2, 3, 4, 5, 6, 8, 10, 12];
 
@@ -60,10 +60,8 @@ export default function Dashboard() {
   const [userTradesLoading, setUserTradesLoading] = useState(false);
 
   // AI settings state
-  const AI_TF = ['S30', 'M1', 'M3', 'M5', 'M30', 'H1'];
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiTokenBudget, setAiTokenBudget] = useState('10000');
-  const [aiWinRates, setAiWinRates] = useState({});
   const [aiSettingsSaving, setAiSettingsSaving] = useState(false);
   const [tokenUsage, setTokenUsage] = useState(null);
   const [tokenResetting, setTokenResetting] = useState(false);
@@ -108,8 +106,6 @@ export default function Dashboard() {
       const res = await api.get('/api/admin/ai-settings');
       setAiPrompt(res.data.ai_strategy_prompt || '');
       setAiTokenBudget(res.data.ai_token_budget_per_user || '10000');
-      const wr = res.data.timeframe_winrates ? JSON.parse(res.data.timeframe_winrates) : {};
-      setAiWinRates(wr);
     } catch (err) { /* silent */ }
   }, [isAdmin]);
 
@@ -141,7 +137,6 @@ export default function Dashboard() {
       await api.put('/api/admin/ai-settings', {
         ai_strategy_prompt: aiPrompt,
         ai_token_budget_per_user: aiTokenBudget,
-        timeframe_winrates: JSON.stringify(aiWinRates),
       });
       toast.success('AI settings saved.');
     } catch (err) {
@@ -149,13 +144,6 @@ export default function Dashboard() {
     } finally {
       setAiSettingsSaving(false);
     }
-  }
-
-  function updateWinRate(tf, field, value) {
-    setAiWinRates(prev => ({
-      ...prev,
-      [tf]: { ...(prev[tf] || { manual: 50, real: null, mode: 'manual' }), [field]: value },
-    }));
   }
 
   async function resetTokens() {
@@ -739,6 +727,7 @@ export default function Dashboard() {
                 <thead>
                   <tr className="text-gray-400 border-b border-dark-600 text-left">
                     <th className="py-2 pr-4">Email</th>
+                    <th className="py-2 pr-4">UID</th>
                     <th className="py-2 pr-4">Plan</th>
                     <th className="py-2 pr-4">Trades</th>
                     <th className="py-2 pr-4">Balance</th>
@@ -752,6 +741,7 @@ export default function Dashboard() {
                   {adminUsers.map(u => (
                     <tr key={u.id} className="border-b border-dark-600/50 text-gray-300">
                       <td className="py-2 pr-4 text-xs">{u.email}</td>
+                      <td className="py-2 pr-4 text-xs font-mono">{u.poUserId || '—'}</td>
                       <td className="py-2 pr-4">
                         <span className={`badge-${u.license?.plan || 'free'}`}>
                           {u.license?.plan || 'free'}
@@ -835,53 +825,6 @@ export default function Dashboard() {
               />
             </div>
 
-            <div>
-              <label className="block text-xs text-gray-400 mb-2">Timeframe Win Rates</label>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-gray-400 text-xs border-b border-dark-600">
-                    <th className="py-1 pr-4 text-left">Timeframe</th>
-                    <th className="py-1 pr-4 text-left">Manual %</th>
-                    <th className="py-1 pr-4 text-left">Mode</th>
-                    <th className="py-1 text-left">Real % (auto)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {AI_TF.map(tf => {
-                    const entry = aiWinRates[tf] || { manual: 50, real: null, mode: 'manual' };
-                    return (
-                      <tr key={tf} className="border-b border-dark-600/50 text-gray-300">
-                        <td className="py-1.5 pr-4 font-mono text-xs">{tf}</td>
-                        <td className="py-1.5 pr-4">
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            value={entry.manual ?? 50}
-                            onChange={e => updateWinRate(tf, 'manual', parseInt(e.target.value))}
-                            className="input w-20 py-0.5 text-xs"
-                          />
-                        </td>
-                        <td className="py-1.5 pr-4">
-                          <select
-                            value={entry.mode || 'manual'}
-                            onChange={e => updateWinRate(tf, 'mode', e.target.value)}
-                            className="input py-0.5 text-xs"
-                          >
-                            <option value="manual">Manual</option>
-                            <option value="real">Real</option>
-                          </select>
-                        </td>
-                        <td className="py-1.5 text-xs text-gray-500">
-                          {entry.real !== null && entry.real !== undefined ? `${entry.real}%` : '—'}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
             <button
               onClick={saveAiSettings}
               disabled={aiSettingsSaving}
@@ -921,9 +864,13 @@ export default function Dashboard() {
                     <td className="py-1.5 pr-4 text-xs">{u.email}</td>
                     <td className="py-1.5 pr-4 text-xs">{u.tokensUsed.toLocaleString()}</td>
                     <td className="py-1.5 text-xs">
-                      <span className={u.percentOfBudget >= 80 ? 'text-red-400' : 'text-gray-300'}>
-                        {u.percentOfBudget}%
-                      </span>
+                      {u.isAdmin ? (
+                        <span className="text-brand-400 font-medium">Unlimited</span>
+                      ) : (
+                        <span className={u.percentOfBudget >= 80 ? 'text-red-400' : 'text-gray-300'}>
+                          {u.percentOfBudget}%
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))}

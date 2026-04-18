@@ -58,7 +58,7 @@ async function settingsUpsert(req, res) {
     return res.status(400).json({ error: 'Invalid strategy' });
   }
   if (delaySeconds && !VALID_DELAYS.includes(parseInt(delaySeconds))) {
-    return res.status(400).json({ error: 'Invalid delay. Must be 4, 6, 8, 10, or 12' });
+    return res.status(400).json({ error: 'Invalid delay. Must be 2, 4, 6, 8, 10, or 12' });
   }
   if (martingaleMultiplier) {
     const m = parseFloat(martingaleMultiplier);

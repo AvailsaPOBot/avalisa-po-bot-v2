@@ -342,7 +342,7 @@ router.get('/token-usage', async (req, res) => {
         where: { month },
         orderBy: { tokensUsed: 'desc' },
         take: 10,
-        include: { user: { select: { email: true } } },
+        include: { user: { select: { email: true, isAdmin: true } } },
       }),
       prisma.appConfig.findUnique({ where: { key: 'ai_token_budget_per_user' } }),
     ]);
@@ -353,7 +353,8 @@ router.get('/token-usage', async (req, res) => {
       users: rows.map(r => ({
         email: r.user.email,
         tokensUsed: r.tokensUsed,
-        percentOfBudget: Math.round((r.tokensUsed / budget) * 100),
+        isAdmin: r.user.isAdmin || false,
+        percentOfBudget: r.user.isAdmin ? null : Math.round((r.tokensUsed / budget) * 100),
       })),
     });
   } catch (err) {
