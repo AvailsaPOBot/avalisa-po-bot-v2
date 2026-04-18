@@ -36,6 +36,10 @@ router.post('/check', async (req, res) => {
           tradesLimit: license.tradesLimit,
         });
       }
+
+      // Unknown plan stored on License row — fail loud instead of silently capping at free tier
+      console.error('[License] Unknown plan for userId:', userId, 'plan:', license.plan);
+      return res.status(500).json({ error: 'Invalid license plan', plan: license.plan });
     }
 
     // Free plan — track by device fingerprint

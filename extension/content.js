@@ -296,7 +296,11 @@ async function checkLicense() {
     return data;
   } catch (err) {
     console.error('[Avalisa] License check failed:', err);
-    return { allowed: false, reason: 'Network error' };
+    // On transient network failure, trust last-known-good cached license
+    if (state.licenseInfo && state.licenseInfo.allowed) {
+      return { ...state.licenseInfo, _networkError: true };
+    }
+    return { allowed: false, reason: 'Network error', _networkError: true };
   }
 }
 
@@ -966,8 +970,12 @@ async function runTradeCycle(generation) {
   // License check
   const license = await checkLicense();
   if (!license.allowed) {
-    updateStatus('error', `Trade limit reached (${license.plan} plan)`);
-    showLimitReachedMessage(license);
+    if (license._networkError) {
+      updateStatus('error', 'Network error — check connection');
+    } else {
+      updateStatus('error', `Trade limit reached (${license.plan || 'unknown'} plan)`);
+      showLimitReachedMessage(license);
+    }
     state.running = false;
     updateUI();
     return;
