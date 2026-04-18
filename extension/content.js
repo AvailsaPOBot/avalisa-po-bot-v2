@@ -330,66 +330,115 @@ function extractResultFromCloseEvent(payload) {
   return null;
 }
 
-function getLatestDealSignature() {
-  const first = document.querySelector('.deals-list__item');
-  if (!first) return null;
-  const time = first.querySelector('.item-row div:nth-child(2)')?.innerText?.trim() || '';
-  const amount = first.querySelector('.item-row:nth-child(2) div:first-child')?.innerText?.trim() || '';
-  const payout = first.querySelector('.item-row .centered')?.innerText?.trim() || '';
-  return `${time}|${amount}|${payout}`;
+function getDealItems(limit = 5) {
+  return Array.from(document.querySelectorAll('.deals-list__item')).slice(0, limit);
 }
 
-function readFirstDealResult() {
-  const first = document.querySelector('.deals-list__item');
-  if (!first) return null;
-  const payoutCell = first.querySelector('.item-row .centered');
-  if (!payoutCell) return null;
-  if (payoutCell.classList.contains('price-up')) return 'win';
-  const text = payoutCell.innerText.trim();
-  if (text === '$0' || text === '$0.00') return 'loss';
+function getDealSignature(el) {
+  if (!el) return null;
+  const text = (el.innerText || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 180);
+  return text || null;
+}
+
+function getLatestDealSignatures(limit = 5) {
+  return getDealItems(limit)
+    .map(getDealSignature)
+    .filter(Boolean);
+}
+
+function readDealResult(el) {
+  if (!el) return null;
+  const payoutCell = el.querySelector('.item-row .centered');
+  const text = (payoutCell?.innerText || el.innerText || '').trim();
+
+  if (payoutCell?.classList.contains('price-up')) return 'win';
+  if (payoutCell?.classList.contains('price-down')) return 'loss';
+  if (/\+\s*\$/.test(text) || /\bwin\b/i.test(text)) return 'win';
+  if (/\-\s*\$/.test(text) || /\bloss\b/i.test(text) || text === '$0' || text === '$0.00') return 'loss';
   return null;
 }
 
-function scrapeLatestClosedDealResult() {
-  return readFirstDealResult();
+function findResolvedNewDealResult(preTradeSignatures) {
+  const previous = new Set(preTradeSignatures || []);
+  for (const item of getDealItems(5)) {
+    const sig = getDealSignature(item);
+    if (!sig || previous.has(sig)) continue;
+    const result = readDealResult(item);
+    if (result) return { result, signature: sig };
+  }
+  return null;
 }
 
-async function resolveTradeResult(balanceBefore, balanceDuringTrade, amount, tradeStartTs, preTradeSignature) {
-  // Tier 1: WS close event captured after trade start
+function readWsTradeResultSince(tradeStartTs) {
   const recentWs = state.recentCloseEvents.filter(e => e.ts >= tradeStartTs);
   for (const ev of recentWs.slice().reverse()) {
-    const r = extractResultFromCloseEvent(ev.payload);
-    if (r) {
-      console.log('[Avalisa] RESULT:', r.toUpperCase(), 'via WS event:', ev.event);
-      return r;
+    const result = extractResultFromCloseEvent(ev.payload);
+    if (result) return { result, event: ev.event };
+  }
+  return null;
+}
+
+function classifyResultFromBalance(balanceBefore, balanceDuringTrade, balanceNow, amount, iteration) {
+  if (balanceNow === null) return null;
+
+  const settleTolerance = Math.max(0.15, amount * 0.15);
+
+  if (balanceBefore !== null) {
+    const deltaFromBefore = balanceNow - balanceBefore;
+    if (deltaFromBefore > amount * 0.5) {
+      return { result: 'win', detail: `balance vs before +${deltaFromBefore.toFixed(2)}` };
+    }
+    if (deltaFromBefore < -(amount * 0.5)) {
+      return { result: 'loss', detail: `balance vs before ${deltaFromBefore.toFixed(2)}` };
     }
   }
-  // Tier 2: DOM deal list — wait for signature change (new deal appeared)
-  for (let i = 0; i < 20; i++) {
-    const sig = getLatestDealSignature();
-    if (sig && sig !== preTradeSignature) {
-      const r = readFirstDealResult();
-      if (r) {
-        console.log(`[Avalisa] RESULT: ${r.toUpperCase()} via DOM deal scrape (sig ${preTradeSignature} → ${sig})`);
-        return r;
-      }
+
+  if (balanceDuringTrade !== null) {
+    const deltaFromDuring = balanceNow - balanceDuringTrade;
+    if (deltaFromDuring > amount * 0.5) {
+      return { result: 'win', detail: `balance vs during +${deltaFromDuring.toFixed(2)}` };
     }
+    // Loss often means PO never restores the deducted stake, so post-expiry balance
+    // stays roughly equal to the "trade open" balance rather than dropping further.
+    if (iteration >= 6 && Math.abs(deltaFromDuring) <= settleTolerance) {
+      return { result: 'loss', detail: `balance stayed near trade-open balance (${deltaFromDuring.toFixed(2)})` };
+    }
+  }
+
+  return null;
+}
+
+async function resolveTradeResult(balanceBefore, balanceDuringTrade, amount, tradeStartTs, preTradeSignatures) {
+  for (let i = 0; i < 24; i++) {
+    const wsResult = readWsTradeResultSince(tradeStartTs);
+    if (wsResult) {
+      console.log('[Avalisa] RESULT:', wsResult.result.toUpperCase(), 'via WS event:', wsResult.event);
+      return wsResult.result;
+    }
+
+    const domResult = findResolvedNewDealResult(preTradeSignatures);
+    if (domResult) {
+      console.log(`[Avalisa] RESULT: ${domResult.result.toUpperCase()} via DOM deal scrape (${domResult.signature})`);
+      return domResult.result;
+    }
+
+    const balanceNow = await getBalance();
+    const balanceResult = classifyResultFromBalance(balanceBefore, balanceDuringTrade, balanceNow, amount, i);
+    if (balanceResult) {
+      console.log(`[Avalisa] RESULT: ${balanceResult.result.toUpperCase()} via ${balanceResult.detail}`);
+      return balanceResult.result;
+    }
+
     await sleep(500);
   }
-  console.warn('[Avalisa] Tier 2 timeout — new deal never appeared or result unreadable');
-  // Tier 3: balance diff (with retry)
-  for (let i = 0; i < 3; i++) {
-    const bal = await getBalance();
-    if (bal !== null && balanceDuringTrade !== null) {
-      const delta = bal - balanceDuringTrade;
-      if (delta > amount * 0.5) { console.log('[Avalisa] RESULT: WIN via balance delta +' + delta.toFixed(2)); return 'win'; }
-      if (delta < -amount * 0.1) { console.log('[Avalisa] RESULT: LOSS via balance delta ' + delta.toFixed(2)); return 'loss'; }
-    }
-    await sleep(500);
-  }
-  // All tiers inconclusive — default WIN to avoid runaway martingale
-  console.warn('[Avalisa] RESULT: WIN (inconclusive, defaulted to prevent runaway stack)');
-  return 'win';
+
+  // Inconclusive after waiting through WS + DOM + balance settling.
+  // Default LOSS is safer than WIN because a false WIN suppresses martingale recovery.
+  console.warn('[Avalisa] RESULT: LOSS (inconclusive after all tiers)');
+  return 'loss';
 }
 
 function setTradeAmount(amount) {
@@ -853,8 +902,8 @@ async function runTradeCycle(generation) {
 
   const expiryMs = getExpiryMs();
 
-  const preTradeSignature = getLatestDealSignature();
-  console.log('[Avalisa] pre-trade deal signature:', preTradeSignature);
+  const preTradeSignatures = getLatestDealSignatures();
+  console.log('[Avalisa] pre-trade deal signatures:', preTradeSignatures);
 
   const tradeStartTs = Date.now();
   const placed = direction === 'call' ? clickCall() : clickPut();
@@ -886,7 +935,7 @@ async function runTradeCycle(generation) {
   state.isTradeOpen = false;
 
   // 3-tier result detection: WS close event → DOM scrape → balance diff
-  const result = await resolveTradeResult(balanceBefore, balanceDuringTrade, safeAmount, tradeStartTs, preTradeSignature);
+  const result = await resolveTradeResult(balanceBefore, balanceDuringTrade, safeAmount, tradeStartTs, preTradeSignatures);
   const balanceAfter = await getBalance();
 
   if (state.jwt) {
