@@ -258,14 +258,18 @@ async function apiPost(path, body) {
     headers,
     body: JSON.stringify(body),
   });
-  return res.json();
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
 }
 
 async function apiGet(path) {
   const headers = { 'Content-Type': 'application/json' };
   if (state.jwt) headers['Authorization'] = `Bearer ${state.jwt}`;
   const res = await fetchWithTimeout(`${API_BASE}${path}`, { headers });
-  return res.json();
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
 }
 
 // Retry wrapper — retries on network/timeout errors only (not 4xx responses)
