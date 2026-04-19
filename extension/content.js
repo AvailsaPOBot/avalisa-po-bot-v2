@@ -38,14 +38,9 @@ const state = {
 };
 
 // ─── WebSocket Candle Interceptor ─────────────────────────────────────────────
-// Runs in page context via injected <script> — content scripts can't access window.WebSocket directly.
-function injectWsInterceptor() {
-  // Load as a real file — bypasses PocketOption's CSP which blocks inline scripts
-  const script = document.createElement('script');
-  script.src = chrome.runtime.getURL('injected.js');
-  script.onload = () => script.remove();
-  document.documentElement.appendChild(script);
-}
+// injected.js is now loaded directly by Chrome as a MAIN-world content script
+// (see manifest.json content_scripts[0]). The legacy <script src=...> approach
+// was blocked by PO's CSP, which prevented the WebSocket wrapper from installing.
 
 const TF_TO_SECONDS = { S30: 30, M1: 60, M3: 180, M5: 300, M30: 1800, H1: 3600 };
 
@@ -2020,9 +2015,9 @@ async function loadSettingsFromBackend() {
   }
 }
 
-// ─── WS Interceptor — runs immediately at script load (document_start) ────────
-// Must be outside init() so it fires before any page WebSocket connects.
-injectWsInterceptor();
+// ─── WS Interceptor — installed by Chrome via MAIN-world content_script ──────
+// injected.js runs in the page's JS world at document_start and postMessages
+// AVALISA_WS_* frames to this listener. No manual script-tag injection needed.
 window.addEventListener('message', (e) => {
   const t = e.data?.type;
   if (t === 'AVALISA_WS') {
