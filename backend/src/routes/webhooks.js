@@ -82,9 +82,17 @@ async function handleWhopMembership(data) {
     return;
   }
 
-  const user = await prisma.user.findUnique({ where: { email: customerEmail } });
+  const user = await prisma.user.findUnique({ where: { email: customerEmail }, include: { license: true } });
   if (!user) {
     console.warn(`[Whop] No user found for email: ${customerEmail}`);
+    return;
+  }
+
+  const whopOrderId = `whop_${membershipId}`;
+
+  // Replay protection: if license already exists with this orderId, skip reset
+  if (user.license && user.license.lemonsqueezyOrderId === whopOrderId) {
+    console.log(`[Whop] Membership ${membershipId} already processed for user ${user.id}. Skipping reset.`);
     return;
   }
 
@@ -187,9 +195,17 @@ async function handleLSOrder(orderId, orderData) {
     return;
   }
 
-  const user = await prisma.user.findUnique({ where: { email: customerEmail } });
+  const user = await prisma.user.findUnique({ where: { email: customerEmail }, include: { license: true } });
   if (!user) {
     console.warn(`[LS] No user found for email: ${customerEmail}`);
+    return;
+  }
+
+  const orderIdStr = String(orderId);
+
+  // Replay protection: if license already exists with this orderId, skip reset
+  if (user.license && user.license.lemonsqueezyOrderId === orderIdStr) {
+    console.log(`[LS] Order ${orderId} already processed for user ${user.id}. Skipping reset.`);
     return;
   }
 

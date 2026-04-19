@@ -1,4 +1,5 @@
 const express = require('express');
+const { authMiddleware } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -90,7 +91,7 @@ If you cannot answer a question confidently, always end with:
 Never answer questions unrelated to Avalisa Bot or Pocket Option trading.`;
 
 // POST /api/support/chat
-router.post('/chat', async (req, res) => {
+router.post('/chat', authMiddleware, async (req, res) => {
   let userMessage;
   if (req.body.message) {
     userMessage = req.body.message;
