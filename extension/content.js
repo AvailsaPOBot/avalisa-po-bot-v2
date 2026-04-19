@@ -2032,13 +2032,16 @@ window.addEventListener('message', (e) => {
     try {
       const ticks = JSON.parse(e.data.data);
       if (Array.isArray(ticks)) {
-        // Log first blob so we can verify format
-        if (_tickLogCount < 3) {
+        if (_tickLogCount < 5) {
           console.log('[Avalisa] WS_TICK sample:', JSON.stringify(ticks).substring(0, 300));
           _tickLogCount++;
         }
         ticks.forEach(tick => {
           if (Array.isArray(tick) && tick.length >= 3) {
+            if (_tickLogCount < 10) {
+              console.log('[Avalisa] TICK ingest: asset=', JSON.stringify(tick[0]), 'ts=', tick[1], 'price=', tick[2], '→ keys: ' + tick[0] + ':30, ' + tick[0] + ':60, ...');
+              _tickLogCount++;
+            }
             ingestTick(tick[0], tick[1], tick[2]);
           }
         });
@@ -2181,3 +2184,28 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
 // At document_start the DOM is never ready yet — always wait for DOMContentLoaded
 document.addEventListener('DOMContentLoaded', init);
+
+// ─── Debug helper — run window.avDebug() in PO devtools console ───────────────
+window.avDebug = function () {
+  const buf = state.candleBuffer || {};
+  const allKeys = Object.keys(buf);
+  const out = {
+    version: chrome.runtime.getManifest().version,
+    activePair: state.activePair,
+    activePeriod: state.activePeriod,
+    activeKey: `${state.activePair}:${state.activePeriod}`,
+    bufferKeys: allKeys,
+    bufferSizes: allKeys.reduce((acc, k) => { acc[k] = buf[k].length; return acc; }, {}),
+    activeBufferSample: buf[`${state.activePair}:${state.activePeriod}`]?.slice(0, 3) || [],
+    activeBufferLast: buf[`${state.activePair}:${state.activePeriod}`]?.slice(-3) || [],
+    settings: state.settings,
+    licenseInfo: state.licenseInfo,
+    running: state.running,
+    isTradeOpen: state.isTradeOpen,
+    currentPair_DOM: getCurrentPair(),
+    normalizedFromDOM: normalizeAssetName(getCurrentPair()),
+  };
+  console.log('[Avalisa Debug]', JSON.stringify(out, null, 2));
+  return out;
+};
+console.log('[Avalisa] Debug helper ready — run window.avDebug() in PO console anytime');
