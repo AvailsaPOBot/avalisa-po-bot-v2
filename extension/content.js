@@ -26,6 +26,8 @@ const state = {
   affiliateLink: AFFILIATE_LINK,  // updated from DB on startup
   // AI assist (background, non-blocking)
   candleBuffer: {},   // { "EURUSD_otc:60": [{time,open,high,low,close},...] }
+  activePair: null,   // normalized asset key from last updateHistoryNewFast
+  activePeriod: null, // period (seconds) from last updateHistoryNewFast
   aiTokensRemaining: null,
   aiTokensLimit: null,
   aiUnlimited: false,
@@ -140,29 +142,50 @@ function normalizeAssetName(name) {
 }
 
 function getBufferedCandles() {
-  const pair = getCurrentPair();
-  const tf = state.settings?.timeframe || 'M1';
-  const periodSec = TF_TO_SECONDS[tf] || 60;
+  // Single source of truth: the active pair/period tracked from the last
+  // updateHistoryNewFast seed. Stale fuzzy fallbacks removed — they were
+  // returning cross-pair data and causing the 50/25 mismatch.
+  if (!state.activePair || !state.activePeriod) return [];
+  const key = `${state.activePair}:${state.activePeriod}`;
+  return state.candleBuffer[key] || [];
+}
 
-  // 1. Exact match (e.g. buffer key already uses same format as DOM)
-  const exactKey = `${pair}:${periodSec}`;
-  if (state.candleBuffer[exactKey]?.length > 0) return state.candleBuffer[exactKey];
+const MAX_CANDLE_BUFFER = 50;
+const REQUIRED_CANDLES = 25;
 
-  // 2. Normalized match — DOM "AED/CNY OTC" → WS "AEDCNY_otc"
-  const normalizedKey = `${normalizeAssetName(pair)}:${periodSec}`;
-  if (state.candleBuffer[normalizedKey]?.length > 0) return state.candleBuffer[normalizedKey];
-
-  // 3. Fuzzy fallback — find any key with the right period that has data
-  const suffix = `:${periodSec}`;
-  for (const key of Object.keys(state.candleBuffer)) {
-    if (key.endsWith(suffix) && state.candleBuffer[key].length > 0) {
-      console.log('[Avalisa] getBufferedCandles: fuzzy match key:', key, '(DOM pair:', pair + ')');
-      return state.candleBuffer[key];
+// Replace-seed the buffer from a bulk updateHistoryNewFast payload.
+// `ticks` is an array of [timestamp_seconds_float, price_float].
+function seedCandleBufferFromHistory(asset, period, ticks) {
+  const byTime = new Map();
+  for (const t of ticks) {
+    if (!Array.isArray(t) || t.length < 2) continue;
+    const ts = Number(t[0]);
+    const price = Number(t[1]);
+    if (!Number.isFinite(ts) || !Number.isFinite(price)) continue;
+    const candleTime = Math.floor(ts / period) * period;
+    const existing = byTime.get(candleTime);
+    if (existing) {
+      existing.high = Math.max(existing.high, price);
+      existing.low = Math.min(existing.low, price);
+      existing.close = price;
+    } else {
+      byTime.set(candleTime, { time: candleTime, open: price, high: price, low: price, close: price });
     }
   }
+  const candles = Array.from(byTime.values())
+    .sort((a, b) => a.time - b.time)
+    .slice(-MAX_CANDLE_BUFFER);
+  const key = `${asset}:${period}`;
+  state.candleBuffer[key] = candles;
+  return candles.length;
+}
 
-  console.log('[Avalisa] getBufferedCandles: 0 candles. Buffer keys:', Object.keys(state.candleBuffer), '| pair:', pair, '| period:', periodSec);
-  return [];
+// Pair switch: wipe every buffer except the newly active one.
+function clearStalePairBuffers(keepAsset, keepPeriod) {
+  const keepKey = `${keepAsset}:${keepPeriod}`;
+  for (const key of Object.keys(state.candleBuffer)) {
+    if (key !== keepKey) delete state.candleBuffer[key];
+  }
 }
 
 // ─── Device Fingerprint ───────────────────────────────────────────────────────
@@ -1015,11 +1038,10 @@ async function runTradeCycle(generation) {
   let aiDecidedDirection = null;
   let aiSignalSnapshot = null;
   if (state.settings.strategy === 'ai') {
-    // Wait for 25-candle warmup
+    // Wait for warmup — normally satisfied instantly by the updateHistoryNewFast seed
     let candles = getBufferedCandles();
-    while (candles.length < 25 && state.running && !state.stopRequested) {
-      updateStatus('running', `Collecting candles: ${candles.length}/25`);
-      updateBottomStatus();
+    while (candles.length < REQUIRED_CANDLES && state.running && !state.stopRequested) {
+      updateStatus('running', `Loading: ${candles.length}/${REQUIRED_CANDLES}`);
       await sleep(2000);
       candles = getBufferedCandles();
     }
@@ -1263,7 +1285,7 @@ function getOverlayHTML() {
       <div class="av-section">
         <div class="av-row" id="av-row-strategy">
           <label class="av-label">Strategy</label>
-          <select id="av-strategy" class="av-select">
+          <select id="av-strategy" class="av-select" title="">
             <option value="martingale">Martingale</option>
             <option value="ai">Charles (AI)</option>
           </select>
@@ -1354,7 +1376,6 @@ function getOverlayHTML() {
 
       <div class="av-section av-status-block">
         <div id="av-status" class="av-status">Status: Stopped</div>
-        <div id="av-candle-status" class="av-counter" style="display:none">Candles: 0/50</div>
         <div id="av-token-status" class="av-counter" style="display:none"></div>
         <div id="av-trade-counter" class="av-counter">Trades this session: 0</div>
       </div>
@@ -1416,9 +1437,11 @@ function getOverlayCSS() {
       color: #e2e8f0; font-size: 12px; padding: 4px 8px;
     }
     .av-select { width: 130px; box-sizing: border-box; }
-    .av-select:disabled { opacity: 0.4; cursor: not-allowed; }
+    .av-select:disabled, .av-input:disabled { opacity: 0.4; cursor: not-allowed; }
     .av-input { width: 100%; box-sizing: border-box; margin-top: 4px; padding: 6px 10px; }
     .av-input-sm { width: 130px; margin-top: 0; padding: 4px 8px; }
+    .av-radio-item input[type="radio"]:disabled + span { opacity: 0.4; cursor: not-allowed; }
+    .av-radio-item input[type="radio"]:disabled { cursor: not-allowed; }
     .av-bot-pill {
       display: inline-flex; align-items: center; gap: 8px;
       background: #1F1A3E; border: 0.5px solid #7C3AED; border-radius: 8px;
@@ -1761,22 +1784,24 @@ async function prefillCandleHistory() {
 
 // ─── Status Display ──────────────────────────────────────────────────────────
 function updateBottomStatus() {
-  // Candle count — only visible when strategy=ai
-  const candleEl = document.getElementById('av-candle-status');
-  if (candleEl) {
-    if (state.settings?.strategy === 'ai') {
-      const candles = getBufferedCandles();
-      candleEl.textContent = `Candles: ${candles.length}/25`;
-      candleEl.style.display = 'block';
+  const isAi = state.settings?.strategy === 'ai';
+
+  // Idle AI status: reflect candle-buffer readiness in the main status line.
+  // Skip while running — runTradeCycle drives the status text itself.
+  if (isAi && !state.running) {
+    const n = getBufferedCandles().length;
+    if (n === 0) {
+      updateStatus('', 'Waiting for pair data...');
+    } else if (n < REQUIRED_CANDLES) {
+      updateStatus('', `Loading: ${n}/${REQUIRED_CANDLES}`);
     } else {
-      candleEl.style.display = 'none';
+      updateStatus('', 'Ready');
     }
   }
 
   // Trade allowance — only visible when strategy=ai
   const tokenEl = document.getElementById('av-token-status');
   if (tokenEl) {
-    const isAi = state.settings?.strategy === 'ai';
     const allowance = state.licenseInfo?.aiTradesAllowance;
     const usedCount = state.licenseInfo?.aiTradesUsed;
     if (isAi && Number.isFinite(allowance) && Number.isFinite(usedCount)) {
@@ -1822,6 +1847,7 @@ function stopBot() {
   state.isTradeOpen = false;
   updateUI();
   updateStatus('', 'Stopped');
+  updateBottomStatus(); // re-evaluate idle AI status (Ready / Loading / Waiting)
 }
 
 async function saveCurrentSettings() {
@@ -1856,6 +1882,22 @@ function updateUI() {
 
   if (startBtn) startBtn.disabled = state.running;
   if (stopBtn) stopBtn.disabled = !state.running;
+
+  // Lock config inputs while the bot is Running — prevents mid-run strategy/config crashes
+  const lockedIds = [
+    'av-strategy', 'av-direction', 'av-intensity',
+    'av-start-amount', 'av-multiplier', 'av-steps',
+    'av-payout-min',
+  ];
+  const lockTitle = state.running ? 'Stop bot to change strategy' : '';
+  lockedIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.disabled = state.running; el.title = lockTitle; }
+  });
+  document.querySelectorAll('input[name="av-payout-action"]').forEach(r => {
+    r.disabled = state.running;
+    r.title = lockTitle;
+  });
 
   // Auth UI
   if (state.jwt) {
@@ -2003,10 +2045,8 @@ window.addEventListener('message', (e) => {
     } catch (_) {}
   } else if (t === 'AVALISA_WS_HISTORY') {
     console.log('[Avalisa] HISTORY binary received, length:', e.data.data.length);
-    console.log('[Avalisa] HISTORY response raw:', e.data.data.substring(0, 500));
     try {
       const parsed = JSON.parse(e.data.data);
-      console.log('[Avalisa] HISTORY parsed type:', typeof parsed, 'isArray:', Array.isArray(parsed), 'length:', parsed?.length, 'sample[0]:', JSON.stringify(parsed?.[0])?.substring(0, 200));
 
       const pair = getCurrentPair();
       const asset = normalizeAssetName(pair) || 'UNKNOWN';
@@ -2014,22 +2054,23 @@ window.addEventListener('message', (e) => {
       const periodSec = TF_TO_SECONDS[tf] || 60;
 
       if (parsed && !Array.isArray(parsed) && Array.isArray(parsed.history)) {
-        // New format: {asset, period, history: [[ts_float, price_float], ...]}
+        // Format: {asset, period, history: [[ts_float, price_float], ...]}
         const histAsset = normalizeAssetName(parsed.asset) || asset;
-        let ingested = 0;
-        parsed.history.forEach(entry => {
-          if (Array.isArray(entry) && entry.length >= 2) {
-            ingestTick(histAsset, entry[0], entry[1]);
-            ingested++;
-          }
-        });
-        const periods = [30, 60, 180, 300, 1800, 3600];
-        const candleCounts = {};
-        periods.forEach(p => {
-          const key = `${histAsset}:${p}`;
-          candleCounts[p + 's'] = state.candleBuffer[key]?.length || 0;
-        });
-        console.log('[Avalisa] HISTORY ingested', ingested, 'ticks → candles by tf:', JSON.stringify(candleCounts));
+        const histPeriod = Number(parsed.period) || periodSec;
+
+        // Detect pair / period switch and wipe stale buffers from other pairs
+        const pairChanged = state.activePair !== histAsset || state.activePeriod !== histPeriod;
+        if (pairChanged) {
+          clearStalePairBuffers(histAsset, histPeriod);
+          state.activePair = histAsset;
+          state.activePeriod = histPeriod;
+          console.log('[Avalisa] Pair switch detected →', histAsset + ':' + histPeriod);
+        }
+
+        // REPLACE (not append) the buffer with bucketed candles from this seed
+        const candleCount = seedCandleBufferFromHistory(histAsset, histPeriod, parsed.history);
+        console.log('[Avalisa] HISTORY seeded', candleCount, 'candles for', histAsset + ':' + histPeriod,
+          '(ticks:', parsed.history.length + ')');
         updateBottomStatus();
       } else if (Array.isArray(parsed)) {
         // Legacy array format
@@ -2061,6 +2102,12 @@ window.addEventListener('message', (e) => {
             ingested++;
           }
         });
+        // Legacy format: best-effort activePair assignment so getBufferedCandles works
+        if (state.activePair !== asset || state.activePeriod !== periodSec) {
+          clearStalePairBuffers(asset, periodSec);
+          state.activePair = asset;
+          state.activePeriod = periodSec;
+        }
         console.log('[Avalisa] HISTORY ingested', ingested, 'candles for', asset + ':' + periodSec);
         updateBottomStatus();
       }
