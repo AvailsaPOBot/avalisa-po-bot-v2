@@ -151,7 +151,7 @@ function getBufferedCandles() {
 }
 
 const MAX_CANDLE_BUFFER = 50;
-const REQUIRED_CANDLES = 25;
+const REQUIRED_CANDLES = 20;
 
 // Replace-seed the buffer from a bulk updateHistoryNewFast payload.
 // `ticks` is an array of [timestamp_seconds_float, price_float].
@@ -2047,6 +2047,16 @@ window.addEventListener('message', (e) => {
     console.log('[Avalisa] HISTORY binary received, length:', e.data.data.length);
     try {
       const parsed = JSON.parse(e.data.data);
+
+      console.log('[Avalisa] HISTORY raw payload keys:', Object.keys(parsed || {}));
+      console.log('[Avalisa] HISTORY raw payload sample:', JSON.stringify(parsed).substring(0, 800));
+      if (parsed?.history) {
+        const ticks = parsed.history;
+        console.log('[Avalisa] HISTORY ticks:', ticks.length,
+          'first:', JSON.stringify(ticks[0]),
+          'last:', JSON.stringify(ticks[ticks.length - 1]),
+          'span_seconds:', ticks.length > 1 ? Number(ticks[ticks.length-1][0]) - Number(ticks[0][0]) : 'n/a');
+      }
 
       const pair = getCurrentPair();
       const asset = normalizeAssetName(pair) || 'UNKNOWN';
