@@ -29,6 +29,8 @@ model License {
   plan                  String    @default("free") // free | basic | lifetime
   tradesUsed            Int       @default(0)
   tradesLimit           Int?      // null = unlimited
+  aiTradesAllowance     Int       @default(100)
+  aiTradesUsed          Int       @default(0)
   expiresAt             DateTime?
   lemonsqueezyOrderId   String?
   claimStatus           String    @default("none") // none | pending | approved | rejected
@@ -50,7 +52,8 @@ model Trade {
   balanceBefore Float?
   balanceAfter  Float?
   isDemo        Boolean  @default(false)
-  strategy      String   @default("martingale") // martingale | ai-signal
+  strategy      String   @default("martingale") // martingale | ai-signal | ai
+  signalSnapshot Json?   // local rule-engine snapshot for AI mode trades
   createdAt     DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

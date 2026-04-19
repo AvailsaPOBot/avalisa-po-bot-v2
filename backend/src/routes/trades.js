@@ -23,13 +23,28 @@ router.post('/log', authMiddleware, async (req, res) => {
   console.log('[trades/log] body received:', JSON.stringify(req.body));
 
   try {
-    const { pair, direction, amount, result, balanceBefore, balanceAfter, isDemo, strategy } = req.body;
+    const { pair, direction, amount, result, balanceBefore, balanceAfter, isDemo, strategy, signalSnapshot } = req.body;
 
     if (!direction || amount == null || amount === '' || !result) {
       return res.status(400).json({ error: 'Missing required fields: direction, amount, result' });
     }
 
     const isDemoVal = isDemo === true || isDemo === 'true';
+    const isAiTrade = !!signalSnapshot;
+
+    // Gate AI trades on real accounts against the license allowance
+    if (isAiTrade && !isDemoVal) {
+      const license = await prisma.license.findUnique({ where: { userId: req.userId } });
+      if (license && license.aiTradesUsed >= license.aiTradesAllowance) {
+        return res.status(403).json({
+          success: false,
+          allowed: false,
+          reason: 'AI trade allowance exhausted',
+          aiTradesUsed: license.aiTradesUsed,
+          aiTradesAllowance: license.aiTradesAllowance,
+        });
+      }
+    }
 
     const trade = await prisma.trade.create({
       data: {
@@ -42,8 +57,16 @@ router.post('/log', authMiddleware, async (req, res) => {
         balanceAfter: balanceAfter != null ? parseFloat(balanceAfter) : null,
         isDemo: isDemoVal,
         strategy: strategy || 'martingale',
+        signalSnapshot: signalSnapshot || null,
       },
     });
+
+    if (isAiTrade && !isDemoVal) {
+      prisma.license.update({
+        where: { userId: req.userId },
+        data: { aiTradesUsed: { increment: 1 } },
+      }).catch(err => console.error('[trades/log] ai increment error:', err.message));
+    }
 
     // Fire-and-forget trim — don't block the response
     trimTrades(req.userId, isDemoVal).catch(err =>

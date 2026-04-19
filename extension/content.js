@@ -238,6 +238,7 @@ function getDefaultSettings() {
     delaySeconds: 6,
     startAmount: 1.0,
     aiAssist: false,
+    intensity: 'mid',
   };
 }
 
@@ -1010,9 +1011,10 @@ async function runTradeCycle(generation) {
     updateStatus('error', 'AI strategy requires Lifetime plan. Switched to Martingale.');
   }
 
-  // AI on-demand: compute indicators locally, call API synchronously
+  // AI mode: local rule engine — zero network calls
   let aiDecidedDirection = null;
-  if (state.settings.strategy === 'ai' || state.settings.aiAssist) {
+  let aiSignalSnapshot = null;
+  if (state.settings.strategy === 'ai') {
     // Wait for 25-candle warmup
     let candles = getBufferedCandles();
     while (candles.length < 25 && state.running && !state.stopRequested) {
@@ -1031,34 +1033,25 @@ async function runTradeCycle(generation) {
       return;
     }
 
-    updateStatus('running', 'Analyzing…');
-    try {
-      const sig = await apiPost('/api/ai/signal', { indicators });
-      if (sig.error === 'quota_exceeded') {
-        updateStatus('error', 'Token quota reached');
-        state.running = false; updateUI(); return;
-      }
-      if (sig.remaining !== undefined) state.aiTokensRemaining = sig.remaining;
-      if (sig.tokensLimit !== undefined) state.aiTokensLimit = sig.tokensLimit;
-      if (sig.unlimited) state.aiUnlimited = true;
-      updateBottomStatus();
+    const intensity = state.settings.intensity || 'mid';
+    const engine = globalThis.AvalisaSignalEngine;
+    if (!engine || typeof engine.evaluateSignal !== 'function') {
+      console.error('[Avalisa] signalEngine.js not loaded — reload extension');
+      updateStatus('error', 'Signal engine missing — reload extension');
+      state.running = false; updateUI(); return;
+    }
 
-      const s = (sig.signal || 'SKIP').toUpperCase();
-      console.log(`[Avalisa] AI signal: ${s} (${sig.confidence}%) — ${sig.reasoning}`);
-      if (s === 'SKIP') {
-        updateStatus('running', `SKIP (${sig.confidence}%) — waiting 30s`);
-        await sleep(30000);
-        if (state.running) runTradeCycle(generation).catch(console.error);
-        return;
-      }
-      aiDecidedDirection = s === 'CALL' ? 'call' : 'put';
-    } catch (err) {
-      console.error('[Avalisa] AI signal error:', err);
-      updateStatus('error', 'AI signal failed — retrying in 15s');
-      await sleep(15000);
+    const sig = engine.evaluateSignal(indicators, intensity);
+    aiSignalSnapshot = sig.snapshot;
+    console.log(`[Avalisa] Smart Signal: ${sig.action}${sig.reason ? ' (' + sig.reason + ')' : ''}`, sig.snapshot);
+
+    if (sig.action === 'SKIP') {
+      updateStatus('running', `SKIP (${sig.reason || 'no_signal'}) — waiting 30s`);
+      await sleep(30000);
       if (state.running) runTradeCycle(generation).catch(console.error);
       return;
     }
+    aiDecidedDirection = sig.action === 'CALL' ? 'call' : 'put';
   }
 
   const amount = state.currentAmount;
@@ -1131,6 +1124,7 @@ async function runTradeCycle(generation) {
       balanceAfter,
       isDemo: isDemoMode(),
       strategy: state.settings?.strategy || 'martingale',
+      signalSnapshot: aiSignalSnapshot,
     })).catch(console.error);
   }
 
@@ -1267,25 +1261,22 @@ function getOverlayHTML() {
       </div>
 
       <div class="av-section">
-        <div class="av-row">
+        <div class="av-row" id="av-row-strategy">
           <label class="av-label">Strategy</label>
           <select id="av-strategy" class="av-select">
             <option value="martingale">Martingale</option>
-            <option value="ai">AI</option>
+            <option value="ai">Charles (AI)</option>
           </select>
         </div>
-        <div class="av-row">
-          <label class="av-label">Timeframe</label>
-          <select id="av-timeframe" class="av-select">
-            <option value="S30">S30 (30s)</option>
-            <option value="M1" selected>M1 (1m)</option>
-            <option value="M3">M3 (3m)</option>
-            <option value="M5">M5 (5m)</option>
-            <option value="M30">M30 (30m)</option>
-            <option value="H1">H1 (1h)</option>
-          </select>
+        <div class="av-row av-row-sub" id="av-row-bot-pill" style="display:none">
+          <span></span>
+          <div id="av-bot-pill" class="av-bot-pill" title="Open bot settings">
+            <span class="av-bot-pill-ai">AI</span>
+            <span class="av-bot-pill-name">Charles</span>
+            <svg class="av-bot-pill-arrow" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 8 L8 2 M8 2 L4 2 M8 2 L8 6" stroke="#A78BFA" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
+          </div>
         </div>
-        <div class="av-row">
+        <div class="av-row" id="av-row-direction">
           <label class="av-label">Direction</label>
           <select id="av-direction" class="av-select">
             <option value="alternating">Alternating</option>
@@ -1293,15 +1284,12 @@ function getOverlayHTML() {
             <option value="put">Always Sell</option>
           </select>
         </div>
-        <div class="av-row">
-          <label class="av-label">Delay</label>
-          <select id="av-delay" class="av-select">
-            <option value="2">2s</option>
-            <option value="4">4s</option>
-            <option value="6" selected>6s</option>
-            <option value="8">8s</option>
-            <option value="10">10s</option>
-            <option value="12">12s</option>
+        <div class="av-row" id="av-row-intensity" style="display:none">
+          <label class="av-label">Intensity</label>
+          <select id="av-intensity" class="av-select">
+            <option value="low">Low</option>
+            <option value="mid" selected>Mid</option>
+            <option value="high">High</option>
           </select>
         </div>
         <div class="av-row">
@@ -1427,10 +1415,28 @@ function getOverlayCSS() {
       background: #0f0f23; border: 1px solid #2d2d5b; border-radius: 6px;
       color: #e2e8f0; font-size: 12px; padding: 4px 8px;
     }
-    .av-select { min-width: 110px; }
+    .av-select { width: 130px; box-sizing: border-box; }
     .av-select:disabled { opacity: 0.4; cursor: not-allowed; }
     .av-input { width: 100%; box-sizing: border-box; margin-top: 4px; padding: 6px 10px; }
-    .av-input-sm { width: 90px; }
+    .av-input-sm { width: 130px; margin-top: 0; padding: 4px 8px; }
+    .av-bot-pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: #1F1A3E; border: 0.5px solid #7C3AED; border-radius: 8px;
+      padding: 8px 12px; cursor: pointer; width: 130px; box-sizing: border-box;
+      transition: background 0.15s ease;
+    }
+    .av-bot-pill:hover { background: #2A2350; }
+    .av-bot-pill-ai {
+      background: #7C3AED; color: #fff; font-size: 9px; font-weight: 700;
+      padding: 2px 5px; border-radius: 4px; letter-spacing: 0.05em;
+    }
+    .av-bot-pill-name { color: #ECEAFF; font-size: 13px; flex: 1; }
+    .av-bot-pill-arrow { flex-shrink: 0; }
+    .av-row-sub { margin-top: -4px; margin-bottom: 8px; }
+    .av-sublink {
+      font-size: 11px; color: #A78BFA; text-decoration: none; cursor: pointer;
+    }
+    .av-sublink:hover { color: #C4B5FD; text-decoration: underline; }
     .av-controls { display: flex; gap: 8px; }
     .av-btn {
       border: none; border-radius: 6px; padding: 8px 14px; font-size: 13px;
@@ -1483,6 +1489,17 @@ function getOverlayCSS() {
   `;
 }
 
+function applyStrategyUI(strategy) {
+  const isAi = strategy === 'ai';
+  const rowDirection = document.getElementById('av-row-direction');
+  const rowIntensity = document.getElementById('av-row-intensity');
+  const rowPill = document.getElementById('av-row-bot-pill');
+
+  if (rowDirection) rowDirection.style.display = isAi ? 'none' : 'flex';
+  if (rowIntensity) rowIntensity.style.display = isAi ? 'flex' : 'none';
+  if (rowPill) rowPill.style.display = isAi ? 'flex' : 'none';
+}
+
 function bindOverlayEvents() {
   document.getElementById('av-close').addEventListener('click', () => {
     document.getElementById('avalisa-overlay').style.display = 'none';
@@ -1496,19 +1513,27 @@ function bindOverlayEvents() {
   document.getElementById('av-start-btn').addEventListener('click', startBot);
   document.getElementById('av-stop-btn').addEventListener('click', stopBot);
 
-  // Strategy dropdown — derive aiAssist, toggle disabled on direction/delay
+  // Strategy dropdown — toggle UI between Martingale and AI mode
   document.getElementById('av-strategy').addEventListener('change', (e) => {
-    const isAi = e.target.value === 'ai';
-    state.settings.aiAssist = isAi;
-    document.getElementById('av-direction').disabled = isAi;
-    document.getElementById('av-delay').disabled = isAi;
+    const strategy = e.target.value;
+    state.settings.aiAssist = strategy === 'ai';
+    applyStrategyUI(strategy);
     updateBottomStatus();
     saveCurrentSettings();
   });
 
+  // Bot pill — open dashboard bots tab
+  const pill = document.getElementById('av-bot-pill');
+  if (pill) {
+    pill.addEventListener('click', () => {
+      window.open(`${DASHBOARD_URL}/dashboard?tab=bots`, '_blank');
+    });
+  }
+
   // Settings changes — auto-save
-  ['av-timeframe', 'av-direction', 'av-delay', 'av-multiplier', 'av-steps'].forEach(id => {
-    document.getElementById(id).addEventListener('change', saveCurrentSettings);
+  ['av-direction', 'av-multiplier', 'av-steps', 'av-intensity'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', saveCurrentSettings);
   });
   document.getElementById('av-start-amount').addEventListener('change', saveCurrentSettings);
 
@@ -1748,22 +1773,15 @@ function updateBottomStatus() {
     }
   }
 
-  // Token count — only visible when plan=lifetime AND strategy=ai
+  // Trade allowance — only visible when strategy=ai
   const tokenEl = document.getElementById('av-token-status');
   if (tokenEl) {
-    const plan = state.licenseInfo?.plan;
     const isAi = state.settings?.strategy === 'ai';
-    if (plan === 'lifetime' && isAi) {
-      if (state.aiUnlimited) {
-        tokenEl.textContent = 'Tokens: Unlimited';
-        tokenEl.style.display = '';
-      } else if (state.aiTokensLimit != null && state.aiTokensRemaining != null) {
-        const used = state.aiTokensLimit - state.aiTokensRemaining;
-        tokenEl.textContent = `Tokens: ${used.toLocaleString()} / ${state.aiTokensLimit.toLocaleString()}`;
-        tokenEl.style.display = '';
-      } else {
-        tokenEl.style.display = 'none';
-      }
+    const allowance = state.licenseInfo?.aiTradesAllowance;
+    const usedCount = state.licenseInfo?.aiTradesUsed;
+    if (isAi && Number.isFinite(allowance) && Number.isFinite(usedCount)) {
+      tokenEl.textContent = `Trade allowance: ${usedCount}/${allowance}`;
+      tokenEl.style.display = '';
     } else {
       tokenEl.style.display = 'none';
     }
@@ -1808,15 +1826,20 @@ function stopBot() {
 
 async function saveCurrentSettings() {
   const strategy = document.getElementById('av-strategy')?.value || 'martingale';
+  const intensityEl = document.getElementById('av-intensity');
+  const intensity = intensityEl && ['low', 'mid', 'high'].includes(intensityEl.value)
+    ? intensityEl.value
+    : (state.settings?.intensity || 'mid');
   const settings = {
     strategy,
-    timeframe: document.getElementById('av-timeframe').value,
+    timeframe: state.settings?.timeframe || 'M1',
     direction: document.getElementById('av-direction').value,
-    delaySeconds: parseInt(document.getElementById('av-delay').value),
+    delaySeconds: state.settings?.delaySeconds ?? 6,
     martingaleMultiplier: parseFloat(document.getElementById('av-multiplier').value),
     martingaleSteps: document.getElementById('av-steps').value,
     startAmount: parseFloat(document.getElementById('av-start-amount').value) || 1.0,
     aiAssist: strategy === 'ai',
+    intensity,
   };
   await saveSettings(settings);
 
@@ -1866,13 +1889,10 @@ function updateUI() {
     set('av-multiplier', parseFloat(s.martingaleMultiplier || 2.0).toFixed(1));
     set('av-steps', s.martingaleSteps || 'infinite');
     set('av-start-amount', s.startAmount || 1.0);
+    set('av-intensity', ['low', 'mid', 'high'].includes(s.intensity) ? s.intensity : 'mid');
 
-    // Disable direction/delay when AI strategy
-    const isAi = s.strategy === 'ai';
-    const dirEl = document.getElementById('av-direction');
-    const delayEl = document.getElementById('av-delay');
-    if (dirEl) dirEl.disabled = isAi;
-    if (delayEl) delayEl.disabled = isAi;
+    // Apply AI/Martingale UI layout
+    applyStrategyUI(s.strategy || 'martingale');
 
     // Payout Monitor values from state (seeded from chrome.storage.local)
     const payoutMin = document.getElementById('av-payout-min');

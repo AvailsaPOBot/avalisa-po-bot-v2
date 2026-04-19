@@ -170,6 +170,35 @@ router.patch('/users/:id', async (req, res) => {
   }
 });
 
+// PATCH /api/admin/grant-ai-allowance — set absolute aiTradesAllowance for a user
+// Body: { userId?: string, email?: string, aiTradesAllowance: number }
+router.patch('/grant-ai-allowance', async (req, res) => {
+  const { userId, email, aiTradesAllowance } = req.body;
+  const allowance = parseInt(aiTradesAllowance, 10);
+  if (!Number.isFinite(allowance) || allowance < 0) {
+    return res.status(400).json({ error: 'aiTradesAllowance must be a non-negative integer' });
+  }
+  if (!userId && !email) {
+    return res.status(400).json({ error: 'userId or email is required' });
+  }
+  try {
+    let targetUserId = userId;
+    if (!targetUserId) {
+      const user = await prisma.user.findUnique({ where: { email: String(email).toLowerCase().trim() } });
+      if (!user) return res.status(404).json({ error: 'User not found' });
+      targetUserId = user.id;
+    }
+    const license = await prisma.license.update({
+      where: { userId: targetUserId },
+      data: { aiTradesAllowance: allowance },
+    });
+    return res.json({ success: true, license });
+  } catch (err) {
+    console.error('[Admin] grant-ai-allowance error:', err);
+    return res.status(500).json({ error: 'Failed to update AI allowance' });
+  }
+});
+
 // DELETE /api/admin/users/:id — delete user and all their data
 router.delete('/users/:id', async (req, res) => {
   const { id } = req.params;
@@ -200,7 +229,7 @@ router.get('/users', async (req, res) => {
         poUserId: true,
         createdAt: true,
         license: {
-          select: { plan: true, tradesUsed: true, tradesLimit: true },
+          select: { plan: true, tradesUsed: true, tradesLimit: true, aiTradesAllowance: true, aiTradesUsed: true },
         },
         settings: {
           select: { strategy: true, uaiResetAt: true },

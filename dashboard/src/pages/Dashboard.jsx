@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import api from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
 import toast from 'react-hot-toast';
+
+const VALID_TABS = ['settings', 'history', 'bots', 'admin'];
 
 const STRATEGIES = [
   { id: 'martingale', label: 'Martingale', free: true, desc: 'Double on loss to recover' },
@@ -27,7 +29,14 @@ export default function Dashboard() {
   const [stats, setStats] = useState(null);
   const [historyType, setHistoryType] = useState('real');
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState('settings');
+  const [searchParams] = useSearchParams();
+  const initialTab = VALID_TABS.includes(searchParams.get('tab')) ? searchParams.get('tab') : 'settings';
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  useEffect(() => {
+    const t = searchParams.get('tab');
+    if (t && VALID_TABS.includes(t)) setActiveTab(t);
+  }, [searchParams]);
 
   // Admin state
   const [adminIdentifier, setAdminIdentifier] = useState('');
@@ -35,6 +44,8 @@ export default function Dashboard() {
   const [adminLoading, setAdminLoading] = useState(false);
   const [adminResult, setAdminResult] = useState(null);
   const [adminUsers, setAdminUsers] = useState([]);
+  const [allowanceEdit, setAllowanceEdit] = useState({}); // { [userId]: stringValue }
+  const [allowanceSavingId, setAllowanceSavingId] = useState(null);
 
   // Claim state (settings tab)
   const [claimPoUid, setClaimPoUid] = useState('');
@@ -157,6 +168,30 @@ export default function Dashboard() {
       toast.error('Failed to reset tokens');
     } finally {
       setTokenResetting(false);
+    }
+  }
+
+  async function saveAiAllowance(userId) {
+    const raw = allowanceEdit[userId];
+    const value = parseInt(raw, 10);
+    if (!Number.isFinite(value) || value < 0) {
+      toast.error('Enter a non-negative integer');
+      return;
+    }
+    setAllowanceSavingId(userId);
+    try {
+      await api.patch('/api/admin/grant-ai-allowance', { userId, aiTradesAllowance: value });
+      toast.success('AI allowance updated');
+      setAllowanceEdit(prev => {
+        const next = { ...prev };
+        delete next[userId];
+        return next;
+      });
+      loadAdminUsers();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to update allowance');
+    } finally {
+      setAllowanceSavingId(null);
     }
   }
 
@@ -341,7 +376,7 @@ export default function Dashboard() {
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 bg-dark-800 border border-dark-600 rounded-lg p-1 w-fit">
-        {['settings', 'history', ...(isAdmin ? ['admin'] : [])].map(tab => (
+        {['settings', 'history', 'bots', ...(isAdmin ? ['admin'] : [])].map(tab => (
           <button key={tab} onClick={() => setActiveTab(tab)}
             className={`px-5 py-2 rounded-md text-sm font-medium capitalize transition-colors ${activeTab === tab ? 'bg-brand-600 text-white' : 'text-gray-400 hover:text-white'}`}>
             {tab}
@@ -606,6 +641,32 @@ export default function Dashboard() {
         </div>
       )}
 
+      {activeTab === 'bots' && (
+        <div className="space-y-4 max-w-xl">
+          <div className="card">
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="bg-brand-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded tracking-wider">AI</span>
+                  <h2 className="text-lg font-semibold text-white">Mean Reversion v1</h2>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  Local rule engine — RSI + Bollinger Bands mean-reversion signals. Zero API calls.
+                </p>
+              </div>
+              <span className="text-xs font-semibold text-green-400 bg-green-900/30 border border-green-800 px-2 py-1 rounded">
+                ● Active
+              </span>
+            </div>
+            <div className="mt-4 pt-4 border-t border-dark-600">
+              <p className="text-sm text-gray-400">
+                More bots coming in the marketplace.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {activeTab === 'admin' && isAdmin && (
         <div className="space-y-6">
           {/* Pending Claims */}
@@ -730,6 +791,7 @@ export default function Dashboard() {
                     <th className="py-2 pr-4">UID</th>
                     <th className="py-2 pr-4">Plan</th>
                     <th className="py-2 pr-4">Trades</th>
+                    <th className="py-2 pr-4">AI Allowance</th>
                     <th className="py-2 pr-4">Balance</th>
                     <th className="py-2 pr-4">M / AI</th>
                     <th className="py-2 pr-4">User AI</th>
@@ -753,6 +815,44 @@ export default function Dashboard() {
                               {u.license.tradesUsed}/{u.license.tradesLimit}
                             </span>
                           : <span className="text-gray-500">{u.license?.tradesUsed ?? 0}/∞</span>}
+                      </td>
+                      <td className="py-2 pr-4 text-xs">
+                        {allowanceEdit[u.id] !== undefined ? (
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              min="0"
+                              value={allowanceEdit[u.id]}
+                              onChange={e => setAllowanceEdit(prev => ({ ...prev, [u.id]: e.target.value }))}
+                              className="input w-16 text-xs py-0.5"
+                            />
+                            <button
+                              onClick={() => saveAiAllowance(u.id)}
+                              disabled={allowanceSavingId === u.id}
+                              className="text-xs text-green-400 hover:text-green-300"
+                            >
+                              {allowanceSavingId === u.id ? '…' : '✓'}
+                            </button>
+                            <button
+                              onClick={() => setAllowanceEdit(prev => { const n = { ...prev }; delete n[u.id]; return n; })}
+                              className="text-xs text-gray-500 hover:text-gray-300"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span className={(u.license?.aiTradesUsed ?? 0) >= (u.license?.aiTradesAllowance ?? 0) ? 'text-red-400' : 'text-gray-300'}>
+                              {u.license?.aiTradesUsed ?? 0}/{u.license?.aiTradesAllowance ?? 0}
+                            </span>
+                            <button
+                              onClick={() => setAllowanceEdit(prev => ({ ...prev, [u.id]: String(u.license?.aiTradesAllowance ?? 100) }))}
+                              className="text-xs text-blue-400 hover:text-blue-300"
+                            >
+                              Edit
+                            </button>
+                          </div>
+                        )}
                       </td>
                       <td className="py-2 pr-4 text-xs">
                         {u.latestBalance != null ? `$${parseFloat(u.latestBalance).toFixed(2)}` : '—'}

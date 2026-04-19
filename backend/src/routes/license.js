@@ -23,7 +23,13 @@ router.post('/check', async (req, res) => {
       }
 
       if (license.plan === 'lifetime') {
-        return res.json({ allowed: true, plan: 'lifetime', tradesRemaining: null });
+        return res.json({
+          allowed: true,
+          plan: 'lifetime',
+          tradesRemaining: null,
+          aiTradesAllowance: license.aiTradesAllowance,
+          aiTradesUsed: license.aiTradesUsed,
+        });
       }
 
       if (license.plan === 'basic') {
@@ -34,6 +40,8 @@ router.post('/check', async (req, res) => {
           tradesRemaining: remaining,
           tradesUsed: license.tradesUsed,
           tradesLimit: license.tradesLimit,
+          aiTradesAllowance: license.aiTradesAllowance,
+          aiTradesUsed: license.aiTradesUsed,
         });
       }
 
