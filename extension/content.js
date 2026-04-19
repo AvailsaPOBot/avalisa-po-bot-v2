@@ -159,9 +159,10 @@ function seedCandleBufferFromHistory(asset, period, ticks) {
   const byTime = new Map();
   for (const t of ticks) {
     if (!Array.isArray(t) || t.length < 2) continue;
-    const ts = Number(t[0]);
+    const tsRaw = Number(t[0]);
     const price = Number(t[1]);
-    if (!Number.isFinite(ts) || !Number.isFinite(price)) continue;
+    if (!Number.isFinite(tsRaw) || !Number.isFinite(price)) continue;
+    const ts = tsRaw > 1e10 ? tsRaw / 1000 : tsRaw; // normalize ms → sec
     const candleTime = Math.floor(ts / period) * period;
     const existing = byTime.get(candleTime);
     if (existing) {
@@ -2066,7 +2067,8 @@ window.addEventListener('message', (e) => {
       if (parsed && !Array.isArray(parsed) && Array.isArray(parsed.history)) {
         // Format: {asset, period, history: [[ts_float, price_float], ...]}
         const histAsset = normalizeAssetName(parsed.asset) || asset;
-        const histPeriod = Number(parsed.period) || periodSec;
+        const rawPeriod = Number(parsed.period) || periodSec;
+        const histPeriod = rawPeriod > 3600 ? rawPeriod / 1000 : rawPeriod; // normalize ms → sec if PO sends ms
 
         // Detect pair / period switch and wipe stale buffers from other pairs
         const pairChanged = state.activePair !== histAsset || state.activePeriod !== histPeriod;
