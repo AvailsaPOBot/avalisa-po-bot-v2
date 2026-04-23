@@ -59,7 +59,20 @@
   ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'].forEach(k => {
     Object.defineProperty(AvalisaWS, k, { value: _WS[k] });
   });
-  window.WebSocket = AvalisaWS;
+  // Lock the wrap so PO's webpack bundle / globals snapshot can't restore native WebSocket
+  try {
+    Object.defineProperty(window, 'WebSocket', {
+      value: AvalisaWS,
+      writable: false,
+      configurable: false,
+      enumerable: true,
+    });
+    console.log('[Avalisa] WebSocket interceptor locked via defineProperty');
+  } catch (e) {
+    // Fallback if PO already locked it themselves
+    window.WebSocket = AvalisaWS;
+    console.warn('[Avalisa] WebSocket interceptor fallback assignment:', e?.message);
+  }
 
   // Expose history request so content.js can call it
   window.avalisaRequestHistory = function (asset, periodSec) {
