@@ -258,20 +258,22 @@ router.get('/users', async (req, res) => {
       if (!statsMap[t.userId]) {
         statsMap[t.userId] = {
           latestBalance: t.balanceAfter,
-          martingale: { total: 0, wins: 0 },
-          aiSignal: { total: 0, wins: 0 },
-          userAi: { total: 0, wins: 0 },
-          userAiCurrent: { total: 0, wins: 0 },
+          martingale: { total: 0, wins: 0, losses: 0 },
+          aiSignal: { total: 0, wins: 0, losses: 0 },
+          userAi: { total: 0, wins: 0, losses: 0 },
+          userAiCurrent: { total: 0, wins: 0, losses: 0 },
         };
       }
       const s = statsMap[t.userId];
       const bucket = t.strategy === 'ai-signal' ? 'aiSignal' : t.strategy === 'user-ai' ? 'userAi' : 'martingale';
       s[bucket].total++;
       if (t.result === 'win') s[bucket].wins++;
-      // Track UAI since last prompt reset
+      else if (t.result === 'loss') s[bucket].losses++;
+      // ties counted in total (trade happened) but excluded from win-rate denom
       if (bucket === 'userAi' && resetMap[t.userId] && new Date(t.createdAt) >= resetMap[t.userId]) {
         s.userAiCurrent.total++;
         if (t.result === 'win') s.userAiCurrent.wins++;
+        else if (t.result === 'loss') s.userAiCurrent.losses++;
       }
     }
 
@@ -281,17 +283,20 @@ router.get('/users', async (req, res) => {
         ...u,
         latestBalance: s?.latestBalance ?? null,
         currentStrategy: u.settings?.strategy || 'martingale',
-        winRateByMode: s ? {
-          martingale: s.martingale.total ? ((s.martingale.wins / s.martingale.total) * 100).toFixed(1) : null,
-          martingaleTotal: s.martingale.total,
-          aiSignal: s.aiSignal.total ? ((s.aiSignal.wins / s.aiSignal.total) * 100).toFixed(1) : null,
-          aiSignalTotal: s.aiSignal.total,
-          userAi: s.userAi.total ? ((s.userAi.wins / s.userAi.total) * 100).toFixed(1) : null,
-          userAiTotal: s.userAi.total,
-          userAiCurrent: s.userAiCurrent.total ? ((s.userAiCurrent.wins / s.userAiCurrent.total) * 100).toFixed(1) : null,
-          userAiCurrentTotal: s.userAiCurrent.total,
-          uaiResetAt: u.settings?.uaiResetAt || null,
-        } : null,
+        winRateByMode: s ? (() => {
+          const rate = (w, l) => (w + l) > 0 ? ((w / (w + l)) * 100).toFixed(1) : null;
+          return {
+            martingale: rate(s.martingale.wins, s.martingale.losses),
+            martingaleTotal: s.martingale.total,
+            aiSignal: rate(s.aiSignal.wins, s.aiSignal.losses),
+            aiSignalTotal: s.aiSignal.total,
+            userAi: rate(s.userAi.wins, s.userAi.losses),
+            userAiTotal: s.userAi.total,
+            userAiCurrent: rate(s.userAiCurrent.wins, s.userAiCurrent.losses),
+            userAiCurrentTotal: s.userAiCurrent.total,
+            uaiResetAt: u.settings?.uaiResetAt || null,
+          };
+        })() : null,
       };
     });
 

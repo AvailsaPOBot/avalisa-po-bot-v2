@@ -366,11 +366,18 @@ async function getBalance() {
 
 function extractResultFromCloseEvent(payload) {
   if (!payload) return null;
-  if (typeof payload.profit === 'number') return payload.profit > 0 ? 'win' : 'loss';
-  if (typeof payload.profitAmount === 'number') return payload.profitAmount > 0 ? 'win' : 'loss';
+  if (typeof payload.profit === 'number') {
+    if (payload.profit === 0) return 'tie';
+    return payload.profit > 0 ? 'win' : 'loss';
+  }
+  if (typeof payload.profitAmount === 'number') {
+    if (payload.profitAmount === 0) return 'tie';
+    return payload.profitAmount > 0 ? 'win' : 'loss';
+  }
   if (payload.result === 'win' || payload.status === 'win') return 'win';
   if (payload.result === 'loss' || payload.status === 'loss' || payload.result === 'lose') return 'loss';
   if (payload.openPrice && payload.closePrice && payload.command !== undefined) {
+    if (payload.closePrice === payload.openPrice) return 'tie';
     const up = payload.closePrice > payload.openPrice;
     const wasCall = payload.command === 0 || payload.direction === 'call' || payload.type === 'call';
     return (up === wasCall) ? 'win' : 'loss';
@@ -411,7 +418,10 @@ function readDealResult(el) {
   if (payoutCell?.classList.contains('price-up')) return 'win';
   if (payoutCell?.classList.contains('price-down')) return 'loss';
   if (/\+\s*\$/.test(text) || /\bwin\b/i.test(text)) return 'win';
-  if (/\-\s*\$/.test(text) || /\bloss\b/i.test(text) || text === '$0' || text === '$0.00') return 'loss';
+  if (/\-\s*\$/.test(text) || /\bloss\b/i.test(text)) return 'loss';
+  // $0 text with no +/- prefix is ambiguous (could be tie OR loss).
+  // Return null and let WS/balance tier decide — WS is reliable for tie detection.
+  if (/\$0(\.00)?$/.test(text) || text === '$0' || text === '$0.00') return null;
   return null;
 }
 
@@ -439,9 +449,17 @@ function classifyResultFromBalance(balanceBefore, balanceDuringTrade, balanceNow
   if (balanceNow === null) return null;
 
   const settleTolerance = Math.max(0.15, amount * 0.15);
+  const tieTolerance = Math.max(0.05, amount * 0.05); // ±5% of stake (balanceBefore tier — tight)
+  const tieToleranceDuring = Math.max(0.10, amount * 0.10); // ±10% of stake (during tier — looser)
 
   if (balanceBefore !== null) {
     const deltaFromBefore = balanceNow - balanceBefore;
+
+    // TIE: balance returned to pre-trade level (stake refunded, no profit/loss)
+    if (iteration >= 4 && Math.abs(deltaFromBefore) <= tieTolerance) {
+      return { result: 'tie', detail: `balance returned to pre-trade level (${deltaFromBefore.toFixed(2)})` };
+    }
+
     if (deltaFromBefore > amount * 0.5) {
       return { result: 'win', detail: `balance vs before +${deltaFromBefore.toFixed(2)}` };
     }
@@ -452,11 +470,19 @@ function classifyResultFromBalance(balanceBefore, balanceDuringTrade, balanceNow
 
   if (balanceDuringTrade !== null) {
     const deltaFromDuring = balanceNow - balanceDuringTrade;
-    if (deltaFromDuring > amount * 0.5) {
+
+    // TIE at this tier: stake was deducted at open and restored at close → delta ≈ +amount
+    // MUST check before win branch or tie would be misread as win.
+    if (iteration >= 4 && Math.abs(deltaFromDuring - amount) <= tieToleranceDuring) {
+      return { result: 'tie', detail: `stake returned vs during (${deltaFromDuring.toFixed(2)} ≈ ${amount.toFixed(2)})` };
+    }
+
+    // WIN: stake + profit → delta > ~1.1x stake (excludes tie zone)
+    if (deltaFromDuring > amount * 1.1) {
       return { result: 'win', detail: `balance vs during +${deltaFromDuring.toFixed(2)}` };
     }
-    // Loss often means PO never restores the deducted stake, so post-expiry balance
-    // stays roughly equal to the "trade open" balance rather than dropping further.
+
+    // LOSS: stake kept, balance didn't move from trade-open level
     if (iteration >= 6 && Math.abs(deltaFromDuring) <= settleTolerance) {
       return { result: 'loss', detail: `balance stayed near trade-open balance (${deltaFromDuring.toFixed(2)})` };
     }
@@ -490,9 +516,10 @@ async function resolveTradeResult(balanceBefore, balanceDuringTrade, amount, tra
   }
 
   // Inconclusive after waiting through WS + DOM + balance settling.
-  // Default LOSS is safer than WIN because a false WIN suppresses martingale recovery.
-  console.warn('[Avalisa] RESULT: LOSS (inconclusive after all tiers)');
-  return 'loss';
+  // Default TIE is safest: holds current stake, repeats trade, doesn't advance or reset martingale.
+  // Better to under-bet a real loss than to ladder up on a real win or wipe recovery on a real loss.
+  console.warn('[Avalisa] RESULT: TIE (inconclusive after all tiers — holding stake)');
+  return 'tie';
 }
 
 function setTradeAmount(amount) {
@@ -1168,6 +1195,12 @@ function applyMartingaleLogic(result) {
   const multiplier = parseFloat(s.martingaleMultiplier) || 2.0;
   const startAmount = parseFloat(s.startAmount) || 1.0;
   const maxSteps = s.martingaleSteps === 'infinite' ? Infinity : (parseInt(s.martingaleSteps) || Infinity);
+
+  // TIE: stake returned, no profit/loss. Hold current amount and step, repeat trade.
+  if (result === 'tie') {
+    console.log(`[Avalisa] Martingale: result=TIE step=${state.martingaleStep} nextAmount=${state.currentAmount} (holding)`);
+    return;
+  }
 
   if (result === 'loss') {
     if (state.martingaleStep < maxSteps) {

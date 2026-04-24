@@ -120,7 +120,9 @@ router.get('/history', authMiddleware, async (req, res) => {
     const closedTrades = trades.filter(t => t.result !== 'pending');
     const wins = closedTrades.filter(t => t.result === 'win').length;
     const losses = closedTrades.filter(t => t.result === 'loss').length;
-    const winRate = closedTrades.length > 0 ? ((wins / closedTrades.length) * 100).toFixed(1) : 0;
+    const ties = closedTrades.filter(t => t.result === 'tie').length;
+    const decided = wins + losses;
+    const winRate = decided > 0 ? ((wins / decided) * 100).toFixed(1) : 0;
     const totalProfit = closedTrades.reduce((sum, t) => {
       if (t.balanceBefore != null && t.balanceAfter != null) {
         return sum + (t.balanceAfter - t.balanceBefore);
@@ -131,7 +133,7 @@ router.get('/history', authMiddleware, async (req, res) => {
     res.json({
       trades,
       pagination: { page: parseInt(page), limit: parseInt(limit), total },
-      stats: { wins, losses, winRate, totalProfit: totalProfit.toFixed(2) },
+      stats: { wins, losses, ties, winRate, totalProfit: totalProfit.toFixed(2) },
     });
   } catch (err) {
     console.error('Trade history error:', err);
