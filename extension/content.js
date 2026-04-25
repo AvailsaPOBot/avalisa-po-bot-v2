@@ -148,10 +148,20 @@ function getBufferedCandles() {
 const MAX_CANDLE_BUFFER = 50;
 const REQUIRED_CANDLES = 30; // 20 for SMA/RSI + 10 for slope window
 
-// Replace-seed the buffer from a bulk updateHistoryNewFast payload.
+// Merge-seed the buffer from a bulk updateHistoryNewFast payload.
 // `ticks` is an array of [timestamp_seconds_float, price_float].
+// v2.3.1: MERGE existing + incoming candles by time key, NEVER shrink the buffer.
+// PO sometimes re-fires updateHistoryNewFast with fewer ticks (tab refocus, chart
+// re-render). Old replace-seed logic clobbered larger buffers down to smaller ones.
 function seedCandleBufferFromHistory(asset, period, ticks) {
+  const key = `${asset}:${period}`;
+  // Start from existing buffer (preserves real-time tick data and prior history)
   const byTime = new Map();
+  const existing = state.candleBuffer[key] || [];
+  for (const c of existing) {
+    if (c && Number.isFinite(c.time)) byTime.set(c.time, { ...c });
+  }
+
   for (const t of ticks) {
     if (!Array.isArray(t) || t.length < 2) continue;
     const tsRaw = Number(t[0]);
@@ -159,11 +169,12 @@ function seedCandleBufferFromHistory(asset, period, ticks) {
     if (!Number.isFinite(tsRaw) || !Number.isFinite(price)) continue;
     const ts = tsRaw > 1e10 ? tsRaw / 1000 : tsRaw; // normalize ms → sec
     const candleTime = Math.floor(ts / period) * period;
-    const existing = byTime.get(candleTime);
-    if (existing) {
-      existing.high = Math.max(existing.high, price);
-      existing.low = Math.min(existing.low, price);
-      existing.close = price;
+    const cur = byTime.get(candleTime);
+    if (cur) {
+      // Update existing bucket: extend high/low, update close (last tick wins)
+      cur.high = Math.max(cur.high, price);
+      cur.low = Math.min(cur.low, price);
+      cur.close = price;
     } else {
       byTime.set(candleTime, { time: candleTime, open: price, high: price, low: price, close: price });
     }
@@ -171,7 +182,6 @@ function seedCandleBufferFromHistory(asset, period, ticks) {
   const candles = Array.from(byTime.values())
     .sort((a, b) => a.time - b.time)
     .slice(-MAX_CANDLE_BUFFER);
-  const key = `${asset}:${period}`;
   state.candleBuffer[key] = candles;
   return candles.length;
 }
@@ -1103,7 +1113,9 @@ async function runTradeCycle(generation) {
       return;
     }
 
-    const intensity = state.settings.aiIntensity || 'mid';
+    // v2.3.1: settings field is `intensity` (set in saveCurrentSettings/dropdown), not `aiIntensity`.
+    // Old code always fell through to 'mid' regardless of user's Low/High pick.
+    const intensity = state.settings.intensity || state.settings.aiIntensity || 'mid';
     const sig = globalThis.AvalisaSignalEngine.evaluateSignal(indicators, intensity);
     aiSignalSnapshot = sig.snapshot || null;
     aiSuggestedTimeframe = sig.timeframe || null;
@@ -1218,6 +1230,8 @@ async function runTradeCycle(generation) {
   }
 }
 
+// v2.3.1: stronger guard. Old code reset to startAmount only when amount<=0,
+// allowing NaN to leak through. Now any non-finite or non-positive value triggers reset.
 function applyMartingaleLogic(result) {
   const s = state.settings;
   // Guard against undefined/NaN settings values from stale stored settings
