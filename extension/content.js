@@ -146,7 +146,7 @@ function getBufferedCandles() {
 }
 
 const MAX_CANDLE_BUFFER = 50;
-const REQUIRED_CANDLES = 20;
+const REQUIRED_CANDLES = 30; // 20 for SMA/RSI + 10 for slope window
 
 // Replace-seed the buffer from a bulk updateHistoryNewFast payload.
 // `ticks` is an array of [timestamp_seconds_float, price_float].
@@ -847,6 +847,28 @@ function buildIndicators() {
     ? +(((price - closes[closes.length - 6]) / closes[closes.length - 6]) * 100).toFixed(3)
     : null;
   const last3 = candles.slice(-3).map(c => c.close > c.open ? 'bull' : 'bear');
+
+  // SMA20 slope: simple linear slope over last 10 candles using SMA values
+  let slope10 = null;
+  if (candles.length >= 30) {
+    const sma_now = sma20;
+    // SMA20 computed 10 candles ago = mean of candles[length-30..length-10]
+    const past = candles.slice(candles.length - 30, candles.length - 10);
+    if (past.length === 20) {
+      const sma_past = past.reduce((s, c) => s + c.close, 0) / 20;
+      slope10 = (sma_now - sma_past) / 10; // per-candle slope
+    }
+  }
+
+  // Last completed candle direction
+  let lastCandle = null;
+  if (candles.length >= 1) {
+    const last = candles[candles.length - 1];
+    if (last && Number.isFinite(last.open) && Number.isFinite(last.close)) {
+      lastCandle = last.close > last.open ? 'green' : last.close < last.open ? 'red' : 'doji';
+    }
+  }
+
   return {
     pair: getCurrentPair(),
     tf: state.settings?.timeframe || 'M1',
@@ -862,6 +884,8 @@ function buildIndicators() {
     momentum5,
     last3Candles: last3,
     candleCount: candles.length,
+    slope10,
+    lastCandle,
   };
 }
 
@@ -1060,6 +1084,7 @@ async function runTradeCycle(generation) {
   // AI mode: local rule engine — zero network calls
   let aiDecidedDirection = null;
   let aiSignalSnapshot = null;
+  let aiSuggestedTimeframe = null;
   if (state.settings.strategy === 'ai') {
     // Wait for warmup — normally satisfied instantly by the updateHistoryNewFast seed
     let candles = getBufferedCandles();
@@ -1078,22 +1103,22 @@ async function runTradeCycle(generation) {
       return;
     }
 
-    const intensity = state.settings.intensity || 'mid';
-    const engine = globalThis.AvalisaSignalEngine;
-    if (!engine || typeof engine.evaluateSignal !== 'function') {
-      console.error('[Avalisa] signalEngine.js not loaded — reload extension');
-      updateStatus('error', 'Signal engine missing — reload extension');
-      state.running = false; updateUI(); return;
-    }
+    const intensity = state.settings.aiIntensity || 'mid';
+    const sig = globalThis.AvalisaSignalEngine.evaluateSignal(indicators, intensity);
+    aiSignalSnapshot = sig.snapshot || null;
+    aiSuggestedTimeframe = sig.timeframe || null;
 
-    const sig = engine.evaluateSignal(indicators, intensity);
-    aiSignalSnapshot = sig.snapshot;
-    console.log(`[Avalisa] Smart Signal: ${sig.action}${sig.reason ? ' (' + sig.reason + ')' : ''}`, sig.snapshot);
+    console.log(`[Avalisa] Charles: action=${sig.action} regime=${sig.snapshot?.regime} tf=${sig.timeframe} reason=${sig.reason || 'ok'} rules=${sig.snapshot?.rulesMatched}`);
 
     if (sig.action === 'SKIP') {
-      updateStatus('running', `SKIP (${sig.reason || 'no_signal'}) — waiting 30s`);
-      await sleep(30000);
-      if (state.running) runTradeCycle(generation).catch(console.error);
+      // SKIP: wait one candle period of the suggested timeframe, then re-evaluate
+      const tf = aiSuggestedTimeframe || state.settings.timeframe || 'M1';
+      const candleMs = tf === 'M3' ? 180000 : tf === 'M5' ? 300000 : 60000; // M1 default
+      updateStatus('running', `SKIP (${sig.reason || 'no_signal'}) — wait 1 candle`);
+      await sleep(candleMs);
+      if (state.running && !state.stopRequested && generation === state.cycleGeneration) {
+        runTradeCycle(generation).catch(console.error);
+      }
       return;
     }
     aiDecidedDirection = sig.action === 'CALL' ? 'call' : 'put';
@@ -1109,7 +1134,11 @@ async function runTradeCycle(generation) {
 
   updateStatus('running', `Trade #${state.tradesCount + 1} — ${direction.toUpperCase()} $${safeAmount.toFixed(2)}`);
 
-  await setTimeframe(state.settings.timeframe || 'M1');
+  // AI mode: use signal's suggested timeframe; martingale: user setting
+  const tfToUse = (state.settings.strategy === 'ai' && aiSuggestedTimeframe)
+    ? aiSuggestedTimeframe
+    : (state.settings.timeframe || 'M1');
+  await setTimeframe(tfToUse);
 
   if (!setTradeAmount(safeAmount)) {
     updateStatus('error', 'Could not set trade amount — page may have changed');
