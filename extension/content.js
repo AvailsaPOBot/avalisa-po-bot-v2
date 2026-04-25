@@ -2232,6 +2232,9 @@ async function init() {
   loadAffiliateLink(); // fire-and-forget
   // Seed token status if logged in
   if (state.jwt) {
+    // v2.3.3: also seed licenseInfo on init — popup reads from chrome.storage,
+    // and without this call licenseInfo only populated on Start (popup stuck showing FREE).
+    checkLicense().then(lic => { state.licenseInfo = lic; updateUI(); }).catch(() => {});
     apiGet('/api/ai/token-status').then(ts => {
       if (ts) {
         if (ts.remaining !== undefined) state.aiTokensRemaining = ts.remaining;
