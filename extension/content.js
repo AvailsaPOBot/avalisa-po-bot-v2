@@ -327,6 +327,8 @@ async function checkLicense() {
       deviceFingerprint: getDeviceFingerprint(),
     }));
     state.licenseInfo = data;
+    // v2.3.2: mirror to chrome.storage.local so popup.js renders correct plan/trades.
+    try { chrome.storage.local.set({ licenseInfo: data }); } catch (_) {}
     return data;
   } catch (err) {
     console.error('[Avalisa] License check failed:', err);
@@ -1126,7 +1128,11 @@ async function runTradeCycle(generation) {
       // SKIP: wait one candle period of the suggested timeframe, then re-evaluate
       const tf = aiSuggestedTimeframe || state.settings.timeframe || 'M1';
       const candleMs = tf === 'M3' ? 180000 : tf === 'M5' ? 300000 : 60000; // M1 default
-      updateStatus('running', `SKIP (${sig.reason || 'no_signal'}) — wait 1 candle`);
+      // v2.3.2: friendlier OTC message — Mid/High intensity skips OTC by design.
+      const skipMsg = sig.reason === 'otc_filter'
+        ? 'SKIP — OTC pair (use Low intensity to trade OTC)'
+        : `SKIP (${sig.reason || 'no_signal'}) — wait 1 candle`;
+      updateStatus('running', skipMsg);
       await sleep(candleMs);
       if (state.running && !state.stopRequested && generation === state.cycleGeneration) {
         runTradeCycle(generation).catch(console.error);
@@ -1876,7 +1882,11 @@ function updateBottomStatus() {
   if (tokenEl) {
     const allowance = state.licenseInfo?.aiTradesAllowance;
     const usedCount = state.licenseInfo?.aiTradesUsed;
-    if (isAi && Number.isFinite(allowance) && Number.isFinite(usedCount)) {
+    // v2.3.2: Lifetime users see ∞ (the 100-cap is a backend default, not a hard product limit).
+    if (isAi && state.licenseInfo?.plan === 'lifetime') {
+      tokenEl.textContent = 'Trade allowance: ∞ (Lifetime)';
+      tokenEl.style.display = '';
+    } else if (isAi && Number.isFinite(allowance) && Number.isFinite(usedCount)) {
       tokenEl.textContent = `Trade allowance: ${usedCount}/${allowance}`;
       tokenEl.style.display = '';
     } else {
