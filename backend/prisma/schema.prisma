@@ -53,6 +53,7 @@ model Trade {
   balanceAfter  Float?
   isDemo        Boolean  @default(false)
   strategy      String   @default("martingale") // martingale | ai-signal | ai
+  timeframe     String?  // S30 | M1 | M3 | M5 | M30 | H1
   signalSnapshot Json?   // local rule-engine snapshot for AI mode trades
   createdAt     DateTime @default(now())
 
@@ -62,8 +63,8 @@ model Trade {
 model Settings {
   id                   String   @id @default(cuid())
   userId               String   @unique
-  strategy             String    @default("martingale") // martingale | anti-martingale | fixed | ai-signal | user-ai
-  timeframe            String    @default("M1") // M1 | M3 | M5 | M30 | H1 | H4
+  strategy             String    @default("martingale") // martingale | anti-martingale | fixed | ai-signal | ai | user-ai
+  timeframe            String    @default("M1") // S15 | S30 | M1 | M3 | M5 | M30 | H1
   direction            String    @default("alternating") // alternating | call | put
   martingaleMultiplier Float     @default(2.0)
   martingaleSteps      String    @default("infinite") // number or "infinite"

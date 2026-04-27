@@ -86,6 +86,11 @@
     return true;
   };
 
+  window.addEventListener('message', function (event) {
+    if (event.source !== window || event.data?.type !== 'AVALISA_REQUEST_HISTORY') return;
+    window.avalisaRequestHistory(event.data.asset, event.data.period);
+  });
+
   // ── Fetch interceptor — capture PO AI HTTP calls ───────────────────────────
   const _fetch = window.fetch;
   window.fetch = function (input, init) {

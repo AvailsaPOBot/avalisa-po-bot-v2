@@ -2,11 +2,50 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --bg-base: #0a0a0f;
+  --bg-surface: #14141d;
+  --bg-elevated: #1c1c28;
+  --text-primary: #ededed;
+  --text-muted: #8a8a93;
+  --accent-gold: #d4a256;
+  --accent-gold-soft: #a37f3e;
+  --accent-jade: #4a9b7e;
+  --accent-crimson: #c44545;
+  --accent-lifetime: #a78bfa;
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-sans: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono', 'SFMono-Regular', Consolas, monospace;
+}
+
+html {
+  background: var(--bg-base);
+}
+
+* {
+  box-sizing: border-box;
+}
 
 @layer base {
   body {
     @apply bg-dark-900 text-gray-100 antialiased;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: var(--font-sans);
+    background: var(--bg-base);
+    color: var(--text-primary);
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  button {
+    font: inherit;
+  }
+
+  img {
+    display: block;
+    max-width: 100%;
   }
 }
 

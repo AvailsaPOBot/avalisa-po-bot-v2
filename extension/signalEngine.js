@@ -7,6 +7,7 @@
   // Per-intensity thresholds. Tune from observed live trade data later.
   const THRESHOLDS = {
     low: {
+      minConfidence: 35,
       // Regime classification
       regimeSlopeThreshold: 0.4,   // slope/stdev ratio above this = trending
       // Volatility → timeframe
@@ -14,7 +15,9 @@
       volHighThreshold: 0.0030,    // above this = SKIP (chaos)
       // Mean reversion
       rsiLow: 35, rsiHigh: 65, bbK: 1.5,
-      rulesRequiredRanging: 2,
+      // Low is the active/testing mode: trade when one strong mean-reversion
+      // condition appears, matching the older Charles behavior that placed trades.
+      rulesRequiredRanging: 1,
       // Trend pullback
       pullbackRsiLow: 40, pullbackRsiHigh: 60,
       pullbackBbK: 0.7,            // price within ±0.7σ of SMA20 = pullback zone
@@ -24,11 +27,12 @@
       requireCandleConfirm: false, // last candle aligns with direction
     },
     mid: {
+      minConfidence: 68,
       regimeSlopeThreshold: 0.3,
       volLowThreshold: 0.0005,
       volHighThreshold: 0.0025,
       rsiLow: 30, rsiHigh: 70, bbK: 2.0,
-      rulesRequiredRanging: 3,
+      rulesRequiredRanging: 2,
       pullbackRsiLow: 40, pullbackRsiHigh: 60,
       pullbackBbK: 0.6,
       rulesRequiredTrending: 3,
@@ -36,14 +40,15 @@
       requireCandleConfirm: true,
     },
     high: {
+      minConfidence: 95,
       regimeSlopeThreshold: 0.25,
       volLowThreshold: 0.0006,
       volHighThreshold: 0.0020,
       rsiLow: 25, rsiHigh: 75, bbK: 2.5,
-      rulesRequiredRanging: 3,
+      rulesRequiredRanging: 4,
       pullbackRsiLow: 42, pullbackRsiHigh: 58,
       pullbackBbK: 0.5,
-      rulesRequiredTrending: 3,
+      rulesRequiredTrending: 4,
       skipOTC: true,
       requireCandleConfirm: true,
     },
@@ -59,12 +64,18 @@
     return /_otc|\botc\b/i.test(String(pair));
   }
 
-  // Returns 'M1' | 'M3' | null (null = SKIP for vol)
-  function pickTimeframe(volRatio, th) {
-    if (!Number.isFinite(volRatio)) return 'M1';
+  // Returns 'S30' | 'M1' | 'M3' | 'M5' | null (null = SKIP for vol).
+  // Intensity maps to how much expiry breathing room Charles wants.
+  function pickTimeframe(volRatio, th, intensity) {
+    if (!Number.isFinite(volRatio)) {
+      if (intensity === 'high') return 'M3';
+      if (intensity === 'mid') return 'M1';
+      return 'S30';
+    }
     if (volRatio > th.volHighThreshold) return null; // chaos → SKIP
-    if (volRatio < th.volLowThreshold) return 'M3';  // calm → longer expiry
-    return 'M1';                                     // normal
+    if (intensity === 'high') return volRatio < th.volLowThreshold ? 'M5' : 'M3';
+    if (intensity === 'mid') return volRatio < th.volLowThreshold ? 'M3' : 'M1';
+    return volRatio < th.volLowThreshold ? 'M1' : 'S30';
   }
 
   function classifyRegime(slopeScore, th) {
@@ -95,7 +106,8 @@
       ? slope10 / stdev20 : null;
 
     const regime = classifyRegime(slopeScore, th);
-    const tfPick = pickTimeframe(volRatio, th);
+    const intensityName = THRESHOLDS[intensity] ? intensity : 'mid';
+    const tfPick = pickTimeframe(volRatio, th, intensityName);
 
     const baseSnapshot = {
       rsi: round4(rsi),
@@ -109,8 +121,9 @@
       regime,
       lastCandle: lastCandle || null,
       bbPos: null,
-      intensity: intensity || 'mid',
+      intensity: intensityName,
       rulesMatched: 0,
+      confidence: 0,
       action: 'SKIP',
       timeframe: tfPick || 'M1',
     };
@@ -193,19 +206,30 @@
 
     let action = 'SKIP';
     let rulesMatched = Math.max(callCount, putCount);
+    let confidence = 0;
     let reason;
 
-    // Conflict guard: if both directions trip rules, skip
-    if (callCount >= required && putCount >= required) {
+    // Conflict guard: skip only when both sides are equally strong. Low
+    // intensity can require just one rule, so a single weak opposite hint must
+    // not cancel a stronger Charles signal.
+    if (callCount >= required && putCount >= required && callCount === putCount) {
       reason = 'conflicting_signals';
-    } else if (callCount >= required) {
+    } else if (callCount >= required && callCount > putCount) {
       action = 'CALL';
       rulesMatched = callCount;
-    } else if (putCount >= required) {
+    } else if (putCount >= required && putCount > callCount) {
       action = 'PUT';
       rulesMatched = putCount;
     } else {
       reason = 'no_signal';
+    }
+
+    if (action !== 'SKIP') {
+      confidence = Math.min(100, Math.round((rulesMatched / Math.max(required, 1)) * th.minConfidence));
+      if (confidence < th.minConfidence) {
+        action = 'SKIP';
+        reason = 'low_confidence';
+      }
     }
 
     const snapshot = {
@@ -213,6 +237,8 @@
       bbPos: round4(bbPos),
       strategy,
       rulesMatched,
+      confidence,
+      minConfidence: th.minConfidence,
       callCount,
       putCount,
       action,

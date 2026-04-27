@@ -140,6 +140,20 @@ else
   echo ""
 fi
 
+
+# ── 8. CLEANUP — delete the test user from prod (CRITICAL — added 2026-04-25) ─
+# Without this, every CI run leaves a smoketest_* user in production DB forever.
+if [ -n "$ADMIN_TOKEN" ] && [ -n "$USER_ID" ]; then
+  CLEANUP=$(curl -s -X DELETE "$BASE/api/admin/users/$USER_ID"     -H "Authorization: Bearer $ADMIN_TOKEN")
+  if echo "$CLEANUP" | jq -e '.error' > /dev/null 2>&1; then
+    fail "Cleanup" "could not delete test user $USER_ID: $(echo "$CLEANUP" | jq -r '.error')"
+  else
+    pass "Cleanup — deleted test user $USER_ID ($TEST_EMAIL)"
+  fi
+else
+  echo "  ⚠️  No admin token or no user id — test user NOT cleaned up. Manual cleanup required: $TEST_EMAIL"
+fi
+
 # ── Summary ───────────────────────────────────────────────────────────────────
 echo ""
 echo "========================================="

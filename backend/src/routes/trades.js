@@ -3,6 +3,21 @@ const { authMiddleware } = require('../middleware/auth');
 const prisma = require('../lib/prisma');
 
 const router = express.Router();
+const VALID_TIMEFRAMES = ['S15', 'S30', 'M1', 'M3', 'M5', 'M30', 'H1'];
+
+function normalizeTimeframe(timeframe) {
+  if (!timeframe) return null;
+  const raw = String(timeframe).trim();
+  const lower = raw.toLowerCase();
+  if (lower === '15s') return 'S15';
+  if (lower === '30s') return 'S30';
+  if (lower === '60s') return 'M1';
+  if (lower === '180s') return 'M3';
+  if (lower === '300s') return 'M5';
+  if (lower === '1800s') return 'M30';
+  if (lower === '3600s') return 'H1';
+  return raw.toUpperCase();
+}
 
 // Trim trades to keep only the latest N per user per type
 async function trimTrades(userId, isDemo) {
@@ -24,18 +39,24 @@ router.post('/log', authMiddleware, async (req, res) => {
 
   try {
     const { pair, direction, amount, result, balanceBefore, balanceAfter, isDemo, strategy, signalSnapshot } = req.body;
+    const timeframe = normalizeTimeframe(req.body.timeframe);
 
     if (!direction || amount == null || amount === '' || !result) {
       return res.status(400).json({ error: 'Missing required fields: direction, amount, result' });
     }
+    if (timeframe && !VALID_TIMEFRAMES.includes(timeframe)) {
+      return res.status(400).json({ error: 'Invalid timeframe' });
+    }
 
     const isDemoVal = isDemo === true || isDemo === 'true';
     const isAiTrade = !!signalSnapshot;
+    let unlimitedAi = false;
 
     // Gate AI trades on real accounts against the license allowance
     if (isAiTrade && !isDemoVal) {
       const license = await prisma.license.findUnique({ where: { userId: req.userId } });
-      if (license && license.aiTradesUsed >= license.aiTradesAllowance) {
+      unlimitedAi = req.user?.isAdmin || license?.plan === 'lifetime';
+      if (!unlimitedAi && license && license.aiTradesUsed >= license.aiTradesAllowance) {
         return res.status(403).json({
           success: false,
           allowed: false,
@@ -57,11 +78,12 @@ router.post('/log', authMiddleware, async (req, res) => {
         balanceAfter: balanceAfter != null ? parseFloat(balanceAfter) : null,
         isDemo: isDemoVal,
         strategy: strategy || 'martingale',
+        timeframe,
         signalSnapshot: signalSnapshot || null,
       },
     });
 
-    if (isAiTrade && !isDemoVal) {
+    if (isAiTrade && !isDemoVal && !unlimitedAi) {
       prisma.license.update({
         where: { userId: req.userId },
         data: { aiTradesUsed: { increment: 1 } },

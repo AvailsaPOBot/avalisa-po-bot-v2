@@ -10,6 +10,7 @@ const STRATEGIES = [
   { id: 'martingale', label: 'Martingale', free: true, desc: 'Double on loss to recover' },
   { id: 'anti-martingale', label: 'Anti-Martingale', free: false, desc: 'Double on win, reset on loss' },
   { id: 'fixed', label: 'Fixed Amount', free: false, desc: 'Same amount every trade' },
+  { id: 'ai', label: 'Charles AI', free: false, desc: 'Local rule engine with AI-style pair scanning (Lifetime)' },
   { id: 'ai-signal', label: 'AI Signal', free: false, desc: 'Gemini-powered CALL/PUT signals (Lifetime)' },
 ];
 
@@ -18,6 +19,19 @@ const DIRECTIONS = [{ id: 'alternating', label: 'Alternating' }, { id: 'call', l
 const DELAYS = [2, 4, 6, 8, 10, 12];
 const MULTIPLIERS = [1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8, 3.0];
 const STEPS = ['infinite', 1, 2, 3, 4, 5, 6, 8, 10, 12];
+
+const STRATEGY_LABELS = {
+  martingale: 'Martingale',
+  'anti-martingale': 'Anti-Martingale',
+  fixed: 'Fixed',
+  ai: 'Charles AI',
+  'ai-signal': 'AI Signal',
+  'user-ai': 'User AI',
+};
+
+function strategyLabel(strategy) {
+  return STRATEGY_LABELS[strategy] || strategy || 'Martingale';
+}
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -611,6 +625,8 @@ export default function Dashboard() {
                   <th className="py-2 pr-4">Date</th>
                   <th className="py-2 pr-4">Pair</th>
                   <th className="py-2 pr-4">Direction</th>
+                  <th className="py-2 pr-4">Mode</th>
+                  <th className="py-2 pr-4">TF</th>
                   <th className="py-2 pr-4">Amount</th>
                   <th className="py-2 pr-4">Result</th>
                   <th className="py-2">Balance After</th>
@@ -626,6 +642,8 @@ export default function Dashboard() {
                         {t.direction.toUpperCase()}
                       </span>
                     </td>
+                    <td className="py-2 pr-4">{strategyLabel(t.strategy)}</td>
+                    <td className="py-2 pr-4">{t.timeframe || '—'}</td>
                     <td className="py-2 pr-4">${t.amount.toFixed(2)}</td>
                     <td className="py-2 pr-4">
                       <span className={`font-semibold ${t.result === 'win' ? 'text-green-400' : t.result === 'loss' ? 'text-red-400' : 'text-yellow-400'}`}>
@@ -1010,6 +1028,7 @@ export default function Dashboard() {
                       <th className="py-2 px-4 text-left">Result</th>
                       <th className="py-2 px-4 text-left">Balance</th>
                       <th className="py-2 px-4 text-left">Mode</th>
+                      <th className="py-2 px-4 text-left">TF</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1029,9 +1048,10 @@ export default function Dashboard() {
                         <td className="py-2 px-4 text-gray-400">
                           {t.balanceAfter != null ? `$${parseFloat(t.balanceAfter).toFixed(2)}` : '—'}
                         </td>
-                        <td className={`py-2 px-4 ${t.strategy === 'ai-signal' ? 'text-purple-400' : 'text-gray-500'}`}>
-                          {t.strategy === 'ai-signal' ? '🤖 AI' : 'Martingale'}
+                        <td className={`py-2 px-4 ${['ai-signal', 'ai', 'user-ai'].includes(t.strategy) ? 'text-purple-400' : 'text-gray-500'}`}>
+                          {strategyLabel(t.strategy)}
                         </td>
+                        <td className="py-2 px-4 text-gray-500">{t.timeframe || '—'}</td>
                       </tr>
                     ))}
                   </tbody>

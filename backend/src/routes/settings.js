@@ -6,8 +6,9 @@ const router = express.Router();
 
 const VALID_TIMEFRAMES = ['S15', 'S30', 'M1', 'M3', 'M5', 'M30', 'H1'];
 const VALID_DIRECTIONS = ['alternating', 'call', 'put'];
-const VALID_STRATEGIES = ['martingale', 'anti-martingale', 'fixed', 'ai-signal'];
+const VALID_STRATEGIES = ['martingale', 'anti-martingale', 'fixed', 'ai-signal', 'ai'];
 const VALID_DELAYS = [2, 4, 6, 8, 10, 12];
+const VALID_MARTINGALE_STEPS = ['1', '2', '3', '4', '5', '6', '8', '10', '12', 'infinite'];
 
 // GET /api/settings
 router.get('/', authMiddleware, async (req, res) => {
@@ -57,13 +58,22 @@ async function settingsUpsert(req, res) {
   if (strategy && !VALID_STRATEGIES.includes(strategy)) {
     return res.status(400).json({ error: 'Invalid strategy' });
   }
-  if (delaySeconds && !VALID_DELAYS.includes(parseInt(delaySeconds))) {
+  if (delaySeconds !== undefined && !VALID_DELAYS.includes(parseInt(delaySeconds))) {
     return res.status(400).json({ error: 'Invalid delay. Must be 2, 4, 6, 8, 10, or 12' });
   }
-  if (martingaleMultiplier) {
+  if (martingaleMultiplier !== undefined) {
     const m = parseFloat(martingaleMultiplier);
-    if (m < 1.2 || m > 3.0) {
+    if (!Number.isFinite(m) || m < 1.2 || m > 3.0) {
       return res.status(400).json({ error: 'Martingale multiplier must be between 1.2 and 3.0' });
+    }
+  }
+  if (martingaleSteps !== undefined && !VALID_MARTINGALE_STEPS.includes(String(martingaleSteps))) {
+    return res.status(400).json({ error: 'Invalid martingale steps' });
+  }
+  if (startAmount !== undefined) {
+    const amount = parseFloat(startAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return res.status(400).json({ error: 'Start amount must be greater than 0' });
     }
   }
 
@@ -79,18 +89,20 @@ async function settingsUpsert(req, res) {
       }
     }
 
+    const payload = {
+      ...(strategy && { strategy }),
+      ...(timeframe && { timeframe }),
+      ...(direction && { direction }),
+      ...(martingaleMultiplier !== undefined && { martingaleMultiplier: parseFloat(martingaleMultiplier) }),
+      ...(martingaleSteps !== undefined && { martingaleSteps: String(martingaleSteps) }),
+      ...(delaySeconds !== undefined && { delaySeconds: parseInt(delaySeconds) }),
+      ...(startAmount !== undefined && { startAmount: parseFloat(startAmount) }),
+    };
+
     const settings = await prisma.settings.upsert({
       where: { userId: req.userId },
-      update: {
-        ...(strategy && { strategy }),
-        ...(timeframe && { timeframe }),
-        ...(direction && { direction }),
-        ...(martingaleMultiplier && { martingaleMultiplier: parseFloat(martingaleMultiplier) }),
-        ...(martingaleSteps !== undefined && { martingaleSteps: String(martingaleSteps) }),
-        ...(delaySeconds && { delaySeconds: parseInt(delaySeconds) }),
-        ...(startAmount && { startAmount: parseFloat(startAmount) }),
-      },
-      create: { userId: req.userId },
+      update: payload,
+      create: { userId: req.userId, ...payload },
     });
 
     res.json(settings);

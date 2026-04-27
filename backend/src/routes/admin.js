@@ -265,7 +265,7 @@ router.get('/users', async (req, res) => {
         };
       }
       const s = statsMap[t.userId];
-      const bucket = t.strategy === 'ai-signal' ? 'aiSignal' : t.strategy === 'user-ai' ? 'userAi' : 'martingale';
+      const bucket = (t.strategy === 'ai-signal' || t.strategy === 'ai') ? 'aiSignal' : t.strategy === 'user-ai' ? 'userAi' : 'martingale';
       s[bucket].total++;
       if (t.result === 'win') s[bucket].wins++;
       else if (t.result === 'loss') s[bucket].losses++;
