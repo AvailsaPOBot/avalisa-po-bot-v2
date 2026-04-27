@@ -1,19 +1,23 @@
-#!/bin/bash
-# Pack the Chrome extension into a zip for Web Store submission
+#!/usr/bin/env bash
+set -euo pipefail
 
-OUTPUT="avalisa-extension-v2.2.0.zip"
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+VERSION="$(node -e "console.log(require('$ROOT/extension/manifest.json').version)")"
+OUTPUT="${HOME}/Desktop/avalisa-v${VERSION}.zip"
 
-echo "Packing Chrome extension..."
-cd "$(dirname "$0")"
+echo "Packing Chrome extension v${VERSION}..."
 
-# Remove old zip if exists
 rm -f "$OUTPUT"
 
-# Create zip from extension folder, excluding dev files
-zip -r "$OUTPUT" extension/ \
-  --exclude "*.DS_Store" \
-  --exclude "*/__MACOSX/*" \
-  --exclude "*/.*"
+(
+  cd "$ROOT/extension"
+  zip -r "$OUTPUT" . \
+    --exclude "*.DS_Store" \
+    --exclude "__MACOSX/*" \
+    --exclude "*/__MACOSX/*" \
+    --exclude ".*" \
+    --exclude "*/.*"
+)
 
-echo "✅ Created: $OUTPUT"
+echo "Created: $OUTPUT"
 echo "Upload this file at: https://chrome.google.com/webstore/devconsole"
