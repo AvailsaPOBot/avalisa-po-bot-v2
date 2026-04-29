@@ -25,7 +25,7 @@ export default function Register() {
     try {
       await register(form.email, form.password);
       toast.success('Account created! Welcome to Avalisa Bot.');
-      navigate('/app');
+      navigate('/dashboard');
     } catch (err) {
       toast.error(err.response?.data?.error || 'Registration failed');
     } finally {
@@ -34,15 +34,16 @@ export default function Register() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4">
-      <div className="card w-full max-w-md">
+    <div className="auth-showcase">
+      <div className="auth-card">
         <div className="text-center mb-6">
-          <span className="text-3xl font-bold text-brand-400">⚡ Avalisa Bot</span>
+          <span className="auth-logo">⚡ Avalisa</span>
+          <h1 className="auth-title">Create free account</h1>
           <p className="text-gray-400 mt-2">Create your free account</p>
         </div>
 
-        <div className="bg-blue-900/30 border border-blue-700/40 rounded-lg p-4 mb-6 text-sm text-blue-200">
-          <strong>Free Plan:</strong> Register a new Pocket Option account using our affiliate link to get unlimited Martingale access.
+        <div className="bg-brand-900/40 border border-brand-600/40 rounded-lg p-4 mb-6 text-sm text-brand-100">
+          <strong>Free Plan:</strong> Register a new Pocket Option account using our affiliate link to get Pro access.
           <a href={AFFILIATE_LINK} target="_blank" rel="noreferrer" className="block mt-2 text-brand-400 hover:underline font-semibold">
             → Register PO Account Free
           </a>
@@ -72,6 +73,19 @@ export default function Register() {
           Already have an account? <Link to="/login" className="text-brand-400 hover:underline">Sign in</Link>
         </p>
       </div>
+      <aside className="auth-mascot-panel auth-product-panel" aria-label="Avalisa onboarding preview">
+        <div className="auth-product-graph" />
+        <div className="auth-product-bot">
+          <span>⚡ Avalisa Bot</span>
+          <strong>10 free trades waiting</strong>
+          <small>Create account · test first</small>
+        </div>
+        <div className="auth-quote">
+          <span>“</span>
+          <p>New to PO? Register through Avalisa to request Pro access.</p>
+          <strong>— Avalisa</strong>
+        </div>
+      </aside>
     </div>
   );
 }

@@ -9,6 +9,7 @@ export default function Navbar() {
 
   const plan = user?.license?.plan || 'free';
   const badgeClass = plan === 'lifetime' ? 'badge-lifetime' : plan === 'basic' ? 'badge-basic' : 'badge-free';
+  const planLabel = plan === 'lifetime' ? 'pro' : plan;
 
   function handleLogout() {
     logout();
@@ -17,7 +18,7 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="border-b border-dark-600 bg-dark-800 relative">
+    <nav className="border-b border-brand-900/30 bg-[#090a0f]/95 relative backdrop-blur-xl">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
         <Link to="/" className="flex items-center gap-2">
           <span className="text-xl font-bold text-brand-400">⚡ Avalisa Bot</span>
@@ -30,14 +31,14 @@ export default function Navbar() {
               <Link to="/dashboard" className="text-sm text-gray-300 hover:text-white transition-colors">Dashboard</Link>
               <Link to="/pricing" className="text-sm text-gray-300 hover:text-white transition-colors">Pricing</Link>
               <Link to="/support" className="text-sm text-gray-300 hover:text-white transition-colors">Support</Link>
-              <span className={badgeClass}>{plan}</span>
+              <span className={badgeClass}>{planLabel}</span>
               <button onClick={handleLogout} className="text-sm text-gray-400 hover:text-white transition-colors">Logout</button>
             </>
           ) : (
             <>
               <Link to="/pricing" className="text-sm text-gray-300 hover:text-white transition-colors">Pricing</Link>
               <Link to="/login" className="btn-outline text-sm py-1.5">Login</Link>
-              <Link to="/register" className="btn-primary text-sm py-1.5">Get Started Free</Link>
+              <Link to="/register" className="btn-primary text-sm py-1.5">Create Free Account</Link>
             </>
           )}
         </div>
@@ -74,7 +75,7 @@ export default function Navbar() {
               <Link to="/login" onClick={() => setMenuOpen(false)}
                 className="btn-outline text-sm py-2 text-center">Login</Link>
               <Link to="/register" onClick={() => setMenuOpen(false)}
-                className="btn-primary text-sm py-2 text-center">Get Started Free</Link>
+                className="btn-primary text-sm py-2 text-center">Create Free Account</Link>
             </>
           )}
         </div>

@@ -1,88 +1,39 @@
-import { useState, useRef, useEffect } from 'react';
-import api from '../lib/api';
+import { MessageCircle, PlugZap, Receipt, Settings, ShieldCheck } from 'lucide-react';
+
+const TOPICS = [
+  { icon: PlugZap, label: 'Connect PO', text: 'Register, install, and open the overlay.' },
+  { icon: Settings, label: 'Bot setup', text: 'Strategy, intensity, start amount, and demo mode.' },
+  { icon: Receipt, label: 'Billing', text: 'Basic, Pro, affiliate unlock, and account access.' },
+  { icon: ShieldCheck, label: 'Risk', text: 'What Avalisa can control and what it cannot.' },
+];
 
 export default function Support() {
-  const [messages, setMessages] = useState([
-    { role: 'assistant', content: "Hi! I'm the Avalisa Bot support assistant. Ask me anything about setup, strategies, or troubleshooting. How can I help?" }
-  ]);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const bottomRef = useRef(null);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  async function sendMessage(e) {
-    e.preventDefault();
-    const text = input.trim();
-    if (!text || loading) return;
-
-    const newMessages = [...messages, { role: 'user', content: text }];
-    setMessages(newMessages);
-    setInput('');
-    setLoading(true);
-
-    try {
-      const res = await api.post('/api/support/chat', { messages: newMessages });
-      setMessages(prev => [...prev, { role: 'assistant', content: res.data.reply }]);
-    } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, I encountered an error. Please try again in a moment.' }]);
-    } finally {
-      setLoading(false);
-    }
-  }
-
   return (
-    <div className="max-w-3xl mx-auto px-4 py-10">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-white">AI Support Chat</h1>
-        <p className="text-gray-400 text-sm mt-1">Powered by Gemini (free) — ask anything about Avalisa Bot</p>
-      </div>
-
-      <div className="card flex flex-col" style={{ height: '520px' }}>
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto space-y-4 mb-4 pr-1">
-          {messages.map((m, i) => (
-            <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                m.role === 'user'
-                  ? 'bg-brand-600 text-white rounded-br-sm'
-                  : 'bg-dark-700 border border-dark-600 text-gray-200 rounded-bl-sm'
-              }`}>
-                {m.content}
-              </div>
-            </div>
-          ))}
-          {loading && (
-            <div className="flex justify-start">
-              <div className="bg-dark-700 border border-dark-600 rounded-2xl rounded-bl-sm px-4 py-3 text-sm text-gray-400">
-                <span className="animate-pulse">Thinking...</span>
-              </div>
-            </div>
-          )}
-          <div ref={bottomRef} />
+    <div className="support-showcase support-showcase--simple">
+      <section className="support-hero-panel">
+        <div>
+          <p className="support-eyebrow">Support</p>
+          <h1>Need help? Use the red Ask button.</h1>
+          <p>
+            The red Ask button stays in the corner of every page. Open it when you need setup,
+            billing, bot settings, or Pocket Option connection help.
+          </p>
         </div>
+        <div className="support-chat-callout" aria-hidden="true">
+          <MessageCircle size={26} />
+          <span>Ask Avalisa</span>
+        </div>
+      </section>
 
-        {/* Input */}
-        <form onSubmit={sendMessage} className="flex gap-2 border-t border-dark-600 pt-4">
-          <input
-            className="input flex-1 text-sm"
-            placeholder="Ask about setup, strategies, or your account..."
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            disabled={loading}
-          />
-          <button type="submit" disabled={loading || !input.trim()}
-            className="btn-primary px-4 py-2 text-sm whitespace-nowrap">
-            Send
-          </button>
-        </form>
+      <div className="support-topic-grid">
+        {TOPICS.map(({ icon: Icon, label, text }) => (
+          <article key={label} className="support-topic-card">
+            <Icon size={22} />
+            <h2>{label}</h2>
+            <p>{text}</p>
+          </article>
+        ))}
       </div>
-
-      <p className="text-xs text-gray-600 mt-4 text-center">
-        AI responses are for informational purposes only. Trading involves risk — always trade responsibly.
-      </p>
     </div>
   );
 }

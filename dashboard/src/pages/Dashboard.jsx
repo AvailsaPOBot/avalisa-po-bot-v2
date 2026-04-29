@@ -10,8 +10,8 @@ const STRATEGIES = [
   { id: 'martingale', label: 'Martingale', free: true, desc: 'Double on loss to recover' },
   { id: 'anti-martingale', label: 'Anti-Martingale', free: false, desc: 'Double on win, reset on loss' },
   { id: 'fixed', label: 'Fixed Amount', free: false, desc: 'Same amount every trade' },
-  { id: 'ai', label: 'Charles AI', free: false, desc: 'Local rule engine with AI-style pair scanning (Lifetime)' },
-  { id: 'ai-signal', label: 'AI Signal', free: false, desc: 'Gemini-powered CALL/PUT signals (Lifetime)' },
+  { id: 'ai', label: 'Avalisa AI', free: false, desc: 'Local rule engine with AI-style pair scanning (Pro)' },
+  { id: 'ai-signal', label: 'AI Signal', free: false, desc: 'Gemini-powered CALL/PUT signals (Pro)' },
 ];
 
 const TIMEFRAMES = ['S30', 'M1', 'M3', 'M5', 'M30', 'H1'];
@@ -24,7 +24,7 @@ const STRATEGY_LABELS = {
   martingale: 'Martingale',
   'anti-martingale': 'Anti-Martingale',
   fixed: 'Fixed',
-  ai: 'Charles AI',
+  ai: 'Avalisa AI',
   'ai-signal': 'AI Signal',
   'user-ai': 'User AI',
 };
@@ -36,6 +36,7 @@ function strategyLabel(strategy) {
 export default function Dashboard() {
   const { user } = useAuth();
   const plan = user?.license?.plan || 'free';
+  const planLabel = plan === 'lifetime' ? 'pro' : plan;
   const isAdmin = user?.isAdmin || false;
 
   const [settings, setSettings] = useState(null);
@@ -249,7 +250,7 @@ export default function Dashboard() {
   async function approveClaim(userId) {
     try {
       await api.post('/api/admin/claims/approve', { userId });
-      toast.success('Claim approved. User now has lifetime access.');
+      toast.success('Claim approved. User now has Pro access.');
       loadPendingClaims();
       loadAdminUsers();
     } catch (err) {
@@ -364,10 +365,33 @@ export default function Dashboard() {
           <p className="text-gray-400 text-sm mt-1">{user?.email}</p>
         </div>
         <div className="flex items-center gap-3">
-          <span className={`badge-${plan}`}>{plan} plan</span>
+          <span className={`badge-${plan}`}>{planLabel} plan</span>
           {plan !== 'lifetime' && (
             <Link to="/pricing" className="btn-primary text-sm py-1.5 px-4">Upgrade</Link>
           )}
+        </div>
+      </div>
+
+      <div className="dashboard-brand-panel">
+        <div>
+          <p className="dashboard-brand-panel__eyebrow">Pocket Option command center</p>
+          <h2>Avalisa is ready when your setup is.</h2>
+          <p>
+            Manage strategies, review trades, and keep the bot panel aligned with
+            your current plan from one dark workspace.
+          </p>
+        </div>
+        <div className="dashboard-brand-panel__visual">
+          <div className="dashboard-brand-panel__chart" aria-hidden="true">
+            {Array.from({ length: 20 }).map((_, i) => (
+              <span key={i} className={i % 5 === 0 ? 'is-down' : ''} />
+            ))}
+          </div>
+          <div className="dashboard-brand-panel__bot">
+            <span>⚡ Avalisa Bot</span>
+            <strong>{planLabel} mode</strong>
+            <small>Status: Ready</small>
+          </div>
         </div>
       </div>
 
@@ -522,7 +546,7 @@ export default function Dashboard() {
         <div className="card mt-6">
           <h2 className="text-lg font-semibold text-white mb-1">Link Your Pocket Option Account</h2>
           <p className="text-gray-400 text-sm mb-4">
-            Registered via our affiliate link? Submit your PO UID to claim free lifetime access.
+            Registered via our affiliate link? Submit your PO UID to claim free Pro access.
           </p>
 
           {claimStatus === 'pending' ? (
@@ -771,7 +795,7 @@ export default function Dashboard() {
                   value={adminPlan}
                   onChange={e => setAdminPlan(e.target.value)}
                 >
-                  <option value="lifetime">Lifetime (Unlimited)</option>
+                  <option value="lifetime">Pro (Unlimited)</option>
                   <option value="basic">Basic (100 trades)</option>
                 </select>
               </div>
@@ -1096,7 +1120,7 @@ export default function Dashboard() {
                 >
                   <option value="free">free</option>
                   <option value="basic">basic</option>
-                  <option value="lifetime">lifetime</option>
+                  <option value="lifetime">pro</option>
                 </select>
               </div>
             </div>

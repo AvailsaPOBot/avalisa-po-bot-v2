@@ -24,7 +24,7 @@ export default function Pricing() {
     return email ? `${url}${separator}checkout[email]=${encodeURIComponent(email)}` : url;
   };
   const WHOP_BASIC_URL = appendEmail(process.env.REACT_APP_WHOP_BASIC_URL);
-  const WHOP_LIFETIME_URL = appendEmail(process.env.REACT_APP_WHOP_LIFETIME_URL);
+  const WHOP_PRO_URL = appendEmail(process.env.REACT_APP_WHOP_PRO_URL || process.env.REACT_APP_WHOP_LIFETIME_URL);
 
   const plans = [
     {
@@ -38,7 +38,7 @@ export default function Pricing() {
         'Martingale strategy only',
         'All timeframes (M1–H4)',
         'Basic trade history',
-        'AI support chat',
+        'Talk to Avalisa support chat',
       ],
       cta: 'Register Free PO Account',
       ctaHref: affiliateLink,
@@ -66,8 +66,8 @@ export default function Pricing() {
       highlighted: false,
     },
     {
-      name: 'Lifetime',
-      price: '$100',
+      name: 'Pro',
+      price: '$120',
       period: 'one-time',
       badge: 'badge-lifetime',
       description: 'Unlimited everything, forever',
@@ -75,13 +75,13 @@ export default function Pricing() {
         'Unlimited trades',
         'Unlimited starting amount',
         'All strategies unlocked',
-        'AI Signal strategy (coming soon)',
+        'Avalisa AI strategy',
         'Full trade history & stats',
         'Settings cloud sync',
-        'Priority AI support',
+        'Priority Avalisa support',
       ],
-      cta: 'Buy Lifetime — $100',
-      ctaHref: WHOP_LIFETIME_URL,
+      cta: 'Buy Pro — $120',
+      ctaHref: WHOP_PRO_URL,
       ctaExternal: true,
       highlighted: true,
     },
@@ -89,17 +89,19 @@ export default function Pricing() {
 
   return (
     <div className="min-h-screen py-16 px-4">
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <div className="text-center mb-14">
           <h1 className="text-4xl font-extrabold text-white mb-4">Simple, transparent pricing</h1>
           <p className="text-gray-400 text-lg">All plans are one-time payments — no recurring subscriptions.</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {plans.map(plan => (
-            <div key={plan.name}
-              className={`card flex flex-col relative ${plan.highlighted ? 'border-brand-600 ring-2 ring-brand-600' : ''}`}
-            >
+        <div className="pricing-showcase">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {plans.map(plan => (
+              <div key={plan.name}
+                id={plan.name.toLowerCase()}
+                className={`card flex flex-col relative ${plan.highlighted ? 'border-brand-600 ring-2 ring-brand-600' : ''}`}
+              >
               {plan.highlighted && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand-600 text-white text-xs font-bold px-3 py-0.5 rounded-full">
                   MOST POPULAR
@@ -125,18 +127,45 @@ export default function Pricing() {
               {currentPlan === plan.name.toLowerCase() ? (
                 <div className="btn-outline text-center py-3 opacity-50 cursor-default">Current Plan</div>
               ) : plan.ctaExternal ? (
-                <a href={plan.ctaHref} target="_blank" rel="noreferrer"
-                  className={`text-center py-3 rounded-lg font-semibold text-sm transition-colors ${plan.highlighted ? 'btn-primary' : 'btn-outline'}`}>
-                  {plan.cta}
-                </a>
+                <div className="space-y-2">
+                  <a href={plan.ctaHref} target="_blank" rel="noreferrer"
+                    className={`block text-center py-3 rounded-lg font-semibold text-sm transition-colors ${plan.highlighted ? 'btn-primary' : 'btn-outline'}`}>
+                    {plan.cta}
+                  </a>
+                  {plan.highlighted && (
+                    <a href={affiliateLink} target="_blank" rel="noreferrer"
+                      className="block text-center py-3 rounded-lg font-semibold text-sm transition-colors bg-green-600 hover:bg-green-500 text-white">
+                      Register new PO account for free Pro
+                    </a>
+                  )}
+                </div>
               ) : (
                 <Link to={plan.ctaHref}
                   className={`text-center py-3 rounded-lg font-semibold text-sm transition-colors ${plan.highlighted ? 'btn-primary' : 'btn-outline'}`}>
                   {plan.cta}
                 </Link>
               )}
+              </div>
+            ))}
+          </div>
+          <aside className="pricing-mascot-panel">
+            <div className="pricing-product-visual" aria-hidden="true">
+              <div className="pricing-product-visual__chart" />
+              <div className="pricing-product-visual__bot">
+                <span>Pro</span>
+                <strong>Unlimited</strong>
+              </div>
             </div>
-          ))}
+            <div className="pricing-mascot-panel__copy">
+              <h2>Why traders choose Avalisa</h2>
+              <ul>
+                <li>AI market scan with visible rules</li>
+                <li>Smart entries on high-probability setups</li>
+                <li>Risk controls before automation</li>
+                <li>Visible control panel on the PO page</li>
+              </ul>
+            </div>
+          </aside>
         </div>
 
         <div className="mt-10 text-center text-sm text-gray-500">

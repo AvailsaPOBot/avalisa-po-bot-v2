@@ -4,7 +4,7 @@ import api from '../lib/api';
 export default function FloatingChat() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: "Hi! I'm Avalisa's support assistant. Ask me anything about setup, strategies, or troubleshooting!" }
+    { role: 'assistant', content: "Hi, I'm Avalisa. Ask me about setup, trading modes, your account, pricing, or anything related to our service." }
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -59,9 +59,9 @@ export default function FloatingChat() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <div style={{
                 width: '8px', height: '8px', borderRadius: '50%',
-                background: '#00ff88', boxShadow: '0 0 6px #00ff88',
+                background: '#d4a256', boxShadow: '0 0 6px #d4a256',
               }} />
-              <span style={{ color: '#e2e8f0', fontWeight: 600, fontSize: '14px' }}>Avalisa Support</span>
+              <span style={{ color: '#e2e8f0', fontWeight: 600, fontSize: '14px' }}>Ask Avalisa</span>
             </div>
             <button onClick={() => setOpen(false)} style={{
               background: 'none', border: 'none', color: '#64748b',
@@ -77,7 +77,7 @@ export default function FloatingChat() {
                   maxWidth: '80%',
                   padding: '10px 14px',
                   borderRadius: m.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
-                  background: m.role === 'user' ? '#7c3aed' : '#1a1a3e',
+                  background: m.role === 'user' ? '#a97832' : '#1c1c28',
                   color: '#e2e8f0',
                   fontSize: '13px',
                   lineHeight: '1.5',
@@ -118,7 +118,7 @@ export default function FloatingChat() {
               }}
             />
             <button type="submit" disabled={loading || !input.trim()} style={{
-              background: '#00ff88', color: '#0d0d1a', border: 'none',
+              background: '#d4a256', color: '#0d0d1a', border: 'none',
               borderRadius: '8px', padding: '8px 14px',
               fontWeight: 700, fontSize: '13px', cursor: 'pointer',
               opacity: loading || !input.trim() ? 0.4 : 1,
@@ -132,19 +132,21 @@ export default function FloatingChat() {
       {/* Floating Bubble Button */}
       <button
         onClick={() => setOpen(o => !o)}
+        aria-label="Ask Avalisa"
         style={{
           position: 'fixed', bottom: '24px', right: '24px', zIndex: 999999,
-          width: '56px', height: '56px', borderRadius: '50%',
-          background: open ? '#1a1a3e' : '#00ff88',
-          border: open ? '2px solid #00ff88' : 'none',
-          boxShadow: '0 4px 24px rgba(0,255,136,0.4)',
+          minWidth: '64px', height: '56px', borderRadius: '999px',
+          background: open ? '#1a1a3e' : '#ef4444',
+          border: open ? '2px solid #ef4444' : 'none',
+          color: '#ffffff',
+          boxShadow: open ? '0 4px 24px rgba(239,68,68,0.28)' : '0 10px 30px rgba(239,68,68,0.42)',
           cursor: 'pointer', fontSize: '22px',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           transition: 'all 0.2s ease',
         }}
-        title="Chat with AI Support"
+        title="Ask Avalisa"
       >
-        {open ? '✕' : '💬'}
+        {open ? '✕' : 'Ask'}
       </button>
     </>
   );

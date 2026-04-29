@@ -8,9 +8,6 @@ export default function Login() {
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
-  const [showReset, setShowReset] = useState(false);
-  const [resetEmail, setResetEmail] = useState('');
-  const [resetSent, setResetSent] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -26,16 +23,12 @@ export default function Login() {
     }
   }
 
-  function handleResetSubmit(e) {
-    e.preventDefault();
-    setResetSent(true);
-  }
-
   return (
-    <div className="min-h-screen flex items-center justify-center px-4">
-      <div className="card w-full max-w-md">
+    <div className="auth-showcase">
+      <div className="auth-card">
         <div className="text-center mb-8">
-          <span className="text-3xl font-bold text-brand-400">⚡ Avalisa Bot</span>
+          <span className="auth-logo">⚡ Avalisa</span>
+          <h1 className="auth-title">Welcome back</h1>
           <p className="text-gray-400 mt-2">Sign in to your dashboard</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -60,7 +53,9 @@ export default function Login() {
             />
             <button
               type="button"
-              onClick={() => { setShowReset(r => !r); setResetSent(false); }}
+              onClick={() => {
+                window.location.href = 'mailto:avalisapobot@gmail.com?subject=Avalisa%20password%20reset%20help';
+              }}
               className="text-xs text-brand-400 hover:underline mt-1 block"
             >
               Forgot Password?
@@ -71,34 +66,23 @@ export default function Login() {
           </button>
         </form>
 
-        {showReset && (
-          <div className="mt-5 pt-5 border-t border-dark-600">
-            {resetSent ? (
-              <p className="text-sm text-green-400 text-center">
-                If this email is registered, you'll receive a reset link shortly.
-              </p>
-            ) : (
-              <form onSubmit={handleResetSubmit} className="space-y-3">
-                <p className="text-sm text-gray-400">Enter your email to receive a reset link.</p>
-                <input
-                  type="email" required
-                  className="input"
-                  placeholder="you@example.com"
-                  value={resetEmail}
-                  onChange={e => setResetEmail(e.target.value)}
-                />
-                <button type="submit" className="btn-primary w-full py-2.5">
-                  Send Reset Link
-                </button>
-              </form>
-            )}
-          </div>
-        )}
-
         <p className="text-center text-sm text-gray-500 mt-6">
           No account? <Link to="/register" className="text-brand-400 hover:underline">Register free</Link>
         </p>
       </div>
+      <aside className="auth-mascot-panel auth-product-panel" aria-label="Avalisa assistant preview">
+        <div className="auth-product-graph" />
+        <div className="auth-product-bot">
+          <span>⚡ Avalisa Bot</span>
+          <strong>Ready on your PO chart</strong>
+          <small>Scan · choose intensity · start</small>
+        </div>
+        <div className="auth-quote">
+          <span>“</span>
+          <p>Sign in, open Pocket Option, and run from the visible bot panel.</p>
+          <strong>— Avalisa</strong>
+        </div>
+      </aside>
     </div>
   );
 }
