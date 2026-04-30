@@ -33,3 +33,13 @@ services:
         sync: false
       - key: FRONTEND_URL
         sync: false
+      - key: PUBLIC_BACKEND_URL
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_ID
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: FACEBOOK_OAUTH_CLIENT_ID
+        sync: false
+      - key: FACEBOOK_OAUTH_CLIENT_SECRET
+        sync: false

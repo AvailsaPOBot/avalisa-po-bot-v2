@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Gift, Lock, Mail, ShieldCheck, Zap } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';
+import { API_BASE } from '../lib/api';
 import '../styles/luxury.css';
 
 const AFFILIATE_LINK = 'https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50';
@@ -10,8 +11,18 @@ const AFFILIATE_LINK = 'https://u3.shortink.io/register?utm_campaign=36377&utm_s
 export default function Register() {
   const { register } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [form, setForm] = useState({ email: '', password: '', confirm: '' });
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const authError = searchParams.get('authError');
+    if (authError) toast.error(authError.replaceAll('_', ' '));
+  }, [searchParams]);
+
+  function startSocialAuth(provider) {
+    window.location.href = `${API_BASE}/api/auth/oauth/${provider}?from=register`;
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -49,11 +60,11 @@ export default function Register() {
 
           <button type="submit" disabled={loading}>{loading ? 'Creating account...' : 'Create Avalisa Account'}</button>
           <div className="lux-auth-social-row">
-            <button type="button" className="lux-auth-social">
+            <button type="button" className="lux-auth-social" onClick={() => startSocialAuth('google')}>
               <span className="lux-auth-provider-icon is-google">G</span>
               Sign up with Google
             </button>
-            <button type="button" className="lux-auth-social">
+            <button type="button" className="lux-auth-social" onClick={() => startSocialAuth('facebook')}>
               <span className="lux-auth-provider-icon is-facebook">f</span>
               Sign up with Facebook
             </button>

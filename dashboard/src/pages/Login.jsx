@@ -1,15 +1,26 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Lock, Mail, Zap } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';
+import { API_BASE } from '../lib/api';
 import '../styles/luxury.css';
 
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [form, setForm] = useState({ email: '', password: '', remember: true });
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const authError = searchParams.get('authError');
+    if (authError) toast.error(authError.replaceAll('_', ' '));
+  }, [searchParams]);
+
+  function startSocialAuth(provider) {
+    window.location.href = `${API_BASE}/api/auth/oauth/${provider}?from=login`;
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -43,11 +54,11 @@ export default function Login() {
 
           <button type="submit" disabled={loading}>{loading ? 'Signing in...' : 'Sign In'}</button>
           <div className="lux-auth-social-row">
-            <button type="button" className="lux-auth-social">
+            <button type="button" className="lux-auth-social" onClick={() => startSocialAuth('google')}>
               <span className="lux-auth-provider-icon is-google">G</span>
               Continue with Google
             </button>
-            <button type="button" className="lux-auth-social">
+            <button type="button" className="lux-auth-social" onClick={() => startSocialAuth('facebook')}>
               <span className="lux-auth-provider-icon is-facebook">f</span>
               Continue with Facebook
             </button>
