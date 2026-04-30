@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './hooks/useAuth';
 import Navbar from './components/Navbar';
@@ -14,6 +14,9 @@ import Support from './pages/Support';
 import Privacy from './pages/Privacy';
 
 function AppShell() {
+  const location = useLocation();
+  const showFloatingChat = location.pathname === '/';
+
   return (
     <>
       <Navbar />
@@ -28,7 +31,7 @@ function AppShell() {
           <ProtectedRoute><Dashboard /></ProtectedRoute>
         } />
       </Routes>
-      <FloatingChat />
+      {showFloatingChat && <FloatingChat />}
     </>
   );
 }
@@ -40,7 +43,12 @@ export default function App() {
         <Toaster
           position="top-right"
           toastOptions={{
-            style: { background: '#1a1a2e', color: '#e2e8f0', border: '1px solid #2d2d5b' },
+            style: {
+              background: 'rgba(10, 10, 15, 0.96)',
+              color: '#f5efe4',
+              border: '1px solid rgba(216, 162, 74, 0.36)',
+              boxShadow: '0 18px 48px rgba(0, 0, 0, 0.42)',
+            },
           }}
         />
         <AppShell />

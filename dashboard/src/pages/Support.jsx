@@ -1,39 +1,58 @@
-import { MessageCircle, PlugZap, Receipt, Settings, ShieldCheck } from 'lucide-react';
+import { useState } from 'react';
+import { MessageCircle, PlugZap, Receipt, Send, Settings, ShieldCheck } from 'lucide-react';
+import '../styles/luxury.css';
 
-const TOPICS = [
-  { icon: PlugZap, label: 'Connect PO', text: 'Register, install, and open the overlay.' },
-  { icon: Settings, label: 'Bot setup', text: 'Strategy, intensity, start amount, and demo mode.' },
-  { icon: Receipt, label: 'Billing', text: 'Basic, Pro, affiliate unlock, and account access.' },
-  { icon: ShieldCheck, label: 'Risk', text: 'What Avalisa can control and what it cannot.' },
+const topics = [
+  [PlugZap, 'Connect PO', 'Register, install, and open the overlay on Pocket Option.'],
+  [Settings, 'Bot setup', 'Strategy, intensity, start amount, and demo mode.'],
+  [Receipt, 'Billing', 'Basic, Pro, affiliate unlock, and account access.'],
+  [ShieldCheck, 'Risk', 'What Avalisa can automate and what it cannot guarantee.'],
 ];
 
 export default function Support() {
-  return (
-    <div className="support-showcase support-showcase--simple">
-      <section className="support-hero-panel">
-        <div>
-          <p className="support-eyebrow">Support</p>
-          <h1>Need help? Use the red Ask button.</h1>
-          <p>
-            The red Ask button stays in the corner of every page. Open it when you need setup,
-            billing, bot settings, or Pocket Option connection help.
-          </p>
-        </div>
-        <div className="support-chat-callout" aria-hidden="true">
-          <MessageCircle size={26} />
-          <span>Ask Avalisa</span>
-        </div>
-      </section>
+  const [messages, setMessages] = useState([
+    ['assistant', 'Hi, I am Avalisa. Ask me about setup, pricing, account access, or bot controls.'],
+  ]);
+  const [input, setInput] = useState('');
 
-      <div className="support-topic-grid">
-        {TOPICS.map(({ icon: Icon, label, text }) => (
-          <article key={label} className="support-topic-card">
-            <Icon size={22} />
-            <h2>{label}</h2>
-            <p>{text}</p>
-          </article>
-        ))}
-      </div>
-    </div>
+  function send(e) {
+    e.preventDefault();
+    const text = input.trim();
+    if (!text) return;
+    setMessages((items) => [...items, ['user', text], ['assistant', 'For the fastest setup, install the Chrome extension, open Pocket Option, sign in from the Avalisa panel, then test in demo mode first.']]);
+    setInput('');
+  }
+
+  return (
+    <main className="lux-support-page">
+      <section className="lux-support-shell">
+        <div className="lux-support-copy">
+          <p className="lux-kicker">Support</p>
+          <h1>Talk to Avalisa.</h1>
+          <p>Use support for setup, account access, plan questions, and Pocket Option extension troubleshooting. Avalisa keeps answers focused on the product.</p>
+          <div className="lux-topic-grid">
+            {topics.map(([Icon, title, text]) => (
+              <article key={title}><Icon size={22} /><h2>{title}</h2><p>{text}</p></article>
+            ))}
+          </div>
+        </div>
+
+        <section className="lux-support-chat">
+          <header>
+            <img src="/images/landing/avalisa-blonde-support.png" alt="" />
+            <div><strong>AI Support Chat</strong><span>Powered by Avalisa</span></div>
+            <em>Online</em>
+          </header>
+          <div className="lux-support-feed">
+            {messages.map(([role, text], index) => <p key={`${role}-${index}`} className={role === 'user' ? 'is-user' : ''}>{text}</p>)}
+          </div>
+          <form onSubmit={send}>
+            <input value={input} onChange={(event) => setInput(event.target.value)} placeholder="Ask about setup, strategies, or your account..." />
+            <button type="submit"><Send size={16} /></button>
+          </form>
+          <small><MessageCircle size={13} /> AI responses are informational only. Trading involves risk.</small>
+        </section>
+      </section>
+    </main>
   );
 }

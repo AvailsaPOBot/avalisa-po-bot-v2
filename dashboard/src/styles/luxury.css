@@ -1,0 +1,2056 @@
+:root {
+  --lux-bg: #060606;
+  --lux-panel: rgba(11, 16, 20, 0.82);
+  --lux-panel-strong: rgba(14, 18, 22, 0.94);
+  --lux-line: rgba(216, 162, 74, 0.26);
+  --lux-line-soft: rgba(255, 255, 255, 0.08);
+  --lux-gold: #d8a24a;
+  --lux-gold-2: #f1c878;
+  --lux-bronze: #8d5b24;
+  --lux-text: #f3eee6;
+  --lux-muted: #a79e92;
+  --lux-green: #49b574;
+  --lux-red: #d6554b;
+}
+
+.lux-page,
+.lux-auth-page,
+.lux-support-page,
+.lux-pricing-page {
+  min-height: 100vh;
+  color: var(--lux-text);
+  background:
+    radial-gradient(circle at 74% 6%, rgba(216, 162, 74, 0.2), transparent 24rem),
+    radial-gradient(circle at 12% 18%, rgba(51, 112, 89, 0.13), transparent 26rem),
+    linear-gradient(180deg, #060606 0%, #090c0e 42%, #040404 100%);
+  overflow-x: clip;
+}
+
+.lux-shell {
+  width: min(100% - 2rem, 1480px);
+  margin: 0 auto;
+}
+
+.lux-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--lux-gold);
+  font-family: var(--font-display);
+  font-size: 1.9rem;
+  line-height: 0.95;
+}
+
+.lux-logo small {
+  display: block;
+  margin-top: 0.08rem;
+  color: rgba(216, 162, 74, 0.78);
+  font-family: var(--font-sans);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.36em;
+}
+
+.lux-kicker {
+  margin: 0;
+  color: var(--lux-gold);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.lux-button {
+  position: relative;
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  overflow: hidden;
+  border: 1px solid var(--lux-line);
+  border-radius: 0.45rem;
+  padding: 0.85rem 1.2rem;
+  color: var(--lux-text);
+  font-size: 0.88rem;
+  font-weight: 800;
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+
+.lux-button:hover {
+  transform: translateY(-2px);
+  border-color: rgba(241, 200, 120, 0.62);
+  box-shadow: 0 0 32px rgba(216, 162, 74, 0.16);
+}
+
+.lux-button--gold {
+  border-color: rgba(241, 200, 120, 0.7);
+  background: linear-gradient(180deg, #f3c86d, #d99d43 46%, #b97624);
+  color: #130d05;
+  box-shadow: 0 16px 38px rgba(216, 162, 74, 0.23);
+}
+
+.lux-button--ghost {
+  background: rgba(255, 255, 255, 0.035);
+  backdrop-filter: blur(18px);
+}
+
+.lux-hero {
+  position: relative;
+  padding: clamp(3.4rem, 5.4vw, 6.2rem) 0 clamp(2.6rem, 5vw, 4.4rem);
+}
+
+.lux-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(216, 162, 74, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(216, 162, 74, 0.035) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: linear-gradient(180deg, black, transparent 82%);
+}
+
+.lux-hero-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(25rem, 0.74fr) minmax(47rem, 1.26fr);
+  gap: clamp(0.65rem, 1.7vw, 2.4rem);
+  align-items: center;
+}
+
+.lux-hero-copy {
+  position: relative;
+  z-index: 6;
+}
+
+.lux-hero-copy h1,
+.lux-section h2,
+.lux-footer .lux-logo {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.lux-hero-copy h1 {
+  max-width: 38rem;
+  margin: 0.75rem 0 0;
+  font-size: clamp(4.4rem, 8.2vw, 8.8rem);
+  line-height: 0.86;
+}
+
+.lux-hero-copy h1 span {
+  display: block;
+  color: var(--lux-gold);
+}
+
+.lux-lede {
+  max-width: 31rem;
+  margin: 1.25rem 0 0;
+  color: rgba(243, 238, 230, 0.74);
+  font-size: 1rem;
+  line-height: 1.72;
+}
+
+.lux-checks {
+  display: grid;
+  gap: 0.72rem;
+  margin: 1.3rem 0 0;
+  padding: 0;
+  list-style: none;
+  color: rgba(243, 238, 230, 0.78);
+}
+
+.lux-checks li {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.lux-checks svg {
+  color: var(--lux-gold);
+}
+
+.lux-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.lux-micro {
+  margin-top: 0.8rem;
+  color: rgba(216, 162, 74, 0.72);
+  font-size: 0.78rem;
+}
+
+.lux-trading-stage {
+  --mx: 64%;
+  --my: 26%;
+  position: relative;
+  z-index: 1;
+  width: calc(100% + clamp(5rem, 10vw, 9rem));
+  margin-left: calc(clamp(5rem, 10vw, 9rem) * -1);
+  min-height: clamp(35rem, 42vw, 40rem);
+  border: 1px solid var(--lux-line);
+  border-radius: 0.7rem;
+  background:
+    radial-gradient(circle at var(--mx) var(--my), rgba(216, 162, 74, 0.13), transparent 18rem),
+    linear-gradient(135deg, rgba(22, 21, 18, 0.18), rgba(5, 6, 7, 0.1) 42%, rgba(5, 6, 7, 0.22));
+  box-shadow: 0 34px 96px rgba(0, 0, 0, 0.36);
+  overflow: visible;
+  isolation: isolate;
+}
+
+.lux-stage-halo {
+  position: absolute;
+  inset: -3rem -1rem -1rem -7rem;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 25% 55%, rgba(216, 162, 74, 0.13), transparent 15rem),
+    radial-gradient(circle at 58% 42%, rgba(73, 181, 116, 0.12), transparent 17rem);
+  filter: blur(8px);
+}
+
+.lux-po-window {
+  position: absolute;
+  z-index: 2;
+  inset: clamp(1.8rem, 2.3vw, 2.6rem) 0.6rem auto clamp(18.6rem, 24vw, 21.2rem);
+  height: clamp(30.5rem, 36vw, 34.5rem);
+  border: 1px solid rgba(216, 162, 74, 0.3);
+  border-radius: 0.65rem;
+  overflow: hidden;
+  background: rgba(13, 18, 24, 0.92);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.5);
+}
+
+.lux-po-graph {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center center;
+  opacity: 0.94;
+  filter: saturate(1) contrast(1.08) brightness(0.82);
+  transform: none;
+}
+
+.lux-po-window__shade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(5, 7, 10, 0.04) 0%, rgba(5, 7, 10, 0.12) 42%, rgba(5, 7, 10, 0.5) 100%),
+    linear-gradient(180deg, rgba(5, 7, 10, 0.08) 0%, rgba(5, 7, 10, 0.01) 42%, rgba(5, 7, 10, 0.42) 100%);
+}
+
+.lux-po-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  height: 3rem;
+  align-items: center;
+  gap: 1rem;
+  border-bottom: 1px solid var(--lux-line-soft);
+  padding: 0 1rem;
+  background: rgba(5, 8, 10, 0.74);
+}
+
+.lux-po-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--lux-text);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.lux-po-brand img {
+  width: 1.6rem;
+  object-fit: contain;
+}
+
+.lux-po-bar > span:not(.lux-po-brand) {
+  margin-left: auto;
+  color: rgba(243, 238, 230, 0.65);
+  font-size: 0.78rem;
+}
+
+.lux-po-bar button,
+.lux-chart-toolbar span,
+.lux-bot-panel select,
+.lux-bot-panel button,
+.lux-trade-rail small,
+.lux-trade-rail button {
+  border: 1px solid var(--lux-line-soft);
+  border-radius: 0.38rem;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--lux-text);
+}
+
+.lux-po-bar button {
+  padding: 0.4rem 0.7rem;
+  font-size: 0.75rem;
+}
+
+.lux-chart {
+  position: absolute;
+  inset: 3rem 5.2rem 0 0;
+  overflow: hidden;
+}
+
+.lux-chart::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 52px 38px;
+}
+
+.lux-chart-toolbar {
+  position: absolute;
+  left: 1rem;
+  top: 0.8rem;
+  z-index: 2;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.lux-chart-toolbar span {
+  padding: 0.35rem 0.55rem;
+  color: rgba(243, 238, 230, 0.74);
+  font-size: 0.7rem;
+}
+
+.lux-chart svg {
+  position: absolute;
+  inset: 4rem 1.4rem 2.6rem;
+  width: calc(100% - 2.8rem);
+  height: calc(100% - 6.6rem);
+}
+
+.lux-chart polyline,
+.lux-performance polyline {
+  fill: none;
+  stroke: var(--lux-green);
+  stroke-width: 1.15;
+  opacity: 0.68;
+  filter: drop-shadow(0 0 6px rgba(73, 181, 116, 0.38));
+}
+
+.lux-candles {
+  position: absolute;
+  inset: 5.2rem 1.5rem 2.5rem;
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+}
+
+.lux-candles i {
+  width: 0.42rem;
+  min-height: 1.6rem;
+  border-radius: 999px 999px 0 0;
+  background: linear-gradient(#78d99d, #23884f);
+  box-shadow: 0 0 10px rgba(73, 181, 116, 0.32);
+  animation: candlePulse 2.4s ease-in-out infinite;
+}
+
+.lux-candles i.is-red {
+  background: linear-gradient(#f06d60, #a3332d);
+  box-shadow: 0 0 10px rgba(214, 85, 75, 0.32);
+}
+
+.lux-trade-rail {
+  position: absolute;
+  top: 3rem;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  width: 5rem;
+  display: grid;
+  align-content: start;
+  gap: 0.62rem;
+  border-left: 1px solid var(--lux-line-soft);
+  padding: 0.9rem 0.55rem;
+  background: rgba(8, 11, 14, 0.72);
+}
+
+.lux-trade-rail small {
+  padding: 0.5rem;
+  color: var(--lux-muted);
+  font-size: 0.65rem;
+}
+
+.lux-trade-rail strong {
+  display: block;
+  color: var(--lux-text);
+  font-size: 0.78rem;
+}
+
+.lux-trade-rail button {
+  padding: 0.7rem 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+.lux-trade-rail .is-call {
+  border-color: rgba(73, 181, 116, 0.45);
+  background: linear-gradient(180deg, #3ca969, #236a43);
+}
+
+.lux-trade-rail .is-put {
+  border-color: rgba(214, 85, 75, 0.45);
+  background: linear-gradient(180deg, #d6554b, #88302d);
+}
+
+.lux-bot-panel {
+  position: absolute;
+  z-index: 6;
+  right: clamp(2.1rem, 4.3vw, 4.6rem);
+  top: clamp(11rem, 14vw, 13.7rem);
+  width: min(21rem, 38%);
+  border: 1px solid rgba(216, 162, 74, 0.38);
+  border-radius: 0.55rem;
+  padding: 1.05rem;
+  background: rgba(8, 11, 14, 0.88);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(18px);
+}
+
+.lux-bot-head {
+  display: flex;
+  justify-content: space-between;
+  color: rgba(243, 238, 230, 0.72);
+  font-size: 0.8rem;
+}
+
+.lux-bot-head strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--lux-text);
+}
+
+.lux-bot-head svg,
+.lux-bot-panel h3 {
+  color: var(--lux-gold);
+}
+
+.lux-bot-panel h3 {
+  margin: 1rem 0 0.85rem;
+  font-size: 1rem;
+}
+
+.lux-bot-panel label {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 0.7rem;
+  margin-top: 0.58rem;
+  color: rgba(243, 238, 230, 0.74);
+  font-size: 0.78rem;
+}
+
+.lux-bot-panel select {
+  width: 100%;
+  padding: 0.5rem;
+  color: rgba(243, 238, 230, 0.82);
+  font-size: 0.74rem;
+}
+
+.lux-bot-panel > button {
+  width: 100%;
+  margin-top: 0.9rem;
+  border: 0;
+  padding: 0.72rem;
+  background: linear-gradient(180deg, #42b26e, #236c42);
+  color: white;
+  font-weight: 900;
+}
+
+.lux-bot-panel p {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0.75rem 0 0;
+  color: rgba(243, 238, 230, 0.68);
+  font-size: 0.72rem;
+}
+
+.lux-bot-panel p span {
+  width: 0.52rem;
+  height: 0.52rem;
+  border-radius: 999px;
+  background: var(--lux-green);
+  box-shadow: 0 0 10px rgba(73, 181, 116, 0.8);
+}
+
+.lux-signal-tape {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin-top: 0.8rem;
+}
+
+.lux-signal-tape span {
+  border: 1px solid rgba(216, 162, 74, 0.18);
+  border-radius: 0.32rem;
+  padding: 0.42rem 0.35rem;
+  background: rgba(216, 162, 74, 0.06);
+  color: rgba(243, 238, 230, 0.68);
+  font-size: 0.66rem;
+  text-align: center;
+}
+
+.lux-mascot {
+  pointer-events: none;
+  user-select: none;
+}
+
+.lux-mascot--hero {
+  position: absolute;
+  z-index: 3;
+  left: clamp(-0.4rem, 1.4vw, 1.8rem);
+  bottom: -3.4rem;
+  width: auto;
+  height: clamp(39rem, 50vw, 51rem);
+  max-height: none;
+  object-fit: contain;
+  object-position: bottom center;
+  filter: drop-shadow(-28px 18px 58px rgba(0, 0, 0, 0.78));
+}
+
+.lux-proof-strip {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0;
+  margin-top: 1.2rem;
+  border: 1px solid var(--lux-line);
+  border-radius: 0.55rem;
+  background: rgba(12, 15, 18, 0.82);
+  backdrop-filter: blur(16px);
+}
+
+.lux-proof-strip div {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.12rem 0.72rem;
+  align-items: center;
+  padding: 1rem;
+  border-right: 1px solid var(--lux-line);
+}
+
+.lux-proof-strip div:last-child {
+  border-right: 0;
+}
+
+.lux-proof-strip svg {
+  grid-row: span 2;
+  color: var(--lux-gold);
+}
+
+.lux-proof-strip span {
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.lux-proof-strip small {
+  color: var(--lux-muted);
+  font-size: 0.72rem;
+}
+
+.lux-section {
+  scroll-margin-top: 4.8rem;
+  padding: clamp(3rem, 6vw, 5.5rem) 0;
+  border-top: 1px solid rgba(216, 162, 74, 0.14);
+}
+
+.lux-section h2 {
+  max-width: 48rem;
+  margin: 0.45rem 0 0;
+  font-size: clamp(2.4rem, 5vw, 4.4rem);
+  line-height: 0.98;
+}
+
+.lux-split-head {
+  display: grid;
+  grid-template-columns: 1fr minmax(18rem, 0.42fr);
+  gap: 2rem;
+  align-items: end;
+  margin-bottom: 1.4rem;
+}
+
+.lux-split-head > p,
+.lux-feature-panel > p,
+.lux-card p,
+.lux-price p,
+.lux-footer p,
+.lux-faq-layout > div:first-child + div {
+  color: rgba(243, 238, 230, 0.66);
+  line-height: 1.65;
+}
+
+.lux-step-grid,
+.lux-pricing-grid,
+.lux-system-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.lux-step-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.lux-card,
+.lux-price,
+.lux-feature-panel,
+.lux-chat-card,
+.lux-referral,
+.lux-settings-card,
+.lux-empty-card,
+.lux-dashboard-preview {
+  border: 1px solid var(--lux-line);
+  border-radius: 0.6rem;
+  background: linear-gradient(180deg, rgba(14, 18, 22, 0.9), rgba(7, 9, 11, 0.92));
+  box-shadow: 0 26px 76px rgba(0, 0, 0, 0.32);
+}
+
+.lux-step {
+  padding: 1.35rem;
+}
+
+.lux-step span,
+.lux-price > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.1rem;
+  height: 2.1rem;
+  border: 1px solid rgba(216, 162, 74, 0.52);
+  border-radius: 999px;
+  color: var(--lux-gold);
+  font-weight: 900;
+}
+
+.lux-price > span {
+  width: 100%;
+  height: 2.45rem;
+  border-radius: 999px;
+  font-size: 1.08rem;
+}
+
+.lux-step svg,
+.lux-card svg {
+  color: var(--lux-gold);
+}
+
+.lux-step h3,
+.lux-card h3,
+.lux-referral h3,
+.lux-settings-card h3,
+.lux-empty-card h3 {
+  margin: 0.7rem 0 0.45rem;
+  color: var(--lux-text);
+  font-size: 1rem;
+}
+
+.lux-feature-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: 1rem;
+}
+
+.lux-feature-panel {
+  padding: 1.6rem;
+}
+
+.lux-decision {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 1.2rem;
+}
+
+.lux-decision button {
+  display: flex;
+  justify-content: space-between;
+  border: 1px solid var(--lux-line-soft);
+  border-radius: 0.45rem;
+  padding: 0.75rem;
+  color: var(--lux-muted);
+  background: rgba(255, 255, 255, 0.035);
+  text-align: left;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.lux-decision button:hover,
+.lux-decision button.is-active {
+  border-color: rgba(216, 162, 74, 0.55);
+  background: rgba(216, 162, 74, 0.09);
+  transform: translateX(3px);
+}
+
+.lux-decision strong {
+  color: var(--lux-green);
+}
+
+.lux-feature-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.lux-feature-grid .lux-card {
+  padding: 1.25rem;
+  cursor: pointer;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.lux-feature-grid .lux-card.is-active {
+  border-color: rgba(241, 200, 120, 0.58);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(216, 162, 74, 0.12), transparent 11rem),
+    linear-gradient(180deg, rgba(18, 22, 26, 0.95), rgba(7, 9, 11, 0.92));
+  box-shadow: 0 0 42px rgba(216, 162, 74, 0.1);
+}
+
+.lux-pricing-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(14rem, 0.95fr);
+  align-items: stretch;
+}
+
+.lux-price {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 1.35rem;
+}
+
+.lux-price.is-featured {
+  border-color: rgba(241, 200, 120, 0.7);
+  box-shadow: 0 0 45px rgba(216, 162, 74, 0.12);
+}
+
+.lux-price.is-selected {
+  border-color: rgba(241, 200, 120, 0.85);
+  box-shadow: 0 0 0 1px rgba(216, 162, 74, 0.18), 0 0 54px rgba(216, 162, 74, 0.14);
+}
+
+.lux-price > b {
+  position: absolute;
+  top: -0.72rem;
+  right: 1rem;
+  border-radius: 0.25rem;
+  padding: 0.28rem 0.55rem;
+  background: var(--lux-gold);
+  color: #100b05;
+  font-size: 0.62rem;
+}
+
+.lux-price h3 {
+  margin: 1rem 0 0.35rem;
+  font-family: var(--font-display);
+  font-size: 2.7rem;
+  font-weight: 500;
+}
+
+.lux-price small {
+  margin-left: 0.5rem;
+  color: var(--lux-muted);
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+}
+
+.lux-price ul {
+  display: grid;
+  gap: 0.55rem;
+  margin: 1rem 0 1.2rem;
+  padding: 0;
+  list-style: none;
+  color: rgba(243, 238, 230, 0.74);
+  font-size: clamp(0.92rem, 0.9vw, 1rem);
+}
+
+.lux-price li {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  border: 1px solid rgba(73, 181, 116, 0.15);
+  border-radius: 0.42rem;
+  padding: 0.5rem 0.62rem;
+  background: rgba(73, 181, 116, 0.045);
+  color: var(--lux-green);
+}
+
+.lux-price a,
+.lux-price button[disabled],
+.lux-referral button,
+.lux-settings-card button,
+.lux-empty-card button,
+.lux-tour button {
+  display: inline-flex;
+  width: 100%;
+  min-height: 2.45rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(241, 200, 120, 0.65);
+  border-radius: 0.38rem;
+  background: linear-gradient(180deg, #f1c878, #c48635);
+  color: #120d06;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.lux-price a,
+.lux-price button[disabled] {
+  margin-top: auto;
+}
+
+.lux-price button[disabled] {
+  border-color: rgba(216, 162, 74, 0.25);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--lux-muted);
+}
+
+.lux-price-guide {
+  position: relative;
+  min-height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--lux-line);
+  border-radius: 0.6rem;
+  background:
+    radial-gradient(circle at 72% 12%, rgba(216, 162, 74, 0.12), transparent 13rem),
+    linear-gradient(180deg, rgba(14, 18, 22, 0.94), rgba(7, 9, 11, 0.96));
+}
+
+.lux-price-guide__portrait {
+  position: relative;
+  min-height: 21.6rem;
+  max-height: 21.6rem;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.lux-price-guide__portrait::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  height: 34%;
+  background: linear-gradient(180deg, transparent, rgba(7, 9, 11, 0.92));
+}
+
+.lux-price-guide__portrait img {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  object-fit: cover;
+  object-position: bottom center;
+  filter: saturate(1.08) contrast(1.05) drop-shadow(0 18px 40px rgba(0, 0, 0, 0.62));
+  transform: none;
+}
+
+.lux-price-guide__panel {
+  position: relative;
+  z-index: 2;
+  margin: -0.2rem 1rem 1rem;
+  border: 1px solid rgba(216, 162, 74, 0.32);
+  border-radius: 0.62rem;
+  padding: 1.15rem;
+  background: rgba(8, 11, 14, 0.88);
+  backdrop-filter: blur(18px);
+}
+
+.lux-price-guide__panel h3 {
+  margin: 0 0 0.95rem;
+  color: var(--lux-gold);
+  font-family: var(--font-display);
+  font-size: clamp(1.65rem, 2vw, 2rem);
+  font-weight: 500;
+  line-height: 1.05;
+}
+
+.lux-price-guide__panel ul {
+  display: grid;
+  gap: 0.78rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lux-price-guide__panel li {
+  display: flex;
+  align-items: center;
+  gap: 0.72rem;
+  color: rgba(243, 238, 230, 0.72);
+}
+
+.lux-price-guide__panel svg {
+  flex: 0 0 auto;
+  color: var(--lux-gold);
+}
+
+.lux-price-guide__panel strong,
+.lux-price-guide__panel span {
+  display: block;
+}
+
+.lux-price-guide__panel strong {
+  margin-bottom: 0.12rem;
+  color: var(--lux-text);
+  font-size: 0.92rem;
+}
+
+.lux-price-guide__panel span {
+  font-size: 0.78rem;
+}
+
+.lux-dashboard-preview {
+  display: grid;
+  grid-template-columns: 10rem minmax(0, 1fr) 13rem;
+  min-height: 32rem;
+  overflow: hidden;
+}
+
+.lux-dash-nav {
+  display: grid;
+  align-content: start;
+  gap: 0.35rem;
+  border-right: 1px solid var(--lux-line);
+  padding: 1rem;
+  background: rgba(7, 10, 12, 0.6);
+}
+
+.lux-dash-nav button {
+  border: 0;
+  border-radius: 0.38rem;
+  padding: 0.65rem 0.7rem;
+  background: transparent;
+  color: rgba(243, 238, 230, 0.62);
+  text-align: left;
+  font-size: 0.76rem;
+}
+
+.lux-dash-nav button.is-active {
+  background: rgba(216, 162, 74, 0.14);
+  color: var(--lux-gold);
+}
+
+.lux-dash-main {
+  padding: 1.1rem;
+}
+
+.lux-dash-head,
+.lux-stat-row,
+.lux-table div,
+.lux-chat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lux-dash-head h2 {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 1rem;
+}
+
+.lux-dash-head img {
+  width: 7rem;
+}
+
+.lux-stat-row {
+  gap: 0.7rem;
+  margin-top: 1rem;
+}
+
+.lux-stat-row div {
+  flex: 1;
+  border: 1px solid var(--lux-line-soft);
+  border-radius: 0.4rem;
+  padding: 0.8rem;
+}
+
+.lux-stat-row span {
+  color: var(--lux-muted);
+  font-size: 0.7rem;
+}
+
+.lux-stat-row strong {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 1.1rem;
+}
+
+.lux-stat-row div:nth-child(3) strong,
+.lux-table em,
+.lux-table strong {
+  color: var(--lux-green);
+}
+
+.lux-performance {
+  margin-top: 0.8rem;
+  border: 1px solid var(--lux-line-soft);
+  border-radius: 0.45rem;
+  padding: 0.8rem;
+  background: rgba(73, 181, 116, 0.04);
+}
+
+.lux-performance h3 {
+  margin: 0 0 0.6rem;
+  font-size: 0.82rem;
+}
+
+.lux-performance svg {
+  width: 100%;
+  height: 10rem;
+}
+
+.lux-table {
+  margin-top: 0.8rem;
+  border: 1px solid var(--lux-line-soft);
+  border-radius: 0.45rem;
+  overflow: hidden;
+  font-size: 0.72rem;
+}
+
+.lux-table div {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+  gap: 0.4rem;
+  padding: 0.55rem 0.7rem;
+  border-bottom: 1px solid var(--lux-line-soft);
+}
+
+.lux-table div:first-child {
+  color: var(--lux-muted);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.lux-table i,
+.lux-table small,
+.lux-table mark {
+  color: var(--lux-red);
+  background: transparent;
+}
+
+.lux-dash-side {
+  display: grid;
+  align-content: start;
+  gap: 0.9rem;
+  border-left: 1px solid var(--lux-line);
+  padding: 1rem;
+}
+
+.lux-mini-bot,
+.lux-tour {
+  border: 1px solid var(--lux-line);
+  border-radius: 0.5rem;
+  padding: 0.9rem;
+  background: rgba(5, 7, 9, 0.64);
+}
+
+.lux-mini-bot p {
+  color: var(--lux-green);
+}
+
+.lux-mini-bot button {
+  width: 100%;
+  border: 0;
+  border-radius: 0.38rem;
+  padding: 0.7rem;
+  background: linear-gradient(180deg, #43b36e, #246d43);
+  color: white;
+  font-weight: 900;
+}
+
+.lux-mini-bot.is-running {
+  border-color: rgba(73, 181, 116, 0.42);
+  box-shadow: 0 0 34px rgba(73, 181, 116, 0.11);
+}
+
+.lux-tour {
+  display: grid;
+  align-content: space-between;
+  gap: 0.8rem;
+  min-height: 10rem;
+  background:
+    radial-gradient(circle at 78% 16%, rgba(216, 162, 74, 0.15), transparent 5rem),
+    rgba(5, 7, 9, 0.64);
+}
+
+.lux-tour strong {
+  display: block;
+  color: var(--lux-text);
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 500;
+}
+
+.lux-tour span {
+  display: block;
+  margin: 0.35rem 0 0;
+  color: var(--lux-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.lux-system-grid {
+  grid-template-columns: minmax(20rem, 1.1fr) minmax(20rem, 1fr) minmax(18rem, 0.9fr) minmax(16rem, 0.75fr);
+}
+
+.lux-testimonial-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.lux-testimonial {
+  display: grid;
+  min-height: 17rem;
+  align-content: space-between;
+  border: 1px solid var(--lux-line);
+  border-radius: 0.6rem;
+  padding: 1.25rem;
+  background:
+    radial-gradient(circle at 20% 0%, rgba(216, 162, 74, 0.12), transparent 9rem),
+    linear-gradient(180deg, rgba(14, 18, 22, 0.9), rgba(7, 9, 11, 0.92));
+  box-shadow: 0 26px 76px rgba(0, 0, 0, 0.32);
+  cursor: pointer;
+  transition: border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+}
+
+.lux-testimonial.is-active {
+  border-color: rgba(241, 200, 120, 0.72);
+  box-shadow: 0 0 48px rgba(216, 162, 74, 0.13);
+}
+
+.lux-testimonial div {
+  display: flex;
+  gap: 0.22rem;
+  color: var(--lux-gold);
+}
+
+.lux-testimonial p {
+  margin: 1.25rem 0;
+  color: rgba(243, 238, 230, 0.78);
+  line-height: 1.65;
+}
+
+.lux-testimonial footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--lux-muted);
+  font-size: 0.82rem;
+}
+
+.lux-testimonial strong {
+  color: var(--lux-text);
+}
+
+.lux-chat-card,
+.lux-referral,
+.lux-settings-card,
+.lux-empty-card {
+  padding: 1rem;
+}
+
+.lux-chat-head img,
+.lux-settings-card img {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+.lux-chat-head div {
+  margin-right: auto;
+  margin-left: 0.65rem;
+}
+
+.lux-chat-head span,
+.lux-chat-head em,
+.lux-chat-feed p,
+.lux-referral dt,
+.lux-settings-card label,
+.lux-empty-card p {
+  color: var(--lux-muted);
+  font-size: 0.78rem;
+}
+
+.lux-chat-head em {
+  color: var(--lux-green);
+  font-style: normal;
+}
+
+.lux-chat-feed {
+  display: grid;
+  gap: 0.65rem;
+  min-height: 14rem;
+  margin: 1rem 0;
+}
+
+.lux-chat-feed p {
+  width: fit-content;
+  max-width: 82%;
+  margin: 0;
+  border: 1px solid var(--lux-line-soft);
+  border-radius: 0.55rem 0.55rem 0.55rem 0.15rem;
+  padding: 0.7rem;
+  background: rgba(255, 255, 255, 0.055);
+  line-height: 1.45;
+}
+
+.lux-chat-feed p.is-user {
+  justify-self: end;
+  border-radius: 0.55rem 0.55rem 0.15rem 0.55rem;
+  background: rgba(216, 162, 74, 0.16);
+  color: var(--lux-text);
+}
+
+.lux-chat-form,
+.lux-copy-row {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.lux-copy-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.lux-chat-form input,
+.lux-copy-row span,
+.lux-settings-card input {
+  min-width: 0;
+  flex: 1;
+  border: 1px solid var(--lux-line-soft);
+  border-radius: 0.36rem;
+  background: rgba(0, 0, 0, 0.24);
+  color: var(--lux-text);
+  padding: 0.65rem 0.7rem;
+  font-size: 0.78rem;
+}
+
+.lux-chat-form button {
+  display: grid;
+  width: 2.4rem;
+  place-items: center;
+  border: 1px solid rgba(241, 200, 120, 0.55);
+  border-radius: 0.36rem;
+  background: var(--lux-gold);
+  color: #120d06;
+}
+
+.lux-copy-row button {
+  width: auto;
+  min-width: 4.4rem;
+  padding: 0 0.95rem;
+}
+
+.lux-referral dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.lux-referral dd {
+  margin: 0.25rem 0 0;
+  color: var(--lux-text);
+  font-size: 1.1rem;
+}
+
+.lux-referral dl div:last-child dd {
+  color: var(--lux-green);
+}
+
+.lux-referral label {
+  display: grid;
+  grid-template-columns: auto 1fr 2rem;
+  gap: 0.7rem;
+  align-items: center;
+  color: var(--lux-muted);
+  font-size: 0.78rem;
+}
+
+.lux-settings-card {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.lux-settings-card label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.lux-settings-card label:last-of-type {
+  display: flex;
+  align-items: center;
+}
+
+.lux-empty-card {
+  display: grid;
+  place-items: center;
+  text-align: center;
+}
+
+.lux-empty-card svg {
+  color: rgba(216, 162, 74, 0.68);
+}
+
+.lux-faq-layout {
+  display: grid;
+  grid-template-columns: minmax(18rem, 0.7fr) minmax(0, 1fr);
+  gap: 2rem;
+}
+
+.lux-faq-list {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.lux-faq-list button {
+  border: 1px solid var(--lux-line);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  background: rgba(13, 17, 21, 0.84);
+  color: var(--lux-text);
+  text-align: left;
+}
+
+.lux-faq-list strong {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lux-faq-list span {
+  display: none;
+  margin-top: 0.7rem;
+  color: var(--lux-muted);
+  line-height: 1.6;
+}
+
+.lux-faq-list .is-open span {
+  display: block;
+}
+
+.lux-footer {
+  border-top: 1px solid var(--lux-line);
+  padding: 2rem 0;
+  background: #050505;
+}
+
+.lux-auth-shell {
+  display: grid;
+  grid-template-columns: minmax(22rem, 31rem) minmax(28rem, 1fr);
+  gap: 1.5rem;
+  width: min(100% - 2rem, 1320px);
+  min-height: calc(100vh - 4.35rem);
+  align-items: center;
+  margin: 0 auto;
+  padding: 2rem 0;
+}
+
+.lux-auth-card {
+  position: relative;
+  z-index: 2;
+  border: 1px solid rgba(216, 162, 74, 0.32);
+  border-radius: 0.75rem;
+  padding: clamp(1.4rem, 3vw, 2.4rem);
+  background: linear-gradient(180deg, rgba(14, 18, 22, 0.9), rgba(6, 8, 10, 0.94));
+  box-shadow: 0 32px 92px rgba(0, 0, 0, 0.42);
+}
+
+.lux-auth-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--lux-gold);
+  font-family: var(--font-display);
+  font-size: 2.25rem;
+}
+
+.lux-auth-card h1 {
+  margin: 1.1rem 0 0;
+  font-size: 1.8rem;
+}
+
+.lux-auth-card > p,
+.lux-auth-switch {
+  color: var(--lux-muted);
+  line-height: 1.6;
+}
+
+.lux-auth-card label {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.45rem;
+  align-items: center;
+  margin-top: 1rem;
+  color: rgba(243, 238, 230, 0.72);
+  font-size: 0.82rem;
+}
+
+.lux-auth-card label input:not([type='checkbox']) {
+  grid-column: 1 / -1;
+  width: 100%;
+  border: 1px solid rgba(216, 162, 74, 0.22);
+  border-radius: 0.4rem;
+  background: rgba(0, 0, 0, 0.26);
+  color: var(--lux-text);
+  padding: 0.82rem 0.9rem;
+}
+
+.lux-auth-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0.9rem 0 1rem;
+}
+
+.lux-auth-options label {
+  display: flex;
+  margin: 0;
+}
+
+.lux-auth-options a,
+.lux-auth-switch a {
+  color: var(--lux-gold);
+}
+
+.lux-auth-card > button[type='submit'],
+.lux-auth-social {
+  width: 100%;
+  min-height: 2.75rem;
+  border: 1px solid rgba(241, 200, 120, 0.64);
+  border-radius: 0.42rem;
+  margin-top: 0.8rem;
+  background: linear-gradient(180deg, #f1c878, #d0933c 48%, #9c6423);
+  color: #130d05;
+  font-weight: 900;
+}
+
+.lux-auth-social-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-top: 0.8rem;
+}
+
+.lux-auth-social {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-width: 0;
+  margin-top: 0;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--lux-text);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.lux-auth-provider-icon {
+  display: inline-flex;
+  width: 1.25rem;
+  height: 1.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #fff;
+  color: #1b1b1b;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.lux-auth-provider-icon.is-google {
+  color: #4285f4;
+  font-family: Arial, sans-serif;
+}
+
+.lux-auth-provider-icon.is-facebook {
+  background: #1877f2;
+  color: #fff;
+  font-family: Arial, sans-serif;
+  font-size: 1.1rem;
+}
+
+.lux-auth-offer {
+  display: flex;
+  gap: 0.7rem;
+  border: 1px solid rgba(73, 181, 116, 0.26);
+  border-radius: 0.55rem;
+  margin: 1.2rem 0;
+  padding: 0.9rem;
+  background: rgba(73, 181, 116, 0.08);
+  color: rgba(243, 238, 230, 0.8);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.lux-auth-offer svg {
+  flex: 0 0 auto;
+  color: var(--lux-green);
+}
+
+.lux-auth-visual {
+  position: relative;
+  min-height: min(44rem, calc(100vh - 8rem));
+  overflow: hidden;
+  border: 1px solid rgba(216, 162, 74, 0.28);
+  border-radius: 0.85rem;
+  background:
+    linear-gradient(90deg, rgba(5, 6, 7, 0.78), rgba(5, 6, 7, 0.18)),
+    url('../assets/po-graph-sanitized.png') center / cover;
+}
+
+.lux-auth-visual--login,
+.lux-auth-visual--register {
+  background:
+    radial-gradient(circle at 78% 28%, rgba(216, 162, 74, 0.18), transparent 18rem),
+    #060606;
+}
+
+.lux-auth-visual--login::after,
+.lux-auth-visual--register::after {
+  content: none;
+}
+
+.lux-auth-visual::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(5, 6, 7, 0.86) 0%, rgba(5, 6, 7, 0.34) 42%, rgba(5, 6, 7, 0.08) 100%),
+    radial-gradient(circle at 78% 26%, rgba(216, 162, 74, 0.18), transparent 18rem);
+}
+
+.lux-auth-visual--login::before,
+.lux-auth-visual--register::before {
+  background:
+    linear-gradient(90deg, rgba(5, 6, 7, 0.72) 0%, rgba(5, 6, 7, 0.24) 34%, rgba(5, 6, 7, 0.08) 66%, rgba(5, 6, 7, 0.22) 100%),
+    linear-gradient(180deg, transparent 0%, rgba(5, 6, 7, 0.12) 62%, rgba(5, 6, 7, 0.74) 100%);
+}
+
+.lux-auth-visual img {
+  position: absolute;
+}
+
+.lux-auth-visual__backdrop {
+  inset: -1.3rem;
+  z-index: 0;
+  width: calc(100% + 2.6rem);
+  height: calc(100% + 2.6rem);
+  object-fit: cover;
+  object-position: center right;
+  opacity: 0.5;
+  filter: blur(18px) brightness(0.48) saturate(1.06);
+  transform: scale(1.05);
+}
+
+.lux-auth-visual__scene {
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center center;
+  filter: saturate(1.04) contrast(1.03);
+}
+
+.lux-auth-visual__portrait {
+  z-index: 2;
+  right: clamp(1.4rem, 3vw, 2.7rem);
+  bottom: 0;
+  width: min(34rem, 62%);
+  height: 100%;
+  object-fit: contain;
+  object-position: right bottom;
+  filter: drop-shadow(-28px 20px 60px rgba(0, 0, 0, 0.72));
+}
+
+.lux-auth-visual--login img,
+.lux-auth-visual--register img {
+}
+
+.lux-auth-visual--login .lux-auth-visual__portrait,
+.lux-auth-visual--register .lux-auth-visual__portrait {
+  right: clamp(1.4rem, 3vw, 2.7rem);
+  width: min(34rem, 62%);
+  height: 100%;
+  object-fit: contain;
+  object-position: right bottom;
+}
+
+.lux-auth-quote {
+  position: absolute;
+  z-index: 3;
+  right: clamp(1rem, 2.4vw, 2rem);
+  bottom: clamp(1.4rem, 3vw, 2.2rem);
+  width: min(22rem, 48%);
+  border: 1px solid rgba(216, 162, 74, 0.34);
+  border-radius: 0.55rem;
+  padding: 1rem;
+  background: rgba(8, 11, 14, 0.82);
+  backdrop-filter: blur(18px);
+}
+
+.lux-auth-quote svg,
+.lux-auth-quote strong {
+  color: var(--lux-gold);
+}
+
+.lux-auth-quote p {
+  margin: 0.6rem 0;
+  color: rgba(243, 238, 230, 0.78);
+  font-style: italic;
+  line-height: 1.55;
+}
+
+@media (max-width: 920px) {
+  .lux-auth-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .lux-auth-visual {
+    min-height: 32rem;
+  }
+
+  .lux-auth-visual img {
+    width: 62%;
+    object-position: center;
+  }
+
+  .lux-auth-visual--login img,
+  .lux-auth-visual--register img {
+    right: 1rem;
+    width: 58%;
+    object-position: right bottom;
+  }
+}
+
+.lux-price-hero,
+.lux-support-shell {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+  align-items: center;
+  width: min(100% - 2rem, 1480px);
+  margin: 0 auto;
+  padding: clamp(3rem, 6vw, 5rem) 0 2rem;
+}
+
+.lux-price-hero h1,
+.lux-support-copy h1 {
+  margin: 0.6rem 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(3.2rem, 7vw, 6.4rem);
+  font-weight: 500;
+  line-height: 0.92;
+}
+
+.lux-price-hero p,
+.lux-support-copy > p {
+  max-width: 36rem;
+  color: rgba(243, 238, 230, 0.68);
+  line-height: 1.65;
+}
+
+.lux-pricing-grid--page {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(18rem, 0.9fr);
+}
+
+.lux-pricing-benefits,
+.lux-matrix,
+.lux-topic-grid article,
+.lux-support-chat {
+  border: 1px solid var(--lux-line);
+  border-radius: 0.6rem;
+  background: linear-gradient(180deg, rgba(14, 18, 22, 0.9), rgba(7, 9, 11, 0.92));
+}
+
+.lux-pricing-benefits {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1.2rem;
+}
+
+.lux-pricing-benefits h2,
+.lux-matrix h2 {
+  margin: 0;
+  color: var(--lux-gold);
+  font-family: var(--font-display);
+  font-size: 1.55rem;
+}
+
+.lux-pricing-benefits div {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.1rem 0.7rem;
+  align-items: center;
+}
+
+.lux-pricing-benefits svg {
+  grid-row: span 2;
+  color: var(--lux-gold);
+}
+
+.lux-pricing-benefits span {
+  color: var(--lux-muted);
+  font-size: 0.8rem;
+}
+
+.lux-matrix {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 1.2rem;
+  padding: 1.2rem;
+}
+
+.lux-matrix div {
+  display: flex;
+  justify-content: space-between;
+  border: 1px solid var(--lux-line-soft);
+  border-radius: 0.42rem;
+  padding: 0.75rem 0.85rem;
+  color: rgba(243, 238, 230, 0.76);
+}
+
+.lux-matrix svg {
+  color: var(--lux-green);
+}
+
+.lux-risk-note {
+  margin-top: 1rem;
+  padding-bottom: 3rem;
+  color: var(--lux-muted);
+  font-size: 0.82rem;
+}
+
+.lux-topic-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin-top: 1.5rem;
+}
+
+.lux-topic-grid article {
+  padding: 1rem;
+}
+
+.lux-topic-grid svg {
+  color: var(--lux-gold);
+}
+
+.lux-topic-grid h2 {
+  margin: 0.55rem 0 0.3rem;
+  font-size: 0.95rem;
+}
+
+.lux-topic-grid p {
+  margin: 0;
+  color: var(--lux-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.lux-support-chat {
+  overflow: hidden;
+  min-height: 39rem;
+}
+
+.lux-support-chat header {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  border-bottom: 1px solid var(--lux-line);
+  padding: 1rem;
+}
+
+.lux-support-chat header img {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+.lux-support-chat header div {
+  margin-right: auto;
+}
+
+.lux-support-chat header span,
+.lux-support-chat header em,
+.lux-support-chat small {
+  color: var(--lux-muted);
+  font-size: 0.78rem;
+}
+
+.lux-support-chat header em {
+  color: var(--lux-green);
+  font-style: normal;
+}
+
+.lux-support-feed {
+  display: grid;
+  gap: 0.75rem;
+  min-height: 27rem;
+  padding: 1rem;
+}
+
+.lux-support-feed p {
+  width: fit-content;
+  max-width: 76%;
+  margin: 0;
+  border: 1px solid var(--lux-line-soft);
+  border-radius: 0.6rem 0.6rem 0.6rem 0.2rem;
+  padding: 0.8rem;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(243, 238, 230, 0.78);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.lux-support-feed p.is-user {
+  justify-self: end;
+  border-color: rgba(216, 162, 74, 0.22);
+  border-radius: 0.6rem 0.6rem 0.2rem 0.6rem;
+  background: rgba(216, 162, 74, 0.16);
+  color: var(--lux-text);
+}
+
+.lux-support-chat form {
+  display: flex;
+  gap: 0.6rem;
+  border-top: 1px solid var(--lux-line);
+  padding: 0.85rem;
+}
+
+.lux-support-chat input {
+  min-width: 0;
+  flex: 1;
+  border: 1px solid var(--lux-line-soft);
+  border-radius: 0.4rem;
+  background: rgba(0, 0, 0, 0.28);
+  color: var(--lux-text);
+  padding: 0.72rem;
+}
+
+.lux-support-chat form button {
+  width: 2.8rem;
+  border: 1px solid rgba(241, 200, 120, 0.55);
+  border-radius: 0.4rem;
+  background: var(--lux-gold);
+  color: #120d06;
+}
+
+.lux-support-chat small {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0 1rem 1rem;
+}
+
+@media (max-width: 920px) {
+  .lux-price-hero,
+  .lux-support-shell,
+  .lux-pricing-grid--page,
+  .lux-topic-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.lux-footer .lux-shell {
+  display: grid;
+  grid-template-columns: minmax(10rem, auto) max-content minmax(18rem, 0.4fr);
+  gap: clamp(2rem, 4vw, 4.5rem);
+  align-items: start;
+}
+
+.lux-footer nav {
+  display: grid;
+  grid-template-columns: repeat(3, max-content);
+  gap: clamp(2rem, 4vw, 4rem);
+  justify-content: start;
+  color: var(--lux-muted);
+  font-size: 0.85rem;
+}
+
+.lux-footer nav div {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.lux-footer nav strong {
+  color: var(--lux-gold);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+@keyframes candlePulse {
+  50% { transform: scaleY(1.08); opacity: 0.86; }
+}
+
+@media (max-width: 1180px) {
+  .lux-hero-grid,
+  .lux-feature-layout,
+  .lux-faq-layout,
+  .lux-split-head {
+    grid-template-columns: 1fr;
+  }
+
+  .lux-trading-stage {
+    width: 100%;
+    margin-left: 0;
+    min-height: 34rem;
+  }
+
+  .lux-mascot--hero {
+    left: clamp(-4rem, -2vw, -1rem);
+    right: auto;
+    width: auto;
+    height: min(47rem, 76vw);
+  }
+
+  .lux-po-window {
+    left: clamp(18rem, 31vw, 22rem);
+  }
+
+  .lux-bot-panel {
+    right: 2rem;
+    width: min(20rem, 40%);
+  }
+
+  .lux-pricing-grid,
+  .lux-system-grid,
+  .lux-testimonial-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lux-dashboard-preview {
+    grid-template-columns: 8rem minmax(0, 1fr);
+  }
+
+  .lux-dash-side {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-left: 0;
+    border-top: 1px solid var(--lux-line);
+  }
+}
+
+@media (max-width: 760px) {
+  .lux-hero {
+    padding-top: 2rem;
+  }
+
+  .lux-hero-copy h1 {
+    font-size: 4.2rem;
+  }
+
+  .lux-trading-stage {
+    min-height: 35rem;
+  }
+
+  .lux-po-window {
+    inset: 1rem 1rem auto;
+    height: 20rem;
+  }
+
+  .lux-bot-panel {
+    left: 1.2rem;
+    right: 1.2rem;
+    top: 13rem;
+    width: calc(100% - 2.8rem);
+  }
+
+  .lux-mascot--hero {
+    top: 4rem;
+    left: auto;
+    right: -2.2rem;
+    bottom: auto;
+    width: auto;
+    height: 22rem;
+    opacity: 0.42;
+  }
+
+  .floating-chat-button {
+    right: 0.9rem;
+    bottom: 0.9rem;
+    min-width: 3rem;
+    width: 3rem;
+    height: 3rem;
+  }
+
+  .floating-chat-button span {
+    display: none;
+  }
+
+  .lux-copy-row {
+    grid-template-columns: 1fr;
+  }
+
+  .lux-copy-row button {
+    width: 100%;
+  }
+
+  .lux-proof-strip,
+  .lux-step-grid,
+  .lux-feature-grid,
+  .lux-pricing-grid,
+  .lux-system-grid,
+  .lux-testimonial-grid,
+  .lux-footer .lux-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .lux-footer nav {
+    grid-template-columns: 1fr;
+  }
+
+  .lux-auth-visual__portrait,
+  .lux-auth-visual--login .lux-auth-visual__portrait,
+  .lux-auth-visual--register .lux-auth-visual__portrait {
+    right: 0.5rem;
+    width: 82%;
+    object-fit: contain;
+  }
+
+  .lux-auth-social-row {
+    grid-template-columns: 1fr;
+  }
+
+  .lux-proof-strip div {
+    border-right: 0;
+    border-bottom: 1px solid var(--lux-line);
+  }
+
+  .lux-dashboard-preview {
+    grid-template-columns: 1fr;
+  }
+
+  .lux-dash-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-right: 0;
+    border-bottom: 1px solid var(--lux-line);
+  }
+
+  .lux-stat-row,
+  .lux-dash-side {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+}

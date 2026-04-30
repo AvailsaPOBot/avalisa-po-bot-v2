@@ -34,7 +34,7 @@ export default function Privacy() {
         },
         {
           subtitle: 'License & Usage Tracking',
-          text: 'Your license tier (Free, Basic, or Lifetime) is tracked to enforce plan limits. The device fingerprint is used only to count free-tier trades per device — it is not linked to your account.',
+          text: 'Your license tier (Free, Basic, or Pro) is tracked to enforce plan limits. The device fingerprint is used only to count free-tier trades per device — it is not linked to your account.',
         },
         {
           subtitle: 'Trade Logging',
@@ -58,8 +58,8 @@ export default function Privacy() {
           text: 'Our API server is hosted on Render. Your data is stored on Render\'s infrastructure. Render does not have access to your account data beyond infrastructure-level hosting.',
         },
         {
-          subtitle: 'Google AI / Anthropic (AI Support Chat)',
-          text: 'Messages sent to the in-app support chat are forwarded to Google Gemini (Gemini Flash) or Anthropic Claude. Do not include sensitive personal information in chat messages. These providers\' usage policies apply to chat content.',
+          subtitle: 'Google AI / Anthropic (Talk to Avalisa)',
+          text: 'Messages sent to Talk to Avalisa are forwarded to Google Gemini (Gemini Flash) or Anthropic Claude. Do not include sensitive personal information in chat messages. These providers\' usage policies apply to chat content.',
         },
         {
           subtitle: 'Vercel (Dashboard Hosting)',

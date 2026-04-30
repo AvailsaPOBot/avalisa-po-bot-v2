@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Check } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import '../styles/luxury.css';
 
 const FALLBACK_AFFILIATE_LINK = 'https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50';
 const API_BASE = process.env.REACT_APP_API_URL || 'https://avalisa-backend.onrender.com';
@@ -12,8 +14,8 @@ export default function Pricing() {
 
   useEffect(() => {
     fetch(`${API_BASE}/api/config/affiliate-link`)
-      .then(r => r.json())
-      .then(data => { if (data?.url) setAffiliateLink(data.url); })
+      .then((r) => r.json())
+      .then((data) => { if (data?.url) setAffiliateLink(data.url); })
       .catch(() => {});
   }, []);
 
@@ -23,159 +25,81 @@ export default function Pricing() {
     const separator = url.includes('?') ? '&' : '?';
     return email ? `${url}${separator}checkout[email]=${encodeURIComponent(email)}` : url;
   };
-  const WHOP_BASIC_URL = appendEmail(process.env.REACT_APP_WHOP_BASIC_URL);
-  const WHOP_PRO_URL = appendEmail(process.env.REACT_APP_WHOP_PRO_URL || process.env.REACT_APP_WHOP_LIFETIME_URL);
 
   const plans = [
     {
-      name: 'Free',
-      price: '$0',
-      period: 'forever',
-      badge: 'badge-free',
-      description: 'Get started with Martingale strategy',
-      features: [
-        '10 free trades (device-linked)',
-        'Martingale strategy only',
-        'All timeframes (M1–H4)',
-        'Basic trade history',
-        'Talk to Avalisa support chat',
-      ],
-      cta: 'Register Free PO Account',
-      ctaHref: affiliateLink,
-      ctaExternal: true,
-      highlighted: false,
+      id: 'demo',
+      name: 'Demo Tier',
+      price: '10',
+      period: 'demo trades',
+      description: 'Start risk-aware with a small demo-first allowance.',
+      cta: 'Open Pocket Option',
+      href: affiliateLink,
+      external: true,
+      features: ['10 demo trades', 'Martingale strategy', 'All supported timeframes', 'Basic trade history', 'AI support chat'],
     },
     {
+      id: 'basic',
       name: 'Basic',
       price: '$50',
       period: 'one-time',
-      badge: 'badge-basic',
-      description: '100 trades with full strategy access',
-      features: [
-        '100 trades total',
-        'Max $2 starting trade amount',
-        'All strategies unlocked',
-        'Anti-Martingale strategy',
-        'Fixed Amount strategy',
-        'Full trade history & stats',
-        'Settings cloud sync',
-      ],
+      description: 'Full strategy access for early serious testing.',
       cta: 'Buy Basic — $50',
-      ctaHref: WHOP_BASIC_URL,
-      ctaExternal: true,
-      highlighted: false,
+      href: appendEmail(process.env.REACT_APP_WHOP_BASIC_URL),
+      external: true,
+      featured: true,
+      features: ['100 trades total', 'Max $2 starting amount', 'All strategies unlocked', 'Anti-Martingale', 'Cloud settings sync'],
     },
     {
+      id: 'pro',
       name: 'Pro',
       price: '$120',
       period: 'one-time',
-      badge: 'badge-lifetime',
-      description: 'Unlimited everything, forever',
-      features: [
-        'Unlimited trades',
-        'Unlimited starting amount',
-        'All strategies unlocked',
-        'Avalisa AI strategy',
-        'Full trade history & stats',
-        'Settings cloud sync',
-        'Priority Avalisa support',
-      ],
+      description: 'Unlimited access for traders who want the full control room.',
       cta: 'Buy Pro — $120',
-      ctaHref: WHOP_PRO_URL,
-      ctaExternal: true,
-      highlighted: true,
+      href: appendEmail(process.env.REACT_APP_WHOP_PRO_URL || process.env.REACT_APP_WHOP_LIFETIME_URL),
+      external: true,
+      features: ['Unlimited trades', 'No start amount limit', 'Avalisa AI engine', 'Priority support', 'Lifetime updates'],
     },
   ];
 
   return (
-    <div className="min-h-screen py-16 px-4">
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-14">
-          <h1 className="text-4xl font-extrabold text-white mb-4">Simple, transparent pricing</h1>
-          <p className="text-gray-400 text-lg">All plans are one-time payments — no recurring subscriptions.</p>
+    <main className="lux-pricing-page">
+      <section className="lux-price-hero lux-shell">
+        <div>
+          <p className="lux-kicker">Pricing</p>
+          <h1>Simple, transparent pricing.</h1>
         </div>
+      </section>
 
-        <div className="pricing-showcase">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {plans.map(plan => (
-              <div key={plan.name}
-                id={plan.name.toLowerCase()}
-                className={`card flex flex-col relative ${plan.highlighted ? 'border-brand-600 ring-2 ring-brand-600' : ''}`}
-              >
-              {plan.highlighted && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand-600 text-white text-xs font-bold px-3 py-0.5 rounded-full">
-                  MOST POPULAR
-                </div>
-              )}
-              <div className="mb-4">
-                <span className={plan.badge}>{plan.name}</span>
-              </div>
-              <div className="mb-2">
-                <span className="text-4xl font-extrabold text-white">{plan.price}</span>
-                <span className="text-gray-400 ml-2 text-sm">{plan.period}</span>
-              </div>
-              <p className="text-gray-400 text-sm mb-6">{plan.description}</p>
-
-              <ul className="space-y-2 mb-8 flex-1">
-                {plan.features.map(f => (
-                  <li key={f} className="flex items-start gap-2 text-sm text-gray-300">
-                    <span className="text-green-400 mt-0.5">✓</span> {f}
-                  </li>
-                ))}
-              </ul>
-
-              {currentPlan === plan.name.toLowerCase() ? (
-                <div className="btn-outline text-center py-3 opacity-50 cursor-default">Current Plan</div>
-              ) : plan.ctaExternal ? (
-                <div className="space-y-2">
-                  <a href={plan.ctaHref} target="_blank" rel="noreferrer"
-                    className={`block text-center py-3 rounded-lg font-semibold text-sm transition-colors ${plan.highlighted ? 'btn-primary' : 'btn-outline'}`}>
-                    {plan.cta}
-                  </a>
-                  {plan.highlighted && (
-                    <a href={affiliateLink} target="_blank" rel="noreferrer"
-                      className="block text-center py-3 rounded-lg font-semibold text-sm transition-colors bg-green-600 hover:bg-green-500 text-white">
-                      Register new PO account for free Pro
-                    </a>
-                  )}
-                </div>
+      <section className="lux-shell lux-pricing-grid lux-pricing-grid--page">
+        {plans.map((plan) => {
+          const current = currentPlan === plan.id || (currentPlan === 'free' && plan.id === 'demo') || (currentPlan === 'lifetime' && plan.id === 'pro');
+          return (
+            <article className={`lux-price ${plan.featured ? 'is-featured' : ''}`} id={plan.id} key={plan.id}>
+              {plan.featured && <b>MOST POPULAR</b>}
+              <span>{plan.name}</span>
+              <h3>{plan.price}<small>{plan.period}</small></h3>
+              <p>{plan.description}</p>
+              <ul>{plan.features.map((item) => <li key={item}><Check size={14} /> {item}</li>)}</ul>
+              {current ? (
+                <button type="button" disabled>Current Plan</button>
+              ) : plan.external ? (
+                <a href={plan.href || '#'} target="_blank" rel="noreferrer">{plan.cta}</a>
               ) : (
-                <Link to={plan.ctaHref}
-                  className={`text-center py-3 rounded-lg font-semibold text-sm transition-colors ${plan.highlighted ? 'btn-primary' : 'btn-outline'}`}>
-                  {plan.cta}
-                </Link>
+                <Link to={plan.href}>{plan.cta}</Link>
               )}
-              </div>
-            ))}
-          </div>
-          <aside className="pricing-mascot-panel">
-            <div className="pricing-product-visual" aria-hidden="true">
-              <div className="pricing-product-visual__chart" />
-              <div className="pricing-product-visual__bot">
-                <span>Pro</span>
-                <strong>Unlimited</strong>
-              </div>
-            </div>
-            <div className="pricing-mascot-panel__copy">
-              <h2>Why traders choose Avalisa</h2>
-              <ul>
-                <li>AI market scan with visible rules</li>
-                <li>Smart entries on high-probability setups</li>
-                <li>Risk controls before automation</li>
-                <li>Visible control panel on the PO page</li>
-              </ul>
-            </div>
-          </aside>
-        </div>
+            </article>
+          );
+        })}
+        <aside className="lux-price-guide lux-price-guide--page">
+          <img src="/images/landing/avalisa-blonde-pricing.png" alt="Avalisa pricing guide" />
+        </aside>
+      </section>
 
-        <div className="mt-10 text-center text-sm text-gray-500">
-          Payments processed securely by Whop. All sales final.
-        </div>
-
-        <div className="mt-8 bg-yellow-900/20 border border-yellow-700/40 rounded-xl p-5 text-sm text-yellow-200 text-center">
-          <strong>⚠️ Risk Disclaimer:</strong> Binary options trading carries significant financial risk. This tool does not guarantee profits. Trade responsibly.
-        </div>
-      </div>
-    </div>
+      <p className="lux-risk-note lux-shell">
+        Trading involves risk. Avalisa does not guarantee profits. Use demo mode first and trade responsibly.
+      </p>
+    </main>
   );
 }

@@ -354,10 +354,10 @@ export default function Dashboard() {
     setSettings(s => ({ ...s, [key]: value }));
   }
 
-  if (!settings) return <div className="flex items-center justify-center min-h-screen text-brand-400">Loading dashboard...</div>;
+  if (!settings) return <div className="dashboard-page flex items-center justify-center min-h-screen text-brand-400">Loading dashboard...</div>;
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-10">
+    <div className="dashboard-page max-w-6xl mx-auto px-4 py-10">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>

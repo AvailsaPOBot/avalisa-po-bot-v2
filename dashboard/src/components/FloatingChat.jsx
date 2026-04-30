@@ -1,10 +1,11 @@
-import { useState, useRef, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { MessageCircle, Send, X } from 'lucide-react';
 import api from '../lib/api';
 
 export default function FloatingChat() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: "Hi, I'm Avalisa. Ask me about setup, trading modes, your account, pricing, or anything related to our service." }
+    { role: 'assistant', content: "Hi, I'm Avalisa. Ask me about setup, pricing, Pocket Option, or bot settings." },
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,16 +20,16 @@ export default function FloatingChat() {
     const text = input.trim();
     if (!text || loading) return;
 
-    const newMessages = [...messages, { role: 'user', content: text }];
-    setMessages(newMessages);
+    const nextMessages = [...messages, { role: 'user', content: text }];
+    setMessages(nextMessages);
     setInput('');
     setLoading(true);
 
     try {
-      const res = await api.post('/api/support/chat', { messages: newMessages });
-      setMessages(prev => [...prev, { role: 'assistant', content: res.data.reply }]);
+      const res = await api.post('/api/support/chat', { messages: nextMessages });
+      setMessages((items) => [...items, { role: 'assistant', content: res.data.reply }]);
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, something went wrong. Please try again.' }]);
+      setMessages((items) => [...items, { role: 'assistant', content: 'Sorry, I could not reach support. Try again in a moment or email avalisapobot@gmail.com.' }]);
     } finally {
       setLoading(false);
     }
@@ -36,117 +37,43 @@ export default function FloatingChat() {
 
   return (
     <>
-      {/* Chat Window */}
       {open && (
-        <div style={{
-          position: 'fixed', bottom: '90px', right: '24px', zIndex: 999998,
-          width: '340px', height: '480px',
-          background: '#0d0d1a',
-          border: '1px solid #1a1a3e',
-          borderRadius: '16px',
-          boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
-          display: 'flex', flexDirection: 'column',
-          overflow: 'hidden',
-          fontFamily: "'Inter', system-ui, sans-serif",
-        }}>
-          {/* Header */}
-          <div style={{
-            padding: '14px 16px',
-            background: '#111128',
-            borderBottom: '1px solid #1a1a3e',
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{
-                width: '8px', height: '8px', borderRadius: '50%',
-                background: '#d4a256', boxShadow: '0 0 6px #d4a256',
-              }} />
-              <span style={{ color: '#e2e8f0', fontWeight: 600, fontSize: '14px' }}>Ask Avalisa</span>
+        <section className="floating-chat" aria-label="Talk to Avalisa">
+          <header>
+            <img src="/images/landing/avalisa-blonde-support.png" alt="" />
+            <div>
+              <strong>Talk to Avalisa</strong>
+              <span>AI support assistant</span>
             </div>
-            <button onClick={() => setOpen(false)} style={{
-              background: 'none', border: 'none', color: '#64748b',
-              cursor: 'pointer', fontSize: '18px', lineHeight: 1,
-            }}>✕</button>
-          </div>
+            <button type="button" onClick={() => setOpen(false)} aria-label="Close chat"><X size={18} /></button>
+          </header>
 
-          {/* Messages */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {messages.map((m, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                <div style={{
-                  maxWidth: '80%',
-                  padding: '10px 14px',
-                  borderRadius: m.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
-                  background: m.role === 'user' ? '#a97832' : '#1c1c28',
-                  color: '#e2e8f0',
-                  fontSize: '13px',
-                  lineHeight: '1.5',
-                  border: m.role === 'assistant' ? '1px solid #2d2d5b' : 'none',
-                }}>
-                  {m.content}
-                </div>
-              </div>
+          <div className="floating-chat__feed">
+            {messages.map((message, index) => (
+              <p key={`${message.role}-${index}`} className={message.role === 'user' ? 'is-user' : ''}>
+                {message.content}
+              </p>
             ))}
-            {loading && (
-              <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                <div style={{
-                  padding: '10px 14px', borderRadius: '14px 14px 14px 4px',
-                  background: '#1a1a3e', border: '1px solid #2d2d5b',
-                  color: '#64748b', fontSize: '13px',
-                }}>
-                  Thinking...
-                </div>
-              </div>
-            )}
+            {loading && <p>Thinking...</p>}
             <div ref={bottomRef} />
           </div>
 
-          {/* Input */}
-          <form onSubmit={sendMessage} style={{
-            padding: '12px', borderTop: '1px solid #1a1a3e',
-            display: 'flex', gap: '8px',
-          }}>
+          <form onSubmit={sendMessage}>
             <input
               value={input}
-              onChange={e => setInput(e.target.value)}
+              onChange={(event) => setInput(event.target.value)}
               disabled={loading}
-              placeholder="Ask anything..."
-              style={{
-                flex: 1, background: '#1a1a3e', border: '1px solid #2d2d5b',
-                borderRadius: '8px', padding: '8px 12px',
-                color: '#e2e8f0', fontSize: '13px', outline: 'none',
-              }}
+              placeholder="Ask anything about Avalisa..."
             />
-            <button type="submit" disabled={loading || !input.trim()} style={{
-              background: '#d4a256', color: '#0d0d1a', border: 'none',
-              borderRadius: '8px', padding: '8px 14px',
-              fontWeight: 700, fontSize: '13px', cursor: 'pointer',
-              opacity: loading || !input.trim() ? 0.4 : 1,
-            }}>
-              →
+            <button type="submit" disabled={loading || !input.trim()} aria-label="Send message">
+              <Send size={16} />
             </button>
           </form>
-        </div>
+        </section>
       )}
 
-      {/* Floating Bubble Button */}
-      <button
-        onClick={() => setOpen(o => !o)}
-        aria-label="Ask Avalisa"
-        style={{
-          position: 'fixed', bottom: '24px', right: '24px', zIndex: 999999,
-          minWidth: '64px', height: '56px', borderRadius: '999px',
-          background: open ? '#1a1a3e' : '#ef4444',
-          border: open ? '2px solid #ef4444' : 'none',
-          color: '#ffffff',
-          boxShadow: open ? '0 4px 24px rgba(239,68,68,0.28)' : '0 10px 30px rgba(239,68,68,0.42)',
-          cursor: 'pointer', fontSize: '22px',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          transition: 'all 0.2s ease',
-        }}
-        title="Ask Avalisa"
-      >
-        {open ? '✕' : 'Ask'}
+      <button className="floating-chat-button" type="button" onClick={() => setOpen((value) => !value)} aria-label="Ask Avalisa">
+        {open ? <X size={22} /> : <><MessageCircle size={20} /><span>Ask</span></>}
       </button>
     </>
   );

@@ -1,6 +1,30 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Menu, X, Zap } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+
+const AFFILIATE_URL =
+  'https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50';
+
+const navItems = [
+  { label: 'Features', href: '/#features' },
+  { label: 'Pricing', href: '/#pricing' },
+  { label: 'FAQ', href: '/#faq' },
+];
+
+function Brand() {
+  return (
+    <Link to="/" className="site-brand">
+      <span className="site-brand__primary">
+        <Zap size={30} fill="currentColor" />
+        <span>Avalisa<small>PO BOT</small></span>
+      </span>
+      <span className="site-brand__partner" aria-label="Pocket Option partner">
+        <img src="/images/PO_Logo.png" alt="" />
+      </span>
+    </Link>
+  );
+}
 
 export default function Navbar() {
   const { user, logout } = useAuth();
@@ -8,7 +32,6 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const plan = user?.license?.plan || 'free';
-  const badgeClass = plan === 'lifetime' ? 'badge-lifetime' : plan === 'basic' ? 'badge-basic' : 'badge-free';
   const planLabel = plan === 'lifetime' ? 'pro' : plan;
 
   function handleLogout() {
@@ -18,68 +41,61 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="border-b border-brand-900/30 bg-[#090a0f]/95 relative backdrop-blur-xl">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
-        <Link to="/" className="flex items-center gap-2">
-          <span className="text-xl font-bold text-brand-400">⚡ Avalisa Bot</span>
-        </Link>
+    <header className="site-nav">
+      <div className="site-nav__inner">
+        <Brand />
 
-        {/* Desktop nav */}
-        <div className="hidden md:flex items-center gap-2">
+        <nav className="site-nav__links" aria-label="Primary navigation">
+          {navItems.map((item) => (
+            <a key={item.label} href={item.href}>{item.label}</a>
+          ))}
+        </nav>
+
+        <div className="site-nav__actions">
           {user ? (
             <>
-              <Link to="/dashboard" className="text-sm text-gray-300 hover:text-white transition-colors">Dashboard</Link>
-              <Link to="/pricing" className="text-sm text-gray-300 hover:text-white transition-colors">Pricing</Link>
-              <Link to="/support" className="text-sm text-gray-300 hover:text-white transition-colors">Support</Link>
-              <span className={badgeClass}>{planLabel}</span>
-              <button onClick={handleLogout} className="text-sm text-gray-400 hover:text-white transition-colors">Logout</button>
+              <Link to="/dashboard">Dashboard</Link>
+              <span>{planLabel}</span>
+              <button type="button" onClick={handleLogout}>Logout</button>
             </>
           ) : (
             <>
-              <Link to="/pricing" className="text-sm text-gray-300 hover:text-white transition-colors">Pricing</Link>
-              <Link to="/login" className="btn-outline text-sm py-1.5">Login</Link>
-              <Link to="/register" className="btn-primary text-sm py-1.5">Create Free Account</Link>
+              <Link to="/login">Login</Link>
+              <Link to="/register" className="site-nav__cta">Sign up Avalisa</Link>
+              <a href={AFFILIATE_URL} className="site-nav__po" target="_blank" rel="noreferrer">Pocket Option</a>
             </>
           )}
         </div>
 
-        {/* Hamburger — mobile only */}
         <button
-          className="md:hidden text-gray-300 hover:text-white text-2xl leading-none px-2 py-1"
-          onClick={() => setMenuOpen(o => !o)}
+          className="site-nav__menu"
+          type="button"
+          onClick={() => setMenuOpen((open) => !open)}
           aria-label="Toggle menu"
         >
-          {menuOpen ? '✕' : '☰'}
+          {menuOpen ? <X size={22} /> : <Menu size={22} />}
         </button>
       </div>
 
-      {/* Mobile dropdown */}
       {menuOpen && (
-        <div className="md:hidden border-t border-dark-600 px-4 py-3 flex flex-col gap-3"
-          style={{ background: '#0d1421' }}>
+        <div className="site-nav__mobile">
+          {navItems.map((item) => (
+            <a key={item.label} href={item.href} onClick={() => setMenuOpen(false)}>{item.label}</a>
+          ))}
           {user ? (
             <>
-              <Link to="/dashboard" onClick={() => setMenuOpen(false)}
-                className="text-sm text-gray-300 hover:text-white transition-colors py-1">Dashboard</Link>
-              <Link to="/pricing" onClick={() => setMenuOpen(false)}
-                className="text-sm text-gray-300 hover:text-white transition-colors py-1">Pricing</Link>
-              <Link to="/support" onClick={() => setMenuOpen(false)}
-                className="text-sm text-gray-300 hover:text-white transition-colors py-1">Support</Link>
-              <button onClick={handleLogout}
-                className="text-sm text-gray-400 hover:text-white transition-colors text-left py-1">Logout</button>
+              <Link to="/dashboard" onClick={() => setMenuOpen(false)}>Dashboard</Link>
+              <button type="button" onClick={handleLogout}>Logout</button>
             </>
           ) : (
             <>
-              <Link to="/pricing" onClick={() => setMenuOpen(false)}
-                className="text-sm text-gray-300 hover:text-white transition-colors py-1">Pricing</Link>
-              <Link to="/login" onClick={() => setMenuOpen(false)}
-                className="btn-outline text-sm py-2 text-center">Login</Link>
-              <Link to="/register" onClick={() => setMenuOpen(false)}
-                className="btn-primary text-sm py-2 text-center">Create Free Account</Link>
+              <Link to="/login" onClick={() => setMenuOpen(false)}>Login</Link>
+              <Link to="/register" className="site-nav__cta" onClick={() => setMenuOpen(false)}>Sign up Avalisa</Link>
+              <a href={AFFILIATE_URL} className="site-nav__po" target="_blank" rel="noreferrer" onClick={() => setMenuOpen(false)}>Pocket Option</a>
             </>
           )}
         </div>
       )}
-    </nav>
+    </header>
   );
 }
