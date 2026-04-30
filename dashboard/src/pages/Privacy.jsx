@@ -50,8 +50,8 @@ export default function Privacy() {
       title: '3. Third-Party Services',
       content: [
         {
-          subtitle: 'Lemon Squeezy (Payments)',
-          text: 'All payments are processed by Lemon Squeezy. We do not store your credit card details. When you purchase a plan, Lemon Squeezy sends us a webhook confirming payment and your email, which we use to activate your license. Lemon Squeezy\'s privacy policy applies to payment processing.',
+          subtitle: 'Whop (Payments)',
+          text: 'Paid plans are processed by Whop. We do not store your credit card details. When you purchase a plan, Whop sends us a webhook confirming payment and your email, which we use to activate your license. Whop\'s privacy policy applies to payment processing.',
         },
         {
           subtitle: 'Render (Backend Hosting)',

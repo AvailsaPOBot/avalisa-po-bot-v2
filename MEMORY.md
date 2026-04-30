@@ -136,7 +136,7 @@ CWS listing language: "trading assistant" / "strategy tool" — NEVER "bot" or "
 ---
 
 ## Payments — Whop
-- Basic: $50, 100 trades | Lifetime: $100, unlimited
+- Basic: $50, 100 trades | Pro: $120, unlimited (stored as `lifetime` internally)
 - Webhook: `POST /api/webhooks/whop`
 - Signature: `webhook-signature` header, HMAC-SHA256 over `webhook-id.webhook-timestamp.body`
 - Env vars on Render: `WHOP_WEBHOOK_SECRET`, `WHOP_API_KEY`

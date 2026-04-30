@@ -1,3 +1,54 @@
+function StepVisual({ step }) {
+  if (step.visual === 'po') {
+    return (
+      <div className="landing-step-card__visual landing-step-card__visual--po">
+        <img src="/images/PO Logo.png" alt="Pocket Option" loading="lazy" />
+        <div>
+          <span>Affiliate unlock</span>
+          <strong>Pro access after PO account confirmation</strong>
+        </div>
+      </div>
+    );
+  }
+
+  if (step.visual === 'chrome') {
+    return (
+      <div className="landing-step-card__visual landing-step-card__visual--chrome">
+        <img src="/images/chrome-web-store.svg" alt="Chrome Web Store" loading="lazy" />
+        <div>
+          <span>Chrome extension</span>
+          <strong>Install once, then run inside Pocket Option</strong>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="landing-step-card__visual landing-step-card__visual--bot" aria-hidden="true">
+      <div className="landing-step-mini-window">
+        <div className="landing-step-mini-window__bar">
+          <span />
+          <span />
+          <span />
+        </div>
+        <div className="landing-step-mini-window__body">
+          <div>
+            <small>Avalisa Bot</small>
+            <strong>Avalisa AI</strong>
+          </div>
+          <p>Pair Scan</p>
+          <p>Intensity: Medium</p>
+          <button type="button">Start</button>
+        </div>
+      </div>
+      <div className="landing-step-signal-card">
+        <span>CALL</span>
+        <strong>+$18.70</strong>
+      </div>
+    </div>
+  );
+}
+
 export default function HowItWorks({ steps }) {
   return (
     <section className="landing-section" id="how-it-works">
@@ -14,14 +65,10 @@ export default function HowItWorks({ steps }) {
               className="landing-step-card"
               id={step.id}
             >
-              <img
-                src={`/images/landing/${step.id}.jpg`}
-                alt={step.title}
-                className="landing-step-card__image"
-                loading="lazy"
-              />
+              <StepVisual step={step} />
               <div className="landing-step-card__body">
                 <p className="landing-step-card__number">{step.number}</p>
+                <span className="landing-step-card__kicker">{step.kicker}</span>
                 <h3 className="landing-step-card__title">{step.title}</h3>
                 <p className="landing-step-card__text">{step.body}</p>
                 <a

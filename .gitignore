@@ -84,6 +84,25 @@ avalisa-extension.zip
 # ============================
 .cache/
 .parcel-cache/
+.claude/
+.playwright-cli/
+output/
+avalisa-remotion/
+dashboard/dashboard/
+dashboard/design-spec/generated-assets/
+dashboard/design-spec/saved-designs/
+dashboard/design-spec/no-image-landing-prompts.md
+dashboard/public/concepts/
+dashboard/public/images/landing/freegen/
+dashboard/public/images/landing/avalisa-ai.jpg
+dashboard/public/images/landing/avalisa-blonde-auth.png
+dashboard/public/images/landing/avalisa-blonde-landing.png
+dashboard/public/images/landing/generated/avalisa-blonde-landing-cutout-rembg.png
+dashboard/public/images/landing/generated/avalisa-blonde-pricing-cutout-rembg.png
+dashboard/public/images/landing/generated/avalisa-gemini-girl.png
+dashboard/public/images/landing/generated/avalisa-girl-cutout-highres.png
+dashboard/public/images/landing/generated/avalisa-girl-pricing-highres.png
+dashboard/src/assets/po-screenshot.png
 .next/
 .nuxt/
 .vuepress/dist

@@ -28,7 +28,8 @@ async function init() {
       const planEl = document.getElementById('plan-display');
       const planClass = license.plan === 'lifetime' ? 'plan-lifetime' :
                         license.plan === 'basic' ? 'plan-basic' : 'plan-free';
-      planEl.innerHTML = `<span class="plan-badge ${planClass}">${license.plan}</span>`;
+      const planLabel = license.plan === 'lifetime' ? 'pro' : license.plan;
+      planEl.innerHTML = `<span class="plan-badge ${planClass}">${planLabel}</span>`;
 
       const tradesEl = document.getElementById('trades-display');
       if (license.plan === 'lifetime') {

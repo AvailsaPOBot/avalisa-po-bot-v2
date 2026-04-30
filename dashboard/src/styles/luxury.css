@@ -516,10 +516,10 @@
 .lux-mascot--hero {
   position: absolute;
   z-index: 3;
-  left: clamp(-0.4rem, 1.4vw, 1.8rem);
+  left: clamp(7rem, 9vw, 12rem);
   bottom: -3.4rem;
   width: auto;
-  height: clamp(39rem, 50vw, 51rem);
+  height: clamp(37rem, 47vw, 49rem);
   max-height: none;
   object-fit: contain;
   object-position: bottom center;

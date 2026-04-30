@@ -19,15 +19,11 @@ services:
         sync: false
       - key: GOOGLE_AI_API_KEY
         sync: false
-      - key: LEMONSQUEEZY_API_KEY
+      - key: WHOP_WEBHOOK_SECRET
         sync: false
-      - key: LEMONSQUEEZY_WEBHOOK_SECRET
+      - key: WHOP_PLAN_ID_BASIC
         sync: false
-      - key: LEMONSQUEEZY_STORE_ID
-        sync: false
-      - key: LEMONSQUEEZY_VARIANT_ID_BASIC
-        sync: false
-      - key: LEMONSQUEEZY_VARIANT_ID_LIFETIME
+      - key: WHOP_PLAN_ID_PRO
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false

@@ -71,7 +71,7 @@ function ingestCandle(c) {
 // Build OHLCV candles from raw ticks (asset, unix_ts_float, price)
 function ingestTick(asset, timestamp, price) {
   if (!asset || !timestamp || !price) return;
-  // PO streams many numeric asset ids in the same socket. Charles should only
+  // PO streams many numeric asset ids in the same socket. Avalisa should only
   // build candles for the active named pair; otherwise buffers balloon and AI
   // can accidentally reason over unrelated streams.
   const assetKey = String(asset);
@@ -298,8 +298,8 @@ async function incrementTrade() {
   }
 }
 
-// ─── Charles AI Opportunity Scanner ─────────────────────────────────────────
-async function ensureCharlesDataForCurrentPair(timeoutMs = 6000, requiredCandles = getRequiredCandles()) {
+// ─── Avalisa AI Opportunity Scanner ─────────────────────────────────────────
+async function ensureAvalisaDataForCurrentPair(timeoutMs = 6000, requiredCandles = getRequiredCandles()) {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
     const asset = normalizeAssetName(getCurrentPair());
@@ -316,7 +316,7 @@ async function ensureCharlesDataForCurrentPair(timeoutMs = 6000, requiredCandles
   return getBufferedCandles().length >= requiredCandles;
 }
 
-function evaluateCharlesCurrentPair(intensity, payout = null, source = 'current') {
+function evaluateAvalisaCurrentPair(intensity, payout = null, source = 'current') {
   const candles = getBufferedCandles();
   const requiredCandles = getRequiredCandles(intensity);
   if (candles.length < requiredCandles) {
@@ -354,13 +354,13 @@ function evaluateCharlesCurrentPair(intensity, payout = null, source = 'current'
   };
 }
 
-function isCharlesNoProgressReason(reason) {
+function isAvalisaNoProgressReason(reason) {
   return /^loading_\d+_\d+$/.test(String(reason || '')) ||
     ['otc_filter', 'no_ready_favorite', 'no_favorite_signal', 'no_favorites_above_payout'].includes(reason);
 }
 
-function stopCharlesForDecision(message) {
-  console.warn('[Avalisa] Charles stopping for decision:', message);
+function stopAvalisaForDecision(message) {
+  console.warn('[Avalisa] Avalisa stopping for decision:', message);
   state.running = false;
   state.stopRequested = true;
   clearTradeLock();
@@ -368,7 +368,7 @@ function stopCharlesForDecision(message) {
   updateStatus('error', message);
 }
 
-async function chooseCharlesOpportunity(intensity, generation) {
+async function chooseAvalisaOpportunity(intensity, generation) {
   if (state.tradeLock || state.isTradeOpen) {
     return { source: 'current', action: 'SKIP', reason: state.tradeLockPhase || 'trade_open' };
   }
@@ -377,9 +377,9 @@ async function chooseCharlesOpportunity(intensity, generation) {
   const currentPayout = getCurrentPayoutPercent();
 
   const requiredCandles = getRequiredCandles(intensity);
-  await ensureCharlesDataForCurrentPair(6000, requiredCandles);
-  const current = evaluateCharlesCurrentPair(intensity, currentPayout, 'current');
-  console.log(`[Avalisa] Charles scan current: action=${current.action} pair=${current.asset} payout=${current.payout ?? 'n/a'} confidence=${current.confidence || 0} tf=${current.timeframe || 'n/a'} reason=${current.reason}`);
+  await ensureAvalisaDataForCurrentPair(6000, requiredCandles);
+  const current = evaluateAvalisaCurrentPair(intensity, currentPayout, 'current');
+  console.log(`[Avalisa] Avalisa scan current: action=${current.action} pair=${current.asset} payout=${current.payout ?? 'n/a'} confidence=${current.confidence || 0} tf=${current.timeframe || 'n/a'} reason=${current.reason}`);
   if (current.action !== 'SKIP') return current;
 
   if (state.settings?.aiPairMode === 'current') {
@@ -399,13 +399,13 @@ async function chooseCharlesOpportunity(intensity, generation) {
   for (const fav of favorites) {
     if (!state.running || state.stopRequested || generation !== state.cycleGeneration) return current;
     updateStatus('running', `Scanning ${fav.name} (${fav.payout}%)`);
-    console.log(`[Avalisa] Charles scan: switching to favorite ${fav.name} (${fav.payout}%)`);
+    console.log(`[Avalisa] Avalisa scan: switching to favorite ${fav.name} (${fav.payout}%)`);
     if (!clickFavoritePair(fav)) continue;
     await sleep(1800);
-    await ensureCharlesDataForCurrentPair(7000, requiredCandles);
-    const candidate = evaluateCharlesCurrentPair(intensity, fav.payout, 'favorite');
+    await ensureAvalisaDataForCurrentPair(7000, requiredCandles);
+    const candidate = evaluateAvalisaCurrentPair(intensity, fav.payout, 'favorite');
     candidate.favoriteName = fav.name;
-    console.log(`[Avalisa] Charles scan favorite: action=${candidate.action} pair=${candidate.asset} favorite=${fav.name} payout=${fav.payout} confidence=${candidate.confidence || 0} tf=${candidate.timeframe || 'n/a'} reason=${candidate.reason}`);
+    console.log(`[Avalisa] Avalisa scan favorite: action=${candidate.action} pair=${candidate.asset} favorite=${fav.name} payout=${fav.payout} confidence=${candidate.confidence || 0} tf=${candidate.timeframe || 'n/a'} reason=${candidate.reason}`);
     if (candidate.action !== 'SKIP') return candidate;
     if (/^loading_\d+_\d+$/.test(candidate.reason || '')) sawLoadingCandidate = true;
   }
@@ -486,14 +486,14 @@ async function runTradeCycle(generation) {
     }
   }
 
-  // AI strategy guard: requires lifetime plan
+  // AI strategy guard: requires the Pro plan. Stored as lifetime internally.
   if (state.settings.strategy === 'ai' && license.plan !== 'lifetime') {
     state.settings.strategy = 'martingale';
     state.settings.aiAssist = false;
     const stratEl = document.getElementById('av-strategy');
     if (stratEl) stratEl.value = 'martingale';
     updateUI();
-    updateStatus('error', 'AI strategy requires Lifetime plan. Switched to Martingale.');
+    updateStatus('error', 'AI strategy requires Pro plan. Switched to Martingale.');
   }
 
   // AI mode: local rule engine — zero network calls
@@ -525,7 +525,7 @@ async function runTradeCycle(generation) {
           if (isCycleActive(generation)) runTradeCycle(generation).catch(console.error);
           return;
         }
-        console.warn('[Avalisa] Charles warmup stalled — scanning favorites instead:', candles.length, '/', requiredCandles);
+        console.warn('[Avalisa] Avalisa warmup stalled — scanning favorites instead:', candles.length, '/', requiredCandles);
         updateStatus('running', `Loading stalled (${candles.length}/${requiredCandles}) — scanning favorites`);
         break;
       }
@@ -534,17 +534,17 @@ async function runTradeCycle(generation) {
 
     // v2.3.1: settings field is `intensity` (set in saveCurrentSettings/dropdown), not `aiIntensity`.
     // Old code always fell through to 'mid' regardless of user's Low/High pick.
-    const opportunity = await chooseCharlesOpportunity(intensity, generation);
+    const opportunity = await chooseAvalisaOpportunity(intensity, generation);
     if (!isCycleActive(generation)) return;
     const sig = opportunity?.sig || { action: 'SKIP', reason: opportunity?.reason || 'no_signal' };
     aiSignalSnapshot = sig.snapshot || null;
     aiSuggestedTimeframe = opportunity?.timeframe || sig.timeframe || null;
 
-    console.log(`[Avalisa] Charles selected: action=${sig.action} pair=${opportunity?.asset || getCurrentPair()} source=${opportunity?.source || 'current'} confidence=${opportunity?.confidence || 0} tf=${aiSuggestedTimeframe || 'n/a'} reason=${sig.reason || opportunity?.reason || 'ok'} rules=${sig.snapshot?.rulesMatched}`);
+    console.log(`[Avalisa] Avalisa selected: action=${sig.action} pair=${opportunity?.asset || getCurrentPair()} source=${opportunity?.source || 'current'} confidence=${opportunity?.confidence || 0} tf=${aiSuggestedTimeframe || 'n/a'} reason=${sig.reason || opportunity?.reason || 'ok'} rules=${sig.snapshot?.rulesMatched}`);
 
     if (sig.action === 'SKIP') {
       const reason = sig.reason || opportunity?.reason || 'no_signal';
-      const noProgressReason = isCharlesNoProgressReason(reason);
+      const noProgressReason = isAvalisaNoProgressReason(reason);
       if (noProgressReason) {
         state.aiNoProgressCycles = (state.aiNoProgressCycles || 0) + 1;
       } else {
@@ -578,7 +578,7 @@ async function runTradeCycle(generation) {
 
   updateStatus('running', `Trade #${state.tradesCount + 1} — ${direction.toUpperCase()} $${safeAmount.toFixed(2)}`);
 
-  // AI mode now executes on Charles' selected duration. Martingale still uses
+  // AI mode now executes on Avalisa AI's selected duration. Martingale still uses
   // the saved bot timeframe setting from the extension panel.
   let executionTimeframe = state.settings?.timeframe || 'M1';
   if (state.settings.strategy === 'ai') {
@@ -1017,7 +1017,7 @@ async function warmupCandleHistory(attempts = 3, delayMs = 1200) {
   }
 }
 
-async function watchPOSelectionForCharles() {
+async function watchPOSelectionForAvalisa() {
   if (state.settings?.strategy !== 'ai' || state.running) return;
   const asset = normalizeAssetName(getCurrentPair());
   const periodSec = getCurrentPeriodSeconds();
@@ -1052,9 +1052,9 @@ function updateBottomStatus() {
   if (tokenEl) {
     const allowance = state.licenseInfo?.aiTradesAllowance;
     const usedCount = state.licenseInfo?.aiTradesUsed;
-    // v2.3.2: Lifetime users see ∞ (the 100-cap is a backend default, not a hard product limit).
+    // v2.3.2: Pro users see infinity; the backend stores this as lifetime for compatibility.
     if (isAi && state.licenseInfo?.plan === 'lifetime') {
-      tokenEl.textContent = 'Trade allowance: ∞ (Lifetime)';
+      tokenEl.textContent = 'Trade allowance: ∞ (Pro)';
       tokenEl.style.display = '';
     } else if (isAi && Number.isFinite(allowance) && Number.isFinite(usedCount)) {
       tokenEl.textContent = `Trade allowance: ${usedCount}/${allowance}`;
@@ -1184,7 +1184,7 @@ function updateUI() {
       const plan = state.licenseInfo.plan;
       const cls = plan === 'lifetime' ? 'plan-lifetime' : plan === 'basic' ? 'plan-basic' : 'plan-free';
       badgeEl.className = `av-plan-badge ${cls}`;
-      badgeEl.textContent = plan;
+      badgeEl.textContent = plan === 'lifetime' ? 'pro' : plan;
     }
   } else {
     if (loginForm) loginForm.style.display = 'block';
@@ -1356,7 +1356,7 @@ window.addEventListener('message', (e) => {
         const histAsset = normalizeAssetName(parsed.asset) || asset;
         // PO history can report its transport/tick granularity (often 5s),
         // while the user-selected trade duration is shown in the page UI.
-        // Charles must follow the user-selected duration, not the transport
+        // Avalisa must follow the user-selected duration, not the transport
         // period, so feature additions do not override manual PO choices.
         const histPeriod = periodSec;
 
@@ -1453,7 +1453,7 @@ async function init() {
   }
   setTimeout(() => prefillCandleHistory().catch(console.error), 3000);
   setInterval(updateBottomStatus, 10000);
-  setInterval(() => watchPOSelectionForCharles().catch(console.error), 2000);
+  setInterval(() => watchPOSelectionForAvalisa().catch(console.error), 2000);
 
   // Wait for PO header to render before injecting button
   const headerInterval = setInterval(() => {

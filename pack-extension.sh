@@ -20,4 +20,4 @@ rm -f "$OUTPUT"
 )
 
 echo "Created: $OUTPUT"
-echo "Upload this file at: https://chrome.google.com/webstore/devconsole"
+echo "Upload this file at: https://chromewebstore.google.com/devconsole"

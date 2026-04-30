@@ -113,7 +113,7 @@ router.post('/claims/approve', async (req, res) => {
       }),
     ]);
 
-    return res.json({ message: 'Claim approved. User now has lifetime access.' });
+    return res.json({ message: 'Claim approved. User now has Pro access.' });
   } catch (err) {
     console.error('[Admin] approve claim error:', err);
     return res.status(500).json({ error: 'Failed to approve claim' });

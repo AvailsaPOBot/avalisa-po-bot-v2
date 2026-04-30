@@ -18,9 +18,9 @@ Replace `src/pages/Landing.jsx` with a new sectioned implementation following th
    - Hero "Start Free" → `/register` (existing route)
    - Hero "Already on PO? Skip to Step 2" → smooth-scroll anchor to Step 02 card
    - Step 01 CTA "Register PO" → external affiliate URL (read from spec, currently in user memory: `https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50`)
-   - Step 02 CTA "Add to Chrome" → for now point to Chrome Web Store URL placeholder, since v2.0.3/v2.2.0/v2.3.x are still pending CWS approval. Use a clearly-marked placeholder constant `const CHROME_STORE_URL = 'https://chrome.google.com/webstore/detail/PENDING'`.
+   - Step 02 CTA "Add to Chrome" → approved Chrome Web Store listing: `https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa`
    - Step 03 CTA "See it in action" → smooth-scroll anchor to bot demo section (#demo)
-   - Pricing CTAs → `/register` (Free), `/pricing#basic` (Basic), `/pricing#lifetime` (Lifetime)
+   - Pricing CTAs → `/register` (Free), `/pricing#basic` (Basic), `/pricing#pro` (Pro)
 4. **Mobile breakpoints:** must look correct at 375px, 768px, 1280px, 1920px. Mobile collapses 3-step ladder to vertical stack.
 5. **Dark mode is default.** No light theme. Match the palette CSS variables in spec.
 6. **Performance:** lazy-load images below the fold via `loading="lazy"`. Hero image gets `loading="eager"` and `fetchpriority="high"`.
@@ -39,7 +39,7 @@ npm install framer-motion lenis gsap @gsap/react @fontsource/fraunces geist
 | Step 01 Connect PO | `/images/landing/step-01.jpg` |
 | Step 02 Install Extension | `/images/landing/step-02.jpg` |
 | Step 03 Hand+Phone | `/images/landing/step-03.jpg` |
-| Charles AI section | `/images/landing/charles.jpg` |
+| Avalisa AI section | `/images/landing/avalisa-ai.jpg` |
 | Final CTA background | `/images/landing/cta-bg.jpg` |
 
 (In React, reference as `/images/landing/hero.jpg` — CRA serves from `public/`.)
@@ -50,7 +50,7 @@ src/pages/Landing.jsx                   # main composition, imports all sections
 src/pages/landing/Hero.jsx
 src/pages/landing/HowItWorks.jsx        # 3-step ladder
 src/pages/landing/BotDemo.jsx
-src/pages/landing/CharlesAI.jsx
+src/pages/landing/AvalisaAI.jsx
 src/pages/landing/PricingTeaser.jsx     # NOT replacing /pricing page; just a teaser
 src/pages/landing/RealResults.jsx
 src/pages/landing/FAQ.jsx
@@ -71,16 +71,16 @@ Update `tailwind.config.js` to extend with:
 - Use `framer-motion` for section entrances: `initial={{opacity:0, y:30}} whileInView={{opacity:1, y:0}} viewport={{once:true, margin:"-100px"}}`
 - Stagger children with `staggerChildren: 0.1`
 - Use `gsap` + `ScrollTrigger` ONLY for the 3-step ladder (the cards reveal as the user scrolls past). Everything else uses framer-motion.
-- For the bot demo cycling status (Loading → Charles action → Trade open → Result), use `setInterval` with React state, NOT framer-motion (simpler, deterministic).
+- For the bot demo cycling status (Loading → Avalisa AI action → Trade open → Result), use `setInterval` with React state, NOT framer-motion (simpler, deterministic).
 - Wrap the entire app in Lenis on mount for smooth scrolling. Lenis instance lives in `useLenis` hook.
 
 ## Copy (verbatim from spec)
 - Hero H1: **Trade on autopilot.**
-- Hero sub: Avalisa is a Chrome extension that runs your Pocket Option strategy automatically. Charles, our AI bot, watches the market while you live your life.
+- Hero sub: Avalisa is a Chrome extension that runs your Pocket Option strategy automatically. Avalisa AI watches the market while you live your life.
 - Hero primary CTA: **Start Free**
 - Hero secondary: **Already on Pocket Option? Skip to Step 2 →**
 - HowItWorks H2: **Three steps. One bot. Done.**
-- CTA section H2: **Charles is waiting.**
+- CTA section H2: **Avalisa is waiting.**
 - All other copy lives in the spec — pull verbatim.
 
 ## Quality gates before commit
@@ -97,10 +97,10 @@ git add dashboard/
 git commit -m "feat(landing): full redesign — Trader's Studio direction (v1)
 
 - Replaced Landing.jsx with sectioned implementation per design-spec/landing-v1.md
-- New sections: Hero, HowItWorks, BotDemo, CharlesAI, PricingTeaser, RealResults, FAQ, FinalCTA
+- New sections: Hero, HowItWorks, BotDemo, AvalisaAI, PricingTeaser, RealResults, FAQ, FinalCTA
 - Added framer-motion + lenis + gsap for smooth scroll & section entrances
 - Added Fraunces (display) + Geist (body/mono) self-hosted fonts
-- 6 generated images at public/images/landing/ (hero + 3 steps + charles + cta-bg)
+- 6 generated images at public/images/landing/ (hero + 3 steps + avalisa-ai + cta-bg)
 - Locked dark theme, palette in src/styles/landing.css
 
 Hero direction: Variant B (Contemplative Profile) — see design-spec/locked-hero.md

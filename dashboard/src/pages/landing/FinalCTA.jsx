@@ -12,7 +12,7 @@ export default function FinalCTA() {
       />
       <div className="landing-shell landing-final-cta__content landing-reveal">
         <p className="landing-eyebrow">Final call</p>
-        <h2 className="landing-final-cta__title">Charles is waiting.</h2>
+        <h2 className="landing-final-cta__title">Avalisa is waiting.</h2>
         <div className="landing-final-cta__actions">
           <Link className="landing-button landing-button--primary" to="/register">
             Start Free

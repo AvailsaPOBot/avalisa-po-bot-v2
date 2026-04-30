@@ -16,7 +16,7 @@
       // Mean reversion
       rsiLow: 35, rsiHigh: 65, bbK: 1.5,
       // Low is the active/testing mode: trade when one strong mean-reversion
-      // condition appears, matching the older Charles behavior that placed trades.
+      // condition appears, matching the older Avalisa behavior that placed trades.
       rulesRequiredRanging: 1,
       // Trend pullback
       pullbackRsiLow: 40, pullbackRsiHigh: 60,
@@ -65,7 +65,7 @@
   }
 
   // Returns 'S30' | 'M1' | 'M3' | 'M5' | null (null = SKIP for vol).
-  // Intensity maps to how much expiry breathing room Charles wants.
+  // Intensity maps to how much expiry breathing room Avalisa wants.
   function pickTimeframe(volRatio, th, intensity) {
     if (!Number.isFinite(volRatio)) {
       if (intensity === 'high') return 'M3';
@@ -211,7 +211,7 @@
 
     // Conflict guard: skip only when both sides are equally strong. Low
     // intensity can require just one rule, so a single weak opposite hint must
-    // not cancel a stronger Charles signal.
+    // not cancel a stronger Avalisa signal.
     if (callCount >= required && putCount >= required && callCount === putCount) {
       reason = 'conflicting_signals';
     } else if (callCount >= required && callCount > putCount) {

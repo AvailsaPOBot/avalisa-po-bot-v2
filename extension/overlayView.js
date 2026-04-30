@@ -36,14 +36,14 @@ function getOverlayHTML() {
           <label class="av-label">Strategy</label>
           <select id="av-strategy" class="av-select" title="">
             <option value="martingale">Martingale</option>
-            <option value="ai">Charles (AI)</option>
+            <option value="ai">Avalisa AI</option>
           </select>
         </div>
         <div class="av-row av-row-sub" id="av-row-bot-pill" style="display:none">
           <span></span>
           <div id="av-bot-pill" class="av-bot-pill" title="Open bot settings">
             <span class="av-bot-pill-ai">AI</span>
-            <span class="av-bot-pill-name">Charles</span>
+            <span class="av-bot-pill-name">Avalisa</span>
             <svg class="av-bot-pill-arrow" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 8 L8 2 M8 2 L4 2 M8 2 L8 6" stroke="#A78BFA" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
           </div>
         </div>
@@ -243,7 +243,7 @@ function getOverlayCSS() {
       font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px;
       text-transform: uppercase; letter-spacing: 0.5px;
     }
-    .av-plan-badge.plan-lifetime { background: #7c3aed; color: #fff; }
+    .av-plan-badge.plan-lifetime { background: #f4c95d; color: #15120a; }
     .av-plan-badge.plan-basic { background: #059669; color: #fff; }
     .av-plan-badge.plan-free { background: #3b82f6; color: #fff; }
     .av-status-block { }

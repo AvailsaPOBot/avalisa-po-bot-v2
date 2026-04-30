@@ -178,7 +178,7 @@ router.post('/claim', authMiddleware, async (req, res) => {
           claimNote: null,
         },
       });
-      return res.json({ status: 'approved', message: 'Lifetime access granted!' });
+      return res.json({ status: 'approved', message: 'Pro access granted!' });
     }
 
     // Not in AffiliateReferral — queue for manual review

@@ -4,19 +4,9 @@ export default function PricingTeaser({ tiers, affiliateUrl }) {
   return (
     <section className="landing-section">
       <div className="landing-shell">
-        <div className="landing-callout landing-reveal">
-          <p>
-            Register Pocket Option through us → Lifetime is free. We earn from PO,
-            not from you.
-          </p>
-          <a href={affiliateUrl} target="_blank" rel="noreferrer">
-            Register PO
-          </a>
-        </div>
-
         <div className="landing-section__heading landing-reveal">
           <p className="landing-eyebrow">Pricing</p>
-          <h2 className="landing-heading">Pay once. Let Charles keep working.</h2>
+          <h2 className="landing-heading">Pay once. Let Avalisa keep working.</h2>
         </div>
 
         <div className="landing-pricing-grid">
@@ -41,6 +31,16 @@ export default function PricingTeaser({ tiers, affiliateUrl }) {
               >
                 {tier.ctaLabel}
               </Link>
+              {tier.highlighted && (
+                <a
+                  className="landing-button landing-button--outline landing-price-card__affiliate"
+                  href={affiliateUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Register new PO account to get Pro free
+                </a>
+              )}
             </article>
           ))}
         </div>

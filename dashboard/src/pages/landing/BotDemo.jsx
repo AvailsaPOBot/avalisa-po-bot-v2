@@ -1,86 +1,62 @@
-import { useEffect, useState } from 'react';
-
-const STATES = [
-  { label: 'Loading', value: '30/30', tone: 'neutral', duration: 1000 },
+const FLOW = [
   {
-    label: 'Charles',
-    value: 'action=CALL  regime=trending  tf=M1  rules=3',
-    tone: 'neutral',
-    duration: 2000,
+    label: 'Scan the chart',
+    text: 'Avalisa checks payout, trend, RSI, Bollinger Bands, and signal conflict before it acts.',
+    meta: 'Pair scan',
   },
   {
-    label: 'Trade open',
-    value: 'waiting 60s for result',
-    tone: 'neutral',
-    duration: 2000,
+    label: 'Open one trade',
+    text: 'When the setup is clean, the bot sends CALL or PUT from the Pocket Option page.',
+    meta: 'CALL / PUT',
   },
-  { label: 'Result', value: '+$19.20', tone: 'success', duration: 2000 },
+  {
+    label: 'Record the result',
+    text: 'Each trade is counted in your history so you can review performance and adjust risk.',
+    meta: 'Win / Loss',
+  },
 ];
 
 export default function BotDemo() {
-  const [index, setIndex] = useState(0);
-
-  useEffect(() => {
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduceMotion) {
-      return undefined;
-    }
-
-    const timer = window.setTimeout(() => {
-      setIndex((current) => (current + 1) % STATES.length);
-    }, STATES[index].duration);
-
-    return () => window.clearTimeout(timer);
-  }, [index]);
-
-  const currentState = STATES[index];
-
   return (
     <section className="landing-section" id="demo">
       <div className="landing-shell landing-demo">
         <div className="landing-section__heading landing-reveal">
-          <p className="landing-eyebrow">Bot demo</p>
-          <h2 className="landing-heading">Watch Charles work.</h2>
+          <p className="landing-eyebrow">After you press Start</p>
+          <h2 className="landing-heading">A simple trading workflow.</h2>
           <p className="landing-copy">
-            This is the actual bot panel that lives on your Pocket Option page.
+            Avalisa turns market checks into three actions users can understand.
           </p>
         </div>
 
-        <div className="landing-demo__panel landing-reveal">
-          <div className="landing-demo__topbar">
-            <span className="landing-demo__dot" />
-            <span className="landing-demo__dot" />
-            <span className="landing-demo__dot" />
-            <span className="landing-demo__badge">AVALISA // CHARLES</span>
-          </div>
-
-          <div className="landing-demo__screen">
-            <div className="landing-demo__column">
-              <span className="landing-demo__label">{currentState.label}</span>
-              <strong
-                className={`landing-demo__value ${
-                  currentState.tone === 'success' ? 'is-success' : ''
-                }`}
-              >
-                {currentState.value}
-              </strong>
+        <div className="landing-demo__panel landing-demo__panel--workflow landing-reveal">
+          <div className="landing-demo__mock">
+            <div className="landing-demo__mock-chart" aria-hidden="true">
+              <span className="is-down" />
+              <span />
+              <span />
+              <span className="is-down" />
+              <span />
+              <span />
+              <span className="is-down" />
+              <span />
             </div>
-            <div className="landing-demo__timeline" aria-hidden="true">
-              {STATES.map((state, stateIndex) => (
-                <span
-                  key={state.label}
-                  className={`landing-demo__tick ${
-                    stateIndex === index ? 'is-active' : ''
-                  }`}
-                />
-              ))}
+            <div className="landing-demo__mock-bot">
+              <span>Avalisa Bot</span>
+              <strong>Ready to start</strong>
+              <small>Pair scan · Payout check · Risk control</small>
+              <button type="button">Start</button>
             </div>
           </div>
 
-          <div className="landing-chip-row">
-            <span className="landing-chip">WebSocket-based</span>
-            <span className="landing-chip">Real-time signals</span>
-            <span className="landing-chip">No external servers</span>
+          <div className="landing-demo__flow">
+            {FLOW.map((item, index) => (
+              <article key={item.label} className="landing-demo__flow-card">
+                <span>{String(index + 1).padStart(2, '0')}</span>
+                <small>{item.meta}</small>
+                <h3>{item.label}</h3>
+                <p>{item.text}</p>
+              </article>
+            ))}
           </div>
         </div>
       </div>

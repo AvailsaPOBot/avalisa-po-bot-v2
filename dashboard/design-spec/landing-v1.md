@@ -23,7 +23,7 @@ Chart-as-art, not chart-as-data. Outcome-led, not feature-led.
 | `--accent-gold-soft` | `#a37f3e` | Hover states |
 | `--accent-jade` | `#4a9b7e` | Win/positive, chart up-candles |
 | `--accent-crimson` | `#c44545` | Loss/negative, chart down-candles |
-| `--accent-lifetime` | `#a78bfa` | Lifetime tier badge (kept from existing) |
+| `--accent-lifetime` | `#a78bfa` | Pro tier badge (kept from existing internal token) |
 
 ### Typography
 - **Display (headlines):** Fraunces — variable serif with optical size, sophisticated editorial character. Google Fonts.
@@ -47,7 +47,7 @@ NEVER use: Inter, Roboto, Arial, Space Grotesk, Poppins, Montserrat (overused / 
 ### Section 1 — HERO
 - **Layout:** full-bleed dark background image, copy left-aligned at 1/3 width, CTA below subhead
 - **Headline (Fraunces, 72px, regular):** Trade on autopilot.
-- **Subhead (Geist Sans, 18px, muted):** Avalisa is a Chrome extension that runs your Pocket Option strategy automatically. Charles, our AI bot, watches the market while you live your life.
+- **Subhead (Geist Sans, 18px, muted):** Avalisa is a Chrome extension that runs your Pocket Option strategy automatically. Avalisa AI watches the market while you live your life.
 - **Primary CTA (gold filled button):** Start Free → routes to `/register`
 - **Secondary link (gold underline, small):** Already on Pocket Option? Skip to Step 2 →
 - **Background image:** see image-gen prompt #1
@@ -62,16 +62,16 @@ NEVER use: Inter, Roboto, Arial, Space Grotesk, Poppins, Montserrat (overused / 
 
 | # | Headline | Body | CTA |
 |---|---|---|---|
-| 01 | Connect Pocket Option | New here? Register a Pocket Option account through our affiliate link — Lifetime tier comes free. Already trade on PO? Skip to step 2. | Register PO → (affiliate link) |
-| 02 | Install the extension | Add Avalisa to Chrome in 30 seconds. Sign up at avalisabot.vercel.app to claim your tier. | Add to Chrome → |
-| 03 | Let Charles trade | Open Pocket Option, click the Avalisa button, pick a strategy, hit Start. Charles takes over. | See it in action ↓ (anchors to demo) |
+| 01 | Connect Pocket Option | New here? Register a Pocket Option account through our affiliate link — Pro access comes free. Already trade on PO? Skip to step 2. | Register PO → (affiliate link) |
+| 02 | Install the extension | Add Avalisa to Chrome in 30 seconds. Sign up at avalisabot.vercel.app to claim your tier. | Add to Chrome → `https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa` |
+| 03 | Let Avalisa trade | Open Pocket Option, click the Avalisa button, pick a strategy, hit Start. Avalisa AI takes over. | See it in action ↓ (anchors to demo) |
 
 ### Section 3 — BOT DEMO (live-feeling mockup)
-- **Headline (Fraunces, 48px):** Watch Charles work.
+- **Headline (Fraunces, 48px):** Watch Avalisa work.
 - **Sub (muted):** This is the actual bot panel that lives on your Pocket Option page.
 - **Visual:** animated mockup of in-page panel cycling through:
   1. `Loading: 30/30` (1s)
-  2. `Charles: action=CALL  regime=trending  tf=M1  rules=3` (2s)
+  2. `Avalisa AI: action=CALL  regime=trending  tf=M1  rules=3` (2s)
   3. `Trade open — waiting 60s for result` (2s)
   4. `+$19.20` (jade flash, 2s)
   Then loop.
@@ -80,7 +80,7 @@ NEVER use: Inter, Roboto, Arial, Space Grotesk, Poppins, Montserrat (overused / 
 ### Section 4 — CHARLES AI EXPLAINER
 - **Eyebrow:** THE STRATEGY
 - **Headline:** Three intensities. One AI.
-- **Sub:** Charles adapts to market regime — trending or ranging — and picks the timeframe with the cleanest signal.
+- **Sub:** Avalisa AI adapts to market regime — trending or ranging — and picks the timeframe with the cleanest signal.
 - **Layout:** 2-column. Left: editorial portrait (image #5). Right: 3 stacked intensity cards.
 
 | Intensity | Pitch | Detail |
@@ -90,14 +90,14 @@ NEVER use: Inter, Roboto, Arial, Space Grotesk, Poppins, Montserrat (overused / 
 | HIGH | Selective. Strict filters. Higher conviction. | RSI 20/80, BB k=2.5, OTC filter on, conflict guard |
 
 ### Section 5 — PRICING
-- **Above-pricing callout (gold accent box):** Register Pocket Option through us → Lifetime is free. We earn from PO, not from you.
+- **Above-pricing callout (gold accent box):** Register Pocket Option through us → Pro is free. We earn from PO, not from you.
 - **3 tier cards:**
 
 | Tier | Price | Trades | Tagline | CTA |
 |---|---|---|---|---|
-| FREE | $0 | 10 trades | Try Charles risk-free | Start Free |
+| FREE | $0 | 10 trades | Try Avalisa risk-free | Start Free |
 | BASIC | $50 once | 100 trades | For weekend traders | Buy Basic |
-| LIFETIME | $100 once | Unlimited | Most popular — gold border | Get Lifetime |
+| PRO | $120 once | Unlimited | Most popular — gold border | Get Pro |
 
 - **Below-pricing reassurance:** One-time payment. No subscription. Pay once, own it.
 
@@ -115,18 +115,18 @@ NEVER use: Inter, Roboto, Arial, Space Grotesk, Poppins, Montserrat (overused / 
 - **Layout:** clean dark accordion, 10 items.
 - Q1: Is Avalisa safe to use on my real PO account? — *Yes. The extension only reads market data and clicks buy/sell on your behalf. No password, no API key, no money leaves PO.*
 - Q2: What's the minimum I need to start? — *$10 USD on Pocket Option and the free Avalisa tier. Try 10 trades on demo first.*
-- Q3: Do I need to know how to trade? — *No. Pick an intensity, hit Start. Charles handles entries and exits.*
-- Q4: What happens if I close my browser? — *Charles stops. Re-open Pocket Option, click the Avalisa button, hit Start. Resumes instantly.*
-- Q5: How does Charles decide CALL vs PUT? — *Regime detection (trending vs ranging) + RSI + Bollinger Bands + momentum confirm. Skips trades when signals conflict.*
-- Q6: Can I switch between strategies? — *Yes. Charles (AI) and Martingale modes coexist. Switch any time.*
-- Q7: What's the difference between Free / Basic / Lifetime? — *Free: 10 trades to test. Basic: 100 trades for $50. Lifetime: unlimited for $100. All tiers include Charles AI.*
-- Q8: How do I get Lifetime free? — *Register a Pocket Option account through our affiliate link. We grant Lifetime automatically once your PO account confirms.*
-- Q9: Is this gambling or trading? — *Binary options is high-risk speculation. Charles improves your odds with disciplined rules — it doesn't eliminate risk. Trade only what you can afford to lose.*
-- Q10: How do refunds work? — *All sales final. We offer a free tier so you can validate Charles on your account before paying.*
+- Q3: Do I need to know how to trade? — *No. Pick an intensity, hit Start. Avalisa AI handles entries and exits.*
+- Q4: What happens if I close my browser? — *Avalisa stops. Re-open Pocket Option, click the Avalisa button, hit Start. Resumes instantly.*
+- Q5: How does Avalisa decide CALL vs PUT? — *Regime detection (trending vs ranging) + RSI + Bollinger Bands + momentum confirm. Skips trades when signals conflict.*
+- Q6: Can I switch between strategies? — *Yes. Avalisa AI and Martingale modes coexist. Switch any time.*
+- Q7: What's the difference between Free / Basic / Pro? — *Free: 10 trades to test. Basic: 100 trades for $50. Pro: unlimited for $120. All tiers include Avalisa AI.*
+- Q8: How do I get Pro free? — *Register a Pocket Option account through our affiliate link. We grant Pro access automatically once your PO account confirms.*
+- Q9: Is this gambling or trading? — *Binary options is high-risk speculation. Avalisa AI improves your odds with disciplined rules — it doesn't eliminate risk. Trade only what you can afford to lose.*
+- Q10: How do refunds work? — *All sales final. We offer a free tier so you can validate Avalisa on your account before paying.*
 
 ### Section 8 — FINAL CTA
 - **Background:** dark with single animated gold candlestick line drawing across (image #6)
-- **Headline (Fraunces, 64px, centered):** Charles is waiting.
+- **Headline (Fraunces, 64px, centered):** Avalisa is waiting.
 - **CTAs (centered, side by side):** Start Free (gold filled) · View Pricing (gold outline)
 
 ### FOOTER
@@ -190,7 +190,7 @@ NEVER use: Inter, Roboto, Arial, Space Grotesk, Poppins, Montserrat (overused / 
 2. Add CSS variables to `src/index.css` per palette table above
 3. Add Lenis smooth scroll wrapper in `src/App.js`
 4. Replace `src/pages/Landing.jsx` with new sectioned component (one component per section, composed in Landing)
-5. Drop generated images into `public/images/landing/` (filenames: `hero.jpg`, `step-01.jpg`, `step-02.jpg`, `step-03.jpg`, `charles.jpg`, `cta-bg.jpg`)
+5. Drop generated images into `public/images/landing/` (filenames: `hero.jpg`, `step-01.jpg`, `step-02.jpg`, `step-03.jpg`, `avalisa-ai.jpg`, `cta-bg.jpg`)
 6. Hook existing routes: Step 1 CTA → external affiliate URL · Step 2 CTA → existing /register · Step 3 CTA → smooth scroll to demo section
 7. Verify mobile responsive at 375px and 768px breakpoints
 8. Push to GitHub → Vercel auto-deploys

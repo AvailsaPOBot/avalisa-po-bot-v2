@@ -1,12 +1,10 @@
 # Avalisa PO Bot v2
 
-A Chrome extension trading strategy tool + web dashboard + backend for Pocket Option binary options.
-
----
+A Chrome extension trading strategy tool, web dashboard, and backend for Pocket Option binary options.
 
 ## Project Structure
 
-```
+```text
 AvalisaPOBot V2/
 ├── backend/          Node.js + Express + Prisma API
 ├── extension/        Chrome Extension (Manifest V3)
@@ -14,154 +12,165 @@ AvalisaPOBot V2/
 └── README.md
 ```
 
----
-
-## Phase 1 — Backend Setup
+## Backend
 
 ### Prerequisites
-- Node.js 18+
-- PostgreSQL database (Railway.app recommended)
 
-### Steps
+- Node.js 18+
+- PostgreSQL database
+- Render account for production deploy
+- Whop product and webhook secret for paid plan activation
+
+### Local Setup
 
 ```bash
 cd backend
 cp .env.example .env
-# Fill in all env variables (see below)
 npm install
-npm run db:push        # Push schema to DB (dev)
-# OR
-npm run db:migrate     # Run migrations (production)
+npm run db:push
 npm start
 ```
 
-### Environment Variables (backend/.env)
+For production migrations, use:
+
+```bash
+npm run db:migrate
+```
+
+### Backend Environment Variables
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `DATABASE_URL` | ✅ | PostgreSQL connection string (Railway provides this) |
-| `JWT_SECRET` | ✅ | Random 64-char string for signing JWTs |
-| `GOOGLE_AI_API_KEY` | ✅ | Free Gemini API key — get at https://aistudio.google.com |
-| `LEMONSQUEEZY_API_KEY` | ✅ | From your Lemon Squeezy dashboard |
-| `LEMONSQUEEZY_WEBHOOK_SECRET` | ✅ | From LS webhook settings |
-| `LEMONSQUEEZY_STORE_ID` | ✅ | Your LS store ID |
-| `LEMONSQUEEZY_VARIANT_ID_BASIC` | ✅ | Variant ID for the $50 product |
-| `LEMONSQUEEZY_VARIANT_ID_LIFETIME` | ✅ | Variant ID for the $100 product |
-| `ANTHROPIC_API_KEY` | ⬜ | Optional — upgrades AI support chat to Claude |
-| `PORT` | ⬜ | Default 3001 |
-| `FRONTEND_URL` | ⬜ | Dashboard URL for CORS (e.g. https://your-dashboard.com) |
+| `DATABASE_URL` | Yes | PostgreSQL pooled connection string |
+| `DIRECT_URL` | Yes | Direct PostgreSQL connection string for Prisma |
+| `JWT_SECRET` | Yes | Random 64-character string for signing JWTs |
+| `GOOGLE_AI_API_KEY` | Yes | Gemini API key from Google AI Studio |
+| `WHOP_WEBHOOK_SECRET` | Yes | Whop webhook signing secret |
+| `WHOP_PLAN_ID_BASIC` | Yes | Whop plan ID for the $50 Basic plan |
+| `WHOP_PLAN_ID_PRO` | Yes | Whop plan ID for the $120 Pro plan |
+| `ANTHROPIC_API_KEY` | No | Optional; upgrades support chat to Claude |
+| `PORT` | No | Defaults to `3001` locally |
+| `FRONTEND_URL` | Yes | Dashboard URL for CORS, usually `https://avalisabot.vercel.app` |
+| `PUBLIC_BACKEND_URL` | Yes | Public backend URL, usually `https://avalisa-backend.onrender.com` |
+| `GOOGLE_OAUTH_CLIENT_ID` | No | Google OAuth client ID for social sign in |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | No | Google OAuth client secret |
+| `FACEBOOK_OAUTH_CLIENT_ID` | No | Facebook app ID for social sign in |
+| `FACEBOOK_OAUTH_CLIENT_SECRET` | No | Facebook app secret |
 
-### Deploy to Railway
+### Social Login Callback URLs
 
-1. Create a new Railway project
-2. Add a PostgreSQL plugin → copy `DATABASE_URL`
-3. Connect your GitHub repo OR push code manually
-4. Set all env variables in Railway dashboard
-5. Railway auto-runs: `npm run db:migrate && npm start`
+Configure these redirect/callback URLs in Google and Facebook:
 
----
-
-## Phase 2 — Chrome Extension Setup
-
-### Before publishing
-1. Open `extension/content.js`
-2. Replace `API_BASE` with your Railway backend URL
-3. Replace `DASHBOARD_URL` with your deployed dashboard URL
-
-### Load unpacked (for testing)
-1. Open Chrome → `chrome://extensions`
-2. Enable **Developer Mode**
-3. Click **Load unpacked** → select the `extension/` folder
-
-### Package for Chrome Web Store
-```bash
-cd extension
-zip -r ../avalisa-extension.zip . --exclude "*.DS_Store"
+```text
+https://avalisa-backend.onrender.com/api/auth/oauth/google/callback
+https://avalisa-backend.onrender.com/api/auth/oauth/facebook/callback
 ```
 
-### Icons
-Place your icons in `extension/icons/`:
-- `icon16.png` — 16×16
-- `icon32.png` — 32×32
-- `icon48.png` — 48×48
-- `icon128.png` — 128×128
+### Whop Webhook
 
-### Chrome Web Store listing notes
-- **NEVER** use "bot" or "automated trading" in the listing
-- Use: "trading assistant", "strategy tool", "trading helper"
+Create a Whop company webhook with API version `v1`:
 
----
+```text
+https://avalisa-backend.onrender.com/api/webhooks/whop
+```
 
-## Phase 3 — Dashboard Setup
+Subscribe to the paid activation events used by Whop checkout, especially `membership.activated` and `payment.succeeded`. The backend verifies Whop's signed webhook headers before activating a license.
 
-### Local development
+## Chrome Extension
+
+The extension uses the production backend and dashboard URLs by default:
+
+```text
+https://avalisa-backend.onrender.com
+https://avalisabot.vercel.app
+```
+
+### Load Unpacked
+
+1. Open Chrome at `chrome://extensions`.
+2. Enable Developer Mode.
+3. Click Load unpacked and select the `extension/` folder.
+
+### Package
+
+Use the project packaging script so the zip root contains `manifest.json`:
+
+```bash
+./pack-extension.sh
+```
+
+Approved Chrome Web Store listing:
+
+```text
+https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa
+```
+
+## Dashboard
+
+### Local Development
 
 ```bash
 cd dashboard
 cp .env.example .env
-# Set REACT_APP_API_URL to your backend URL
 npm install
 npm start
 ```
 
-### Build for production
+### Production Build
 
 ```bash
 cd dashboard
 npm run build
-# Deploy the build/ folder to Netlify, Vercel, or Railway Static
 ```
 
-### Environment Variables (dashboard/.env)
+The dashboard deploys to Vercel at:
+
+```text
+https://avalisabot.vercel.app
+```
+
+### Dashboard Environment Variables
 
 | Variable | Description |
 |----------|-------------|
-| `REACT_APP_API_URL` | Backend URL (e.g. https://your-backend.railway.app) |
-| `REACT_APP_LS_BASIC_URL` | Lemon Squeezy checkout URL for $50 plan |
-| `REACT_APP_LS_LIFETIME_URL` | Lemon Squeezy checkout URL for $100 plan |
-
----
-
-## Lemon Squeezy Webhook Setup
-
-1. In your LS dashboard → Settings → Webhooks
-2. Add URL: `https://your-backend.railway.app/api/webhooks/lemonsqueezy`
-3. Select event: `order_created`
-4. Copy the signing secret → set as `LEMONSQUEEZY_WEBHOOK_SECRET`
-
----
+| `REACT_APP_API_URL` | Backend URL, usually `https://avalisa-backend.onrender.com` |
+| `REACT_APP_WHOP_BASIC_URL` | Whop checkout URL for the $50 Basic plan |
+| `REACT_APP_WHOP_PRO_URL` | Whop checkout URL for the $120 Pro plan |
+| `REACT_APP_CHROME_STORE_URL` | Chrome Web Store listing URL |
 
 ## Monetization Flow
 
 | Plan | Price | Access |
 |------|-------|--------|
-| Free | $0 | 10 trades (device-limited), Martingale only — requires new PO account via affiliate link |
-| Basic | $50 one-time | 100 trades, max $2 start, all strategies |
-| Lifetime | $100 one-time | Unlimited trades, unlimited amount, all strategies |
+| Free | $0 | 10 trades, device-limited, Martingale only; requires a new Pocket Option account via the affiliate link |
+| Basic | $50 one-time | 100 trades, max $2 start amount, all strategies |
+| Pro | $120 one-time | Unlimited trades, unlimited amount, all strategies |
 
-**Affiliate link:** https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50
+Affiliate link:
 
----
+```text
+https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50
+```
 
 ## API Reference
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | /api/auth/register | — | Register |
-| POST | /api/auth/login | — | Login, returns JWT |
-| GET | /api/auth/me | JWT | Get current user |
-| POST | /api/license/check | — | Check trade allowance |
-| POST | /api/license/increment | — | Increment trade count |
-| GET | /api/license/status | JWT | Get license details |
-| POST | /api/trades/log | JWT | Log a trade |
-| GET | /api/trades/history | JWT | Trade history + stats |
-| GET | /api/settings | JWT | Get settings |
-| PUT | /api/settings | JWT | Update settings |
-| POST | /api/support/chat | — | AI support chat |
-| POST | /api/webhooks/lemonsqueezy | HMAC | Payment webhook |
-
----
+| `POST` | `/api/auth/register` | No | Register |
+| `POST` | `/api/auth/login` | No | Login, returns JWT |
+| `GET` | `/api/auth/me` | JWT | Get current user |
+| `GET` | `/api/auth/oauth/google` | No | Start Google OAuth |
+| `GET` | `/api/auth/oauth/facebook` | No | Start Facebook OAuth |
+| `POST` | `/api/license/check` | No | Check trade allowance |
+| `POST` | `/api/license/increment` | No | Increment trade count |
+| `GET` | `/api/license/status` | JWT | Get license details |
+| `POST` | `/api/trades/log` | JWT | Log a trade |
+| `GET` | `/api/trades/history` | JWT | Trade history and stats |
+| `GET` | `/api/settings` | JWT | Get settings |
+| `PUT` | `/api/settings` | JWT | Update settings |
+| `POST` | `/api/support/chat` | JWT | AI support chat |
+| `POST` | `/api/webhooks/whop` | HMAC | Whop payment webhook |
 
 ## Risk Disclaimer
 
-Binary options trading involves significant financial risk. This tool does not guarantee profits. Always trade responsibly with funds you can afford to lose.
+Binary options trading involves significant financial risk. Avalisa does not guarantee profits. Always trade responsibly with funds you can afford to lose.

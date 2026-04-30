@@ -19,7 +19,7 @@ import '../styles/luxury.css';
 
 const AFFILIATE_URL =
   'https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50';
-const CHROME_EXTENSION_URL = process.env.REACT_APP_CHROME_STORE_URL || 'https://chrome.google.com/webstore/detail/PENDING';
+const CHROME_EXTENSION_URL = process.env.REACT_APP_CHROME_STORE_URL || 'https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa';
 
 const features = [
   { icon: Bot, title: 'AI Pair Scan', text: 'Avalisa checks the active chart and your favorite pairs before selecting a setup.', decision: ['Pair Scan', 'EUR/USD passed'] },

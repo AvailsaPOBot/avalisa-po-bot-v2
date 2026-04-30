@@ -26,7 +26,7 @@ router.get('/', async (req, res) => {
       // Check if a user account already has this PO UID linked
       const user = await prisma.user.findUnique({ where: { poUserId: uid } });
       if (user) {
-        // Auto-grant lifetime access
+        // Auto-grant Pro access. Stored as `lifetime` internally for compatibility.
         await prisma.license.upsert({
           where: { userId: user.id },
           update: {
@@ -42,7 +42,7 @@ router.get('/', async (req, res) => {
             claimStatus: 'approved',
           },
         });
-        console.log(`[pocketpartners] Lifetime granted to userId=${user.id} poUid=${uid}`);
+        console.log(`[pocketpartners] Pro access granted to userId=${user.id} poUid=${uid}`);
       } else {
         console.log(`[pocketpartners] UID ${uid} stored — no matching user yet`);
       }

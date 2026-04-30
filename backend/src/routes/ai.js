@@ -39,7 +39,7 @@ router.get('/token-status', authMiddleware, async (req, res) => {
 router.post('/signal', authMiddleware, async (req, res) => {
   const license = await prisma.license.findUnique({ where: { userId: req.userId } });
   if (!license || license.plan !== 'lifetime') {
-    return res.status(403).json({ error: 'AI trading requires Lifetime plan' });
+    return res.status(403).json({ error: 'AI trading requires Pro plan' });
   }
 
   const { indicators } = req.body;
