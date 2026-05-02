@@ -20,7 +20,7 @@ function getOverlayHTML() {
           <input id="av-email" type="email" placeholder="Email" class="av-input" />
           <input id="av-password" type="password" placeholder="Password" class="av-input" />
           <button id="av-login-btn" class="av-btn av-btn-primary">Login</button>
-          <button id="av-register-free-btn" class="av-btn av-btn-outline">Register Free</button>
+          <button id="av-register-free-btn" class="av-btn av-btn-outline">Affiliate Pro</button>
         </div>
         <div id="av-logged-in" style="display:none">
           <div class="av-user-row">
@@ -147,12 +147,12 @@ function getOverlayHTML() {
 
       <div id="av-limit-msg" class="av-limit-msg" style="display:none">
         <p>Trade limit reached!</p>
-        <a id="av-affiliate-link" class="av-btn av-btn-primary" target="_blank">Register Free Account</a>
+        <a id="av-affiliate-link" class="av-btn av-btn-primary" target="_blank">Register for Pro Access</a>
         <a id="av-upgrade-link" class="av-btn av-btn-outline" target="_blank">Upgrade Plan</a>
         <div id="av-claim-section" style="margin-top:8px; border-top:1px solid #2a4060; padding-top:8px;">
           <p style="font-size:11px; color:#8fa8c8; margin:0 0 6px 0;">Already registered via affiliate link?</p>
           <button id="av-claim-btn" style="width:100%; padding:6px; background:#7c3aed; color:white; border:none; border-radius:4px; font-size:12px; cursor:pointer;">
-            Claim Free Access
+            Claim Pro Access
           </button>
           <div id="av-claim-uid-input" style="display:none; margin-top:6px;">
             <input id="av-claim-uid" type="text" placeholder="Enter your Pocket Option UID"

@@ -34,12 +34,12 @@ YouTube: https://youtube.com/@avalisapobot
 
 === PLANS & PRICING ===
 
-Free: Register a NEW Pocket Option account via our affiliate link and get free bot access.
-Affiliate/free signup link: https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50
-(Must be a NEW account — existing accounts do not qualify for free access)
+Demo: Existing users get 10 Martingale trades with no starting amount cap.
+Affiliate Pro signup link: https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50
+New users who register under our affiliate link get Pro access after Pocket Option account confirmation.
 
-Basic Plan: $50 one-time — 100 trades
-Pro Plan: $120 one-time — unlimited trades
+Basic Plan: $69 one-time — unlimited Martingale trades
+Pro Plan: $119 one-time — unlimited Martingale and Avalisa AI trades
 Purchase at: https://avalisabot.vercel.app/pricing
 
 After purchasing, send your Pocket Option ID to avalisapobot@gmail.com to activate.
@@ -91,9 +91,9 @@ Bot panel not showing:
 - Go to chrome://extensions and make sure Avalisa Bot is enabled
 - Refresh pocketoption.com
 
-Free access not working:
-- Free access only works if you registered a NEW Pocket Option account via our link
-- Existing accounts must purchase a plan
+Affiliate Pro access not working:
+- Pro access only unlocks if you registered a NEW Pocket Option account via our link
+- Existing Pocket Option accounts can use Demo or purchase a plan
 
 Payment made but not activated:
 - Send your Pocket Option ID to avalisapobot@gmail.com

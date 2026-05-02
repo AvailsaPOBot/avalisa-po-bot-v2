@@ -1,6 +1,7 @@
 const express = require('express');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
 const prisma = require('../lib/prisma');
+const { PLAN_IDS, getPlanEntitlements } = require('../lib/plans');
 
 const router = express.Router();
 
@@ -10,7 +11,7 @@ router.use(authMiddleware, adminMiddleware);
 // POST /api/admin/grant-access
 // Body: { identifier: "email or PO UID", plan: "lifetime" | "basic" }
 router.post('/grant-access', async (req, res) => {
-  const { identifier, plan = 'lifetime' } = req.body;
+  const { identifier, plan = PLAN_IDS.PRO } = req.body;
 
   if (!identifier) {
     return res.status(400).json({ error: 'identifier (email or PO UID) is required' });
@@ -40,14 +41,14 @@ router.post('/grant-access', async (req, res) => {
       update: {
         plan,
         tradesUsed: 0,
-        tradesLimit: plan === 'lifetime' ? null : 100,
+        tradesLimit: getPlanEntitlements(plan)?.tradesLimit ?? null,
         expiresAt: null,
       },
       create: {
         userId: user.id,
         plan,
         tradesUsed: 0,
-        tradesLimit: plan === 'lifetime' ? null : 100,
+        tradesLimit: getPlanEntitlements(plan)?.tradesLimit ?? null,
       },
     });
 
@@ -102,8 +103,8 @@ router.post('/claims/approve', async (req, res) => {
         where: { userId },
         data: {
           claimStatus: 'approved',
-          plan: 'lifetime',
-          tradesLimit: null,
+          plan: PLAN_IDS.PRO,
+          tradesLimit: getPlanEntitlements(PLAN_IDS.PRO).tradesLimit,
           claimNote: 'Approved by admin',
         },
       }),
@@ -158,7 +159,7 @@ router.patch('/users/:id', async (req, res) => {
         where: { userId: id },
         data: {
           plan,
-          tradesLimit: plan === 'lifetime' ? null : plan === 'basic' ? 100 : 10,
+          tradesLimit: getPlanEntitlements(plan)?.tradesLimit ?? null,
         },
       }));
     }

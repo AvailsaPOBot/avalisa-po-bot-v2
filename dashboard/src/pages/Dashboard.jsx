@@ -7,11 +7,8 @@ import toast from 'react-hot-toast';
 const VALID_TABS = ['settings', 'history', 'bots', 'admin'];
 
 const STRATEGIES = [
-  { id: 'martingale', label: 'Martingale', free: true, desc: 'Double on loss to recover' },
-  { id: 'anti-martingale', label: 'Anti-Martingale', free: false, desc: 'Double on win, reset on loss' },
-  { id: 'fixed', label: 'Fixed Amount', free: false, desc: 'Same amount every trade' },
-  { id: 'ai', label: 'Avalisa AI', free: false, desc: 'Local rule engine with AI-style pair scanning (Pro)' },
-  { id: 'ai-signal', label: 'AI Signal', free: false, desc: 'Gemini-powered CALL/PUT signals (Pro)' },
+  { id: 'martingale', label: 'Martingale', plans: ['free', 'basic', 'lifetime'], desc: 'Double on loss to recover' },
+  { id: 'ai', label: 'Avalisa AI', plans: ['lifetime'], desc: 'Local rule engine with AI-style pair scanning (Pro)' },
 ];
 
 const TIMEFRAMES = ['S30', 'M1', 'M3', 'M5', 'M30', 'H1'];
@@ -22,21 +19,23 @@ const STEPS = ['infinite', 1, 2, 3, 4, 5, 6, 8, 10, 12];
 
 const STRATEGY_LABELS = {
   martingale: 'Martingale',
-  'anti-martingale': 'Anti-Martingale',
-  fixed: 'Fixed',
   ai: 'Avalisa AI',
-  'ai-signal': 'AI Signal',
-  'user-ai': 'User AI',
 };
 
 function strategyLabel(strategy) {
   return STRATEGY_LABELS[strategy] || strategy || 'Martingale';
 }
 
+function planDisplayName(plan) {
+  if (plan === 'lifetime') return 'pro';
+  if (plan === 'free') return 'demo';
+  return plan || 'demo';
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const plan = user?.license?.plan || 'free';
-  const planLabel = plan === 'lifetime' ? 'pro' : plan;
+  const planLabel = planDisplayName(plan);
   const isAdmin = user?.isAdmin || false;
 
   const [settings, setSettings] = useState(null);
@@ -429,7 +428,7 @@ export default function Dashboard() {
             <h2 className="text-lg font-semibold text-white mb-4">Strategy</h2>
             <div className="space-y-3">
               {STRATEGIES.map(s => {
-                const locked = !s.free && plan === 'free';
+                const locked = !s.plans.includes(plan);
                 const selected = settings.strategy === s.id;
                 return (
                   <button key={s.id} disabled={locked || s.comingSoon}
@@ -442,7 +441,7 @@ export default function Dashboard() {
                     <div className="flex items-center justify-between">
                       <span className="font-medium">{s.label}</span>
                       {s.comingSoon && <span className="text-xs bg-yellow-800 text-yellow-300 px-2 py-0.5 rounded-full">Soon</span>}
-                      {locked && <span className="text-xs badge-basic">Paid</span>}
+                      {locked && <span className="text-xs badge-basic">Pro</span>}
                       {selected && <span className="text-green-400 text-xs">✓ Active</span>}
                     </div>
                     <div className="text-xs mt-1 opacity-60">{s.desc}</div>
@@ -506,47 +505,38 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* AI Signal config — always shown in settings tab; admin can edit, users see grayed-out */}
-      {activeTab === 'settings' && (
+      {/* Admin AI configuration */}
+      {activeTab === 'settings' && isAdmin && (
         <div className="card mt-6">
-          <h2 className="text-lg font-semibold text-white mb-1">🤖 AI Signal Configuration</h2>
+          <h2 className="text-lg font-semibold text-white mb-1">Avalisa AI Configuration</h2>
           <p className="text-gray-400 text-sm mb-4">
-            {isAdmin
-              ? 'Set the strategy prompt sent to Gemini before every trade signal.'
-              : 'Avalisa uses Gemini to analyze live candle data and generate CALL/PUT/SKIP signals on your selected timeframe.'}
+            Set the internal AI prompt for supported signal workflows.
           </p>
           <div className="space-y-3">
             <textarea
               rows={6}
               value={aiPrompt}
-              onChange={e => isAdmin && setAiPrompt(e.target.value)}
-              readOnly={!isAdmin}
-              className={`input w-full font-mono text-xs ${!isAdmin ? 'opacity-40 cursor-not-allowed resize-none' : ''}`}
+              onChange={e => setAiPrompt(e.target.value)}
+              className="input w-full font-mono text-xs"
               placeholder="System prompt sent to Gemini for every signal request..."
             />
-            {isAdmin ? (
-              <button
-                onClick={saveAiSettings}
-                disabled={aiSettingsSaving}
-                className="btn-primary"
-              >
-                {aiSettingsSaving ? 'Saving…' : 'Save Prompt'}
-              </button>
-            ) : (
-              <p className="text-xs text-gray-500">
-                🔒 Custom strategy prompts available in v2.3 — bring your own AI key.
-              </p>
-            )}
+            <button
+              onClick={saveAiSettings}
+              disabled={aiSettingsSaving}
+              className="btn-primary"
+            >
+              {aiSettingsSaving ? 'Saving…' : 'Save Prompt'}
+            </button>
           </div>
         </div>
       )}
 
-      {/* Claim Free Access Card — settings tab, free plan users without linked UID only */}
+      {/* Claim Pro Access Card — settings tab, demo users without linked UID only */}
       {activeTab === 'settings' && plan === 'free' && !user?.poUserId && claimStatus !== 'approved' && (
         <div className="card mt-6">
           <h2 className="text-lg font-semibold text-white mb-1">Link Your Pocket Option Account</h2>
           <p className="text-gray-400 text-sm mb-4">
-            Registered via our affiliate link? Submit your PO UID to claim free Pro access.
+            Registered via our affiliate link? Submit your PO UID to claim Pro access.
           </p>
 
           {claimStatus === 'pending' ? (
@@ -795,8 +785,8 @@ export default function Dashboard() {
                   value={adminPlan}
                   onChange={e => setAdminPlan(e.target.value)}
                 >
-                  <option value="lifetime">Pro (Unlimited)</option>
-                  <option value="basic">Basic (100 trades)</option>
+                  <option value="lifetime">Pro ($119, unlimited)</option>
+                  <option value="basic">Basic ($69, Martingale)</option>
                 </select>
               </div>
               <button
@@ -848,11 +838,13 @@ export default function Dashboard() {
                       <td className="py-2 pr-4 text-xs font-mono">{u.poUserId || '—'}</td>
                       <td className="py-2 pr-4">
                         <span className={`badge-${u.license?.plan || 'free'}`}>
-                          {u.license?.plan || 'free'}
+                          {planDisplayName(u.license?.plan)}
                         </span>
                       </td>
                       <td className="py-2 pr-4 text-xs">
-                        {u.license?.tradesLimit != null
+                        {['basic', 'lifetime'].includes(u.license?.plan)
+                          ? <span className="text-gray-500">{u.license?.tradesUsed ?? 0}/∞</span>
+                          : u.license?.tradesLimit != null
                           ? <span className={u.license.tradesUsed >= u.license.tradesLimit ? 'text-red-400' : 'text-gray-300'}>
                               {u.license.tradesUsed}/{u.license.tradesLimit}
                             </span>
@@ -1118,7 +1110,7 @@ export default function Dashboard() {
                   onChange={e => setEditPlan(e.target.value)}
                   className="input w-full"
                 >
-                  <option value="free">free</option>
+                  <option value="free">demo</option>
                   <option value="basic">basic</option>
                   <option value="lifetime">pro</option>
                 </select>

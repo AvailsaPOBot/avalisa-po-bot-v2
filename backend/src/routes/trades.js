@@ -1,6 +1,7 @@
 const express = require('express');
 const { authMiddleware } = require('../middleware/auth');
 const prisma = require('../lib/prisma');
+const { PLAN_IDS } = require('../lib/plans');
 
 const router = express.Router();
 const VALID_TIMEFRAMES = ['S15', 'S30', 'M1', 'M3', 'M5', 'M30', 'H1'];
@@ -55,7 +56,7 @@ router.post('/log', authMiddleware, async (req, res) => {
     // Gate AI trades on real accounts against the license allowance
     if (isAiTrade && !isDemoVal) {
       const license = await prisma.license.findUnique({ where: { userId: req.userId } });
-      unlimitedAi = req.user?.isAdmin || license?.plan === 'lifetime';
+      unlimitedAi = req.user?.isAdmin || license?.plan === PLAN_IDS.PRO;
       if (!unlimitedAi && license && license.aiTradesUsed >= license.aiTradesAllowance) {
         return res.status(403).json({
           success: false,

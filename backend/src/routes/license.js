@@ -1,10 +1,11 @@
 const express = require('express');
 const { authMiddleware } = require('../middleware/auth');
 const prisma = require('../lib/prisma');
+const { PLAN_IDS, getPlanEntitlements } = require('../lib/plans');
 
 const router = express.Router();
 
-const FREE_TRADE_LIMIT = 10;
+const FREE_TRADE_LIMIT = getPlanEntitlements(PLAN_IDS.DEMO).tradesLimit;
 
 // POST /api/license/check
 // Called by extension before each trade session
@@ -22,35 +23,47 @@ router.post('/check', async (req, res) => {
         return res.json({ allowed: false, reason: 'No license found' });
       }
 
-      if (license.plan === 'lifetime') {
+      const entitlements = getPlanEntitlements(license.plan);
+      if (!entitlements) {
+        console.error('[License] Unknown plan for userId:', userId, 'plan:', license.plan);
+        return res.status(500).json({ error: 'Invalid license plan', plan: license.plan });
+      }
+
+      if (license.plan === PLAN_IDS.PRO) {
         return res.json({
           allowed: true,
-          plan: 'lifetime',
+          plan: PLAN_IDS.PRO,
           tradesRemaining: null,
           aiTradesAllowance: license.aiTradesAllowance,
           aiTradesUsed: license.aiTradesUsed,
         });
       }
 
-      if (license.plan === 'basic') {
-        const remaining = (license.tradesLimit || 100) - license.tradesUsed;
+      if (entitlements.tradesLimit == null) {
         return res.json({
-          allowed: remaining > 0,
-          plan: 'basic',
-          tradesRemaining: remaining,
+          allowed: true,
+          plan: license.plan,
+          tradesRemaining: null,
           tradesUsed: license.tradesUsed,
-          tradesLimit: license.tradesLimit,
+          tradesLimit: entitlements.tradesLimit,
           aiTradesAllowance: license.aiTradesAllowance,
           aiTradesUsed: license.aiTradesUsed,
         });
       }
 
-      // Unknown plan stored on License row — fail loud instead of silently capping at free tier
-      console.error('[License] Unknown plan for userId:', userId, 'plan:', license.plan);
-      return res.status(500).json({ error: 'Invalid license plan', plan: license.plan });
+      const remaining = entitlements.tradesLimit - license.tradesUsed;
+      return res.json({
+        allowed: remaining > 0,
+        plan: license.plan,
+        tradesRemaining: remaining,
+        tradesUsed: license.tradesUsed,
+        tradesLimit: entitlements.tradesLimit,
+        aiTradesAllowance: license.aiTradesAllowance,
+        aiTradesUsed: license.aiTradesUsed,
+      });
     }
 
-    // Free plan — track by device fingerprint
+    // Demo plan — track by device fingerprint when no logged-in license is present.
     let fp = await prisma.deviceFingerprint.findUnique({ where: { fingerprint: deviceFingerprint } });
 
     if (!fp) {
@@ -68,7 +81,7 @@ router.post('/check', async (req, res) => {
     const remaining = FREE_TRADE_LIMIT - fp.freeTradesUsed;
     return res.json({
       allowed: remaining > 0,
-      plan: 'free',
+      plan: PLAN_IDS.DEMO,
       tradesRemaining: remaining,
       tradesUsed: fp.freeTradesUsed,
       tradesLimit: FREE_TRADE_LIMIT,
@@ -86,7 +99,7 @@ router.post('/increment', async (req, res) => {
   try {
     if (userId) {
       const license = await prisma.license.findUnique({ where: { userId } });
-      if (license && license.plan !== 'lifetime') {
+      if (license && license.plan !== PLAN_IDS.PRO) {
         await prisma.license.update({
           where: { userId },
           data: { tradesUsed: { increment: 1 } },
@@ -120,7 +133,7 @@ router.get('/status', authMiddleware, async (req, res) => {
   }
 });
 
-// POST /api/license/claim — submit affiliate claim for free access
+// POST /api/license/claim — submit affiliate claim for Pro access
 router.post('/claim', authMiddleware, async (req, res) => {
   const { poUid } = req.body;
   if (!poUid || !String(poUid).trim()) {
@@ -132,7 +145,7 @@ router.post('/claim', authMiddleware, async (req, res) => {
     const license = await prisma.license.findUnique({ where: { userId: req.userId } });
     if (!license) return res.status(404).json({ error: 'No license found' });
 
-    if (license.plan !== 'free') {
+    if (license.plan !== PLAN_IDS.DEMO) {
       return res.status(400).json({ error: 'You already have an active plan.' });
     }
     if (license.claimStatus === 'pending') {
@@ -171,8 +184,8 @@ router.post('/claim', authMiddleware, async (req, res) => {
       await prisma.license.update({
         where: { userId: req.userId },
         data: {
-          plan: 'lifetime',
-          tradesLimit: null,
+          plan: PLAN_IDS.PRO,
+          tradesLimit: getPlanEntitlements(PLAN_IDS.PRO).tradesLimit,
           claimStatus: 'approved',
           claimedPoUid: uid,
           claimNote: null,

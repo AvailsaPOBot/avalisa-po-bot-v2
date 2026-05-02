@@ -46,8 +46,8 @@ npm run db:migrate
 | `JWT_SECRET` | Yes | Random 64-character string for signing JWTs |
 | `GOOGLE_AI_API_KEY` | Yes | Gemini API key from Google AI Studio |
 | `WHOP_WEBHOOK_SECRET` | Yes | Whop webhook signing secret |
-| `WHOP_PLAN_ID_BASIC` | Yes | Whop plan ID for the $50 Basic plan |
-| `WHOP_PLAN_ID_PRO` | Yes | Whop plan ID for the $120 Pro plan |
+| `WHOP_PLAN_ID_BASIC` | Yes | Whop plan ID for the $69 Basic plan |
+| `WHOP_PLAN_ID_PRO` | Yes | Whop plan ID for the $119 Pro plan |
 | `ANTHROPIC_API_KEY` | No | Optional; upgrades support chat to Claude |
 | `PORT` | No | Defaults to `3001` locally |
 | `FRONTEND_URL` | Yes | Dashboard URL for CORS, usually `https://avalisabot.vercel.app` |
@@ -134,17 +134,19 @@ https://avalisabot.vercel.app
 | Variable | Description |
 |----------|-------------|
 | `REACT_APP_API_URL` | Backend URL, usually `https://avalisa-backend.onrender.com` |
-| `REACT_APP_WHOP_BASIC_URL` | Whop checkout URL for the $50 Basic plan |
-| `REACT_APP_WHOP_PRO_URL` | Whop checkout URL for the $120 Pro plan |
+| `REACT_APP_WHOP_BASIC_URL` | Whop checkout URL for the $69 Basic plan |
+| `REACT_APP_WHOP_PRO_URL` | Whop checkout URL for the $119 Pro plan |
 | `REACT_APP_CHROME_STORE_URL` | Chrome Web Store listing URL |
 
 ## Monetization Flow
 
 | Plan | Price | Access |
 |------|-------|--------|
-| Free | $0 | 10 trades, device-limited, Martingale only; requires a new Pocket Option account via the affiliate link |
-| Basic | $50 one-time | 100 trades, max $2 start amount, all strategies |
-| Pro | $120 one-time | Unlimited trades, unlimited amount, all strategies |
+| Demo | $0 | 10 trades, Martingale only, no starting amount cap |
+| Basic | $69 one-time | Unlimited Martingale trades, no starting amount cap |
+| Pro | $119 one-time | Unlimited Martingale and Avalisa AI trades, no starting amount cap |
+
+New users who register under the affiliate link receive Pro access after Pocket Option account confirmation.
 
 Affiliate link:
 

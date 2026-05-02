@@ -1,6 +1,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const prisma = require('../lib/prisma');
+const { getPaidPlanFromWhop, getPlanEntitlements } = require('../lib/plans');
 
 const router = express.Router();
 
@@ -148,8 +149,7 @@ async function handleWhopMembership(data) {
     return;
   }
 
-  // Match by price (in cents): $50 = basic, $120 = Pro (stored as lifetime internally)
-  // Also check plan name as fallback
+  // Match by configured Whop plan ID, current price, or plan name fallback.
   const priceInCents = Number(
     data?.plan?.price_cents ??
     data?.checkout?.plan?.price_cents ??
@@ -174,29 +174,12 @@ async function handleWhopMembership(data) {
     ''
   ).toLowerCase();
 
-  let plan = null;
-  let tradesLimit = null;
-
-  if (
-    planId === process.env.WHOP_PLAN_ID_BASIC ||
-    priceInCents === 5000 ||
-    planName.includes('basic')
-  ) {
-    plan = 'basic';
-    tradesLimit = 100;
-  } else if (
-    planId === process.env.WHOP_PLAN_ID_PRO ||
-    planId === process.env.WHOP_PLAN_ID_LIFETIME ||
-    priceInCents === 12000 ||
-    planName.includes('pro') ||
-    planName.includes('lifetime')
-  ) {
-    plan = 'lifetime';
-    tradesLimit = null;
-  } else {
+  const plan = getPaidPlanFromWhop({ planId, priceInCents, planName });
+  if (!plan) {
     console.warn(`[Whop] Cannot determine plan. Price: ${priceInCents}, Name: ${planName}`);
     return;
   }
+  const tradesLimit = getPlanEntitlements(plan).tradesLimit;
 
   await prisma.license.upsert({
     where: { userId: user.id },

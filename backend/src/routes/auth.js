@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const { authMiddleware } = require('../middleware/auth');
 const prisma = require('../lib/prisma');
+const { PLAN_IDS, getPlanEntitlements } = require('../lib/plans');
 
 const router = express.Router();
 
@@ -56,9 +57,9 @@ async function createUserFromOAuth(email) {
       passwordHash,
       license: {
         create: {
-          plan: 'free',
+          plan: PLAN_IDS.DEMO,
           tradesUsed: 0,
-          tradesLimit: 10,
+          tradesLimit: getPlanEntitlements(PLAN_IDS.DEMO).tradesLimit,
         },
       },
       settings: {
@@ -145,9 +146,9 @@ router.post('/register', async (req, res) => {
         poUserId: poUserId || null,
         license: {
           create: {
-            plan: 'free',
+            plan: PLAN_IDS.DEMO,
             tradesUsed: 0,
-            tradesLimit: 10,
+            tradesLimit: getPlanEntitlements(PLAN_IDS.DEMO).tradesLimit,
           },
         },
         settings: {

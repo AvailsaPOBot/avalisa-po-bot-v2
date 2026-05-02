@@ -15,7 +15,7 @@ export default function Hero() {
 
           <div className="landing-hero__actions">
             <Link className="landing-button landing-button--primary" to="/register">
-              Try 10 Free Trades
+              Try 10 Demo Trades
             </Link>
             <a className="landing-inline-link" href="#step-02">
               Already on Pocket Option? Skip to Step 2 →
@@ -26,7 +26,7 @@ export default function Hero() {
             <span>PO page overlay</span>
             <span>Avalisa AI</span>
             <span>Demo first</span>
-            <span>Pro $120</span>
+            <span>Pro $119</span>
           </div>
         </div>
 

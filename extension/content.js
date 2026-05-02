@@ -1184,7 +1184,7 @@ function updateUI() {
       const plan = state.licenseInfo.plan;
       const cls = plan === 'lifetime' ? 'plan-lifetime' : plan === 'basic' ? 'plan-basic' : 'plan-free';
       badgeEl.className = `av-plan-badge ${cls}`;
-      badgeEl.textContent = plan === 'lifetime' ? 'pro' : plan;
+      badgeEl.textContent = plan === 'lifetime' ? 'pro' : plan === 'free' ? 'demo' : plan;
     }
   } else {
     if (loginForm) loginForm.style.display = 'block';
@@ -1234,9 +1234,9 @@ function updateTradeCounter() {
   if (!el) return;
   const license = state.licenseInfo;
   if (license?.plan === 'free') {
-    el.textContent = `Trades: ${license.tradesUsed || state.tradesCount} / ${license.tradesLimit} free`;
+    el.textContent = `Trades: ${license.tradesUsed || state.tradesCount} / ${license.tradesLimit} demo`;
   } else if (license?.plan === 'basic') {
-    el.textContent = `Trades: ${license.tradesUsed} / ${license.tradesLimit}`;
+    el.textContent = 'Trades: Unlimited';
   } else {
     el.textContent = `Trades this session: ${state.tradesCount}`;
   }

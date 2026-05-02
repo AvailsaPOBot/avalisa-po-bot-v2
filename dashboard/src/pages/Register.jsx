@@ -47,7 +47,7 @@ export default function Register() {
         <form className="lux-auth-card" onSubmit={handleSubmit}>
           <div className="lux-auth-brand"><img className="brand-signature brand-signature--auth" src="/images/brand/avalisa-signature-logo-gold.png" alt="Avalisa PO Bot" /></div>
           <h1>Create Avalisa account</h1>
-          <p>Start with the Demo Tier and test Avalisa on demo before upgrading.</p>
+          <p>Start with Demo and test Martingale mode before upgrading.</p>
 
           <a className="lux-auth-offer" href={AFFILIATE_LINK} target="_blank" rel="noreferrer">
             <Gift size={18} />

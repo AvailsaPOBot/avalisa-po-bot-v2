@@ -28,16 +28,14 @@ async function init() {
       const planEl = document.getElementById('plan-display');
       const planClass = license.plan === 'lifetime' ? 'plan-lifetime' :
                         license.plan === 'basic' ? 'plan-basic' : 'plan-free';
-      const planLabel = license.plan === 'lifetime' ? 'pro' : license.plan;
+      const planLabel = license.plan === 'lifetime' ? 'pro' : license.plan === 'free' ? 'demo' : license.plan;
       planEl.innerHTML = `<span class="plan-badge ${planClass}">${planLabel}</span>`;
 
       const tradesEl = document.getElementById('trades-display');
-      if (license.plan === 'lifetime') {
+      if (license.plan === 'lifetime' || license.plan === 'basic') {
         tradesEl.textContent = 'Unlimited';
-      } else if (license.plan === 'basic') {
-        tradesEl.textContent = `${license.tradesUsed || 0} / ${license.tradesLimit || 100}`;
       } else {
-        tradesEl.textContent = `${license.tradesUsed || 0} / 10 free`;
+        tradesEl.textContent = `${license.tradesUsed || 0} / 10 demo`;
       }
     } else {
       document.getElementById('trades-display').textContent = 'Click Start on page to check';

@@ -1,5 +1,6 @@
 const express = require('express');
 const prisma = require('../lib/prisma');
+const { PLAN_IDS, getPlanEntitlements } = require('../lib/plans');
 
 const router = express.Router();
 
@@ -30,15 +31,15 @@ router.get('/', async (req, res) => {
         await prisma.license.upsert({
           where: { userId: user.id },
           update: {
-            plan: 'lifetime',
-            tradesLimit: null,
+            plan: PLAN_IDS.PRO,
+            tradesLimit: getPlanEntitlements(PLAN_IDS.PRO).tradesLimit,
             claimStatus: 'approved',
             claimNote: null,
           },
           create: {
             userId: user.id,
-            plan: 'lifetime',
-            tradesLimit: null,
+            plan: PLAN_IDS.PRO,
+            tradesLimit: getPlanEntitlements(PLAN_IDS.PRO).tradesLimit,
             claimStatus: 'approved',
           },
         });

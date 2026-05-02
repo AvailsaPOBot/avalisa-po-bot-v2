@@ -31,7 +31,7 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const plan = user?.license?.plan || 'free';
-  const planLabel = plan === 'lifetime' ? 'pro' : plan;
+  const planLabel = plan === 'lifetime' ? 'pro' : plan === 'free' ? 'demo' : plan;
 
   function handleLogout() {
     logout();

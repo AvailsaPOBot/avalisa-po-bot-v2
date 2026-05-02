@@ -1,12 +1,13 @@
 const express = require('express');
 const { authMiddleware } = require('../middleware/auth');
 const prisma = require('../lib/prisma');
+const { canUseStrategy } = require('../lib/plans');
 
 const router = express.Router();
 
 const VALID_TIMEFRAMES = ['S15', 'S30', 'M1', 'M3', 'M5', 'M30', 'H1'];
 const VALID_DIRECTIONS = ['alternating', 'call', 'put'];
-const VALID_STRATEGIES = ['martingale', 'anti-martingale', 'fixed', 'ai-signal', 'ai'];
+const VALID_STRATEGIES = ['martingale', 'ai'];
 const VALID_DELAYS = [2, 4, 6, 8, 10, 12];
 const VALID_MARTINGALE_STEPS = ['1', '2', '3', '4', '5', '6', '8', '10', '12', 'infinite'];
 
@@ -78,12 +79,12 @@ async function settingsUpsert(req, res) {
   }
 
   try {
-    // Check license for paid strategies
-    if (strategy && strategy !== 'martingale') {
+    // Check license for plan-gated strategies.
+    if (strategy) {
       const license = await prisma.license.findUnique({ where: { userId: req.userId } });
-      if (!license || license.plan === 'free') {
+      if (!license || !canUseStrategy(license.plan, strategy)) {
         return res.status(403).json({
-          error: 'Paid plan required for this strategy',
+          error: 'Your current plan does not include this strategy',
           upgradeUrl: 'https://avalisabot.vercel.app/pricing',
         });
       }

@@ -29,14 +29,14 @@ const features = [
 ];
 
 const plans = [
-  { name: 'Demo Tier', price: '10', unit: 'demo trades', text: 'Test Avalisa risk-aware first.', cta: 'Start Demo Tier', href: '/register', features: ['10 demo trades', 'Martingale strategy', 'Demo-first workflow', 'Support chat'] },
-  { name: 'Basic', price: '$50', text: 'Everything needed to start.', cta: 'Get Basic Plan', href: '/pricing#basic', featured: true, features: ['100 trades total', 'Full AI strategies', 'Max $2 start amount', 'Email support'] },
-  { name: 'Pro', price: '$120', text: 'Advanced tools for serious traders.', cta: 'Get Pro Plan', href: '/pricing#pro', features: ['Unlimited trades', 'Priority support', 'Advanced AI engine', 'Lifetime updates'] },
+  { name: 'Demo', price: '10', unit: 'trades', text: 'Test Martingale mode first.', cta: 'Start Demo', href: '/register', features: ['10 trades', 'Martingale only', 'No start amount cap', 'Support chat'] },
+  { name: 'Basic', price: '$69', text: 'Unlimited Martingale access.', cta: 'Get Basic Plan', href: '/pricing#basic', featured: true, features: ['Unlimited trades', 'Martingale only', 'No start amount cap', 'Email support'] },
+  { name: 'Pro', price: '$119', text: 'Martingale plus Avalisa AI.', cta: 'Get Pro Plan', href: '/pricing#pro', features: ['Unlimited trades', 'Martingale mode', 'Avalisa AI mode', 'Affiliate unlock'] },
 ];
 
 const faqs = [
   ['Is Avalisa a website or extension?', 'Avalisa is a Chrome extension that runs on top of your Pocket Option chart. The website manages account, plans, support, and setup.'],
-  ['Can I try it before paying?', 'Yes. Start with the Demo Tier and use demo mode first so you understand the workflow before risking real money.'],
+  ['Can I try it before paying?', 'Yes. Start with Demo and use Martingale mode first so you understand the workflow before risking real money.'],
   ['Does Avalisa guarantee profit?', 'No. Trading involves risk. Avalisa automates a visible process, but market outcomes are never guaranteed.'],
 ];
 

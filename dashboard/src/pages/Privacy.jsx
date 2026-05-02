@@ -17,7 +17,7 @@ export default function Privacy() {
         },
         {
           subtitle: 'Device Fingerprint',
-          text: 'For free-tier usage tracking, a one-way hash is derived from non-identifying browser properties (user-agent, screen resolution, language, CPU cores). This fingerprint cannot be used to identify you personally.',
+          text: 'For Demo usage tracking, a one-way hash is derived from non-identifying browser properties (user-agent, screen resolution, language, CPU cores). This fingerprint cannot be used to identify you personally.',
         },
         {
           subtitle: 'Settings',
@@ -34,7 +34,7 @@ export default function Privacy() {
         },
         {
           subtitle: 'License & Usage Tracking',
-          text: 'Your license tier (Free, Basic, or Pro) is tracked to enforce plan limits. The device fingerprint is used only to count free-tier trades per device — it is not linked to your account.',
+          text: 'Your license tier (Demo, Basic, or Pro) is tracked to enforce plan limits. The device fingerprint is used only to count Demo trades per device — it is not linked to your account.',
         },
         {
           subtitle: 'Trade Logging',

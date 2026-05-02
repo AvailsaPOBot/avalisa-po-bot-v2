@@ -15,7 +15,7 @@ export default function FinalCTA() {
         <h2 className="landing-final-cta__title">Avalisa is waiting.</h2>
         <div className="landing-final-cta__actions">
           <Link className="landing-button landing-button--primary" to="/register">
-            Start Free
+            Start Demo
           </Link>
           <Link className="landing-button landing-button--outline" to="/pricing">
             View Pricing

@@ -25,7 +25,7 @@ function setClaimStatus(text, color) {
 
 async function handleClaimClick() {
   if (!state.jwt) {
-    setClaimStatus('⚠️ Please log in to claim free access.', '#f59e0b');
+    setClaimStatus('⚠️ Please log in to claim Pro access.', '#f59e0b');
     return;
   }
 
@@ -37,7 +37,7 @@ async function handleClaimClick() {
     document.getElementById('av-claim-btn').textContent = 'Submitting...';
     await submitClaim(domUid);
     document.getElementById('av-claim-btn').disabled = false;
-    document.getElementById('av-claim-btn').textContent = '🎯 Claim Free Access';
+    document.getElementById('av-claim-btn').textContent = 'Claim Pro Access';
   } else {
     // UID not found in DOM — show manual input
     document.getElementById('av-claim-uid-input').style.display = 'block';

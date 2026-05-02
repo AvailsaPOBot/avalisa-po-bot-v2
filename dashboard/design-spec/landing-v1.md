@@ -95,9 +95,9 @@ NEVER use: Inter, Roboto, Arial, Space Grotesk, Poppins, Montserrat (overused / 
 
 | Tier | Price | Trades | Tagline | CTA |
 |---|---|---|---|---|
-| FREE | $0 | 10 trades | Try Avalisa risk-free | Start Free |
-| BASIC | $50 once | 100 trades | For weekend traders | Buy Basic |
-| PRO | $120 once | Unlimited | Most popular — gold border | Get Pro |
+| DEMO | $0 | 10 Martingale trades | Try Avalisa risk-free | Start Demo |
+| BASIC | $69 once | Unlimited Martingale | For Martingale traders | Buy Basic |
+| PRO | $119 once | Unlimited Martingale + Avalisa AI | Most popular — gold border | Get Pro |
 
 - **Below-pricing reassurance:** One-time payment. No subscription. Pay once, own it.
 
@@ -119,7 +119,7 @@ NEVER use: Inter, Roboto, Arial, Space Grotesk, Poppins, Montserrat (overused / 
 - Q4: What happens if I close my browser? — *Avalisa stops. Re-open Pocket Option, click the Avalisa button, hit Start. Resumes instantly.*
 - Q5: How does Avalisa decide CALL vs PUT? — *Regime detection (trending vs ranging) + RSI + Bollinger Bands + momentum confirm. Skips trades when signals conflict.*
 - Q6: Can I switch between strategies? — *Yes. Avalisa AI and Martingale modes coexist. Switch any time.*
-- Q7: What's the difference between Free / Basic / Pro? — *Free: 10 trades to test. Basic: 100 trades for $50. Pro: unlimited for $120. All tiers include Avalisa AI.*
+- Q7: What's the difference between Demo / Basic / Pro? — *Demo: 10 Martingale trades to test. Basic: unlimited Martingale for $69. Pro: unlimited Martingale and Avalisa AI for $119. New users registered under our affiliate link also get Pro.*
 - Q8: How do I get Pro free? — *Register a Pocket Option account through our affiliate link. We grant Pro access automatically once your PO account confirms.*
 - Q9: Is this gambling or trading? — *Binary options is high-risk speculation. Avalisa AI improves your odds with disciplined rules — it doesn't eliminate risk. Trade only what you can afford to lose.*
 - Q10: How do refunds work? — *All sales final. We offer a free tier so you can validate Avalisa on your account before paying.*
