@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Menu, X, Zap } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
 const AFFILIATE_URL =
@@ -16,8 +16,7 @@ function Brand() {
   return (
     <Link to="/" className="site-brand">
       <span className="site-brand__primary">
-        <Zap size={30} fill="currentColor" />
-        <span>Avalisa<small>PO BOT</small></span>
+        <img className="brand-signature brand-signature--nav" src="/images/brand/avalisa-signature-logo-gold.png" alt="Avalisa PO Bot" />
       </span>
       <span className="site-brand__partner" aria-label="Pocket Option partner">
         <img src="/images/PO_Logo.png" alt="" />

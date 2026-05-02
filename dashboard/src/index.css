@@ -196,7 +196,6 @@ html {
 .site-brand__primary {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
 }
 
 .site-brand small {
@@ -231,6 +230,24 @@ html {
   height: 1.72rem;
   object-fit: contain;
   object-position: left center;
+}
+
+.brand-signature {
+  display: block;
+  width: auto;
+  object-fit: contain;
+}
+
+.brand-signature--nav {
+  height: 3.25rem;
+}
+
+.brand-signature--lux {
+  height: 4rem;
+}
+
+.brand-signature--auth {
+  height: 4.45rem;
 }
 
 .site-nav__links,
@@ -331,6 +348,10 @@ html {
 
   .site-brand__partner img {
     width: 6.8rem;
+  }
+
+  .brand-signature--nav {
+    height: 2.85rem;
   }
 }
 

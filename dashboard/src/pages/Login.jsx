@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Lock, Mail, Zap } from 'lucide-react';
+import { Lock, Mail } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';
 import { API_BASE } from '../lib/api';
@@ -40,7 +40,7 @@ export default function Login() {
     <main className="lux-auth-page">
       <section className="lux-auth-shell">
         <form className="lux-auth-card" onSubmit={handleSubmit}>
-          <div className="lux-auth-brand"><Zap size={34} fill="currentColor" /><span>Avalisa</span></div>
+          <div className="lux-auth-brand"><img className="brand-signature brand-signature--auth" src="/images/brand/avalisa-signature-logo-gold.png" alt="Avalisa PO Bot" /></div>
           <h1>Welcome back</h1>
           <p>Sign in to your dashboard and keep your Pocket Option workflow synced.</p>
 

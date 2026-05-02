@@ -93,8 +93,7 @@ const dashboardTabs = {
 function LogoMark() {
   return (
     <span className="lux-logo">
-      <Zap size={30} fill="currentColor" />
-      <span>Avalisa<small>PO BOT</small></span>
+      <img className="brand-signature brand-signature--lux" src="/images/brand/avalisa-signature-logo-gold.png" alt="Avalisa PO Bot" />
     </span>
   );
 }
@@ -294,6 +293,13 @@ export default function Landing() {
   return (
     <main className="lux-page">
       <section className="lux-hero" id="top">
+        <img
+          className="lux-mascot lux-mascot--mobile-hero"
+          src="/images/landing/generated/avalisa-hero-girl-gemini.png"
+          alt=""
+          aria-hidden="true"
+          draggable="false"
+        />
         <div className="lux-shell lux-hero-grid">
           <motion.div className="lux-hero-copy" initial={{ opacity: 0, x: -24 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.65 }}>
             <p className="lux-kicker">Chrome extension for Pocket Option</p>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Gift, Lock, Mail, ShieldCheck, Zap } from 'lucide-react';
+import { Gift, Lock, Mail, ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';
 import { API_BASE } from '../lib/api';
@@ -45,7 +45,7 @@ export default function Register() {
     <main className="lux-auth-page">
       <section className="lux-auth-shell">
         <form className="lux-auth-card" onSubmit={handleSubmit}>
-          <div className="lux-auth-brand"><Zap size={34} fill="currentColor" /><span>Avalisa</span></div>
+          <div className="lux-auth-brand"><img className="brand-signature brand-signature--auth" src="/images/brand/avalisa-signature-logo-gold.png" alt="Avalisa PO Bot" /></div>
           <h1>Create Avalisa account</h1>
           <p>Start with the Demo Tier and test Avalisa on demo before upgrading.</p>
 

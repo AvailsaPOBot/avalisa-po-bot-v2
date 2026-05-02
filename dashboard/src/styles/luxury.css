@@ -34,7 +34,6 @@
 .lux-logo {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
   color: var(--lux-gold);
   font-family: var(--font-display);
   font-size: 1.9rem;
@@ -115,6 +114,7 @@
 
 .lux-hero-grid {
   position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: minmax(25rem, 0.74fr) minmax(47rem, 1.26fr);
   gap: clamp(0.65rem, 1.7vw, 2.4rem);
@@ -511,6 +511,10 @@
 .lux-mascot {
   pointer-events: none;
   user-select: none;
+}
+
+.lux-mascot--mobile-hero {
+  display: none;
 }
 
 .lux-mascot--hero {
@@ -1954,37 +1958,45 @@
 
 @media (max-width: 760px) {
   .lux-hero {
-    padding-top: 2rem;
+    padding-top: 1.6rem;
+  }
+
+  .lux-mascot--mobile-hero {
+    display: block;
+    position: absolute;
+    top: 1.5rem;
+    right: -1.8rem;
+    z-index: 0;
+    width: min(19rem, 68vw);
+    height: min(27rem, 86vw);
+    object-fit: contain;
+    object-position: bottom right;
+    opacity: 0.8;
+    filter: drop-shadow(-24px 20px 48px rgba(0, 0, 0, 0.82));
   }
 
   .lux-hero-copy h1 {
-    font-size: 4.2rem;
+    font-size: clamp(3.55rem, 16vw, 4.35rem);
   }
 
   .lux-trading-stage {
-    min-height: 35rem;
+    min-height: 42rem;
   }
 
   .lux-po-window {
     inset: 1rem 1rem auto;
-    height: 20rem;
+    height: 18.4rem;
   }
 
   .lux-bot-panel {
     left: 1.2rem;
     right: 1.2rem;
-    top: 13rem;
+    top: 20.4rem;
     width: calc(100% - 2.8rem);
   }
 
   .lux-mascot--hero {
-    top: 4rem;
-    left: auto;
-    right: -2.2rem;
-    bottom: auto;
-    width: auto;
-    height: 22rem;
-    opacity: 0.42;
+    display: none;
   }
 
   .floating-chat-button {
@@ -2052,5 +2064,86 @@
   .lux-dash-side {
     display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .lux-dash-main {
+    padding: 0.9rem;
+  }
+
+  .lux-dash-head {
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .lux-dash-head img {
+    width: 5.7rem;
+  }
+
+  .lux-table {
+    overflow-x: auto;
+  }
+
+  .lux-table div {
+    min-width: 30rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .lux-shell {
+    width: min(100% - 1.25rem, 1480px);
+  }
+
+  .lux-mascot--mobile-hero {
+    top: 1rem;
+    right: -3.2rem;
+    width: min(18.5rem, 82vw);
+    height: min(26rem, 106vw);
+    opacity: 0.8;
+  }
+
+  .lux-actions {
+    gap: 0.65rem;
+  }
+
+  .lux-button {
+    min-height: 2.6rem;
+    padding: 0.72rem 0.84rem;
+    font-size: 0.76rem;
+  }
+
+  .lux-lede {
+    font-size: 0.92rem;
+    line-height: 1.58;
+  }
+
+  .lux-checks {
+    gap: 0.58rem;
+    font-size: 0.86rem;
+  }
+
+  .lux-trading-stage {
+    min-height: 41rem;
+  }
+
+  .lux-po-window {
+    inset-inline: 0.75rem;
+  }
+
+  .lux-bot-panel {
+    left: 0.9rem;
+    right: 0.9rem;
+    width: calc(100% - 1.8rem);
+  }
+
+  .lux-bot-panel label {
+    grid-template-columns: minmax(0, 0.86fr) minmax(0, 1.14fr);
+  }
+
+  .lux-pricing-grid,
+  .lux-feature-grid,
+  .lux-testimonial-grid,
+  .lux-step-grid,
+  .lux-system-grid {
+    gap: 0.75rem;
   }
 }

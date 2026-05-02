@@ -26,7 +26,7 @@ export default function AuthCallback() {
     <main className="lux-auth-page">
       <section className="lux-auth-shell">
         <div className="lux-auth-card">
-          <div className="lux-auth-brand"><span>Avalisa</span></div>
+          <div className="lux-auth-brand"><img className="brand-signature brand-signature--auth" src="/images/brand/avalisa-signature-logo-gold.png" alt="Avalisa PO Bot" /></div>
           <h1>Signing you in</h1>
           <p>Connecting your account to the Avalisa dashboard.</p>
           <p className="lux-auth-switch">
