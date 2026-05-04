@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { MessageCircle, PlugZap, Receipt, Send, Settings, ShieldCheck } from 'lucide-react';
+import api from '../lib/api';
 import '../styles/luxury.css';
 
 const topics = [
@@ -11,16 +12,29 @@ const topics = [
 
 export default function Support() {
   const [messages, setMessages] = useState([
-    ['assistant', 'Hi, I am Avalisa. Ask me about setup, pricing, account access, or bot controls.'],
+    { role: 'assistant', content: 'Hi, I am Avalisa. Ask me about setup, pricing, account access, or bot controls.' },
   ]);
   const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  function send(e) {
+  async function send(e) {
     e.preventDefault();
     const text = input.trim();
-    if (!text) return;
-    setMessages((items) => [...items, ['user', text], ['assistant', 'For the fastest setup, install the Chrome extension, open Pocket Option, sign in from the Avalisa panel, then test in demo mode first.']]);
+    if (!text || loading) return;
+
+    const nextMessages = [...messages, { role: 'user', content: text }];
+    setMessages(nextMessages);
     setInput('');
+    setLoading(true);
+
+    try {
+      const res = await api.post('/api/support/chat', { messages: nextMessages });
+      setMessages((items) => [...items, { role: 'assistant', content: res.data.reply }]);
+    } catch {
+      setMessages((items) => [...items, { role: 'assistant', content: 'Sorry, I could not reach support. Try again in a moment or email avalisapobot@gmail.com.' }]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -44,11 +58,21 @@ export default function Support() {
             <em>Online</em>
           </header>
           <div className="lux-support-feed">
-            {messages.map(([role, text], index) => <p key={`${role}-${index}`} className={role === 'user' ? 'is-user' : ''}>{text}</p>)}
+            {messages.map((message, index) => (
+              <p key={`${message.role}-${index}`} className={message.role === 'user' ? 'is-user' : ''}>
+                {message.content}
+              </p>
+            ))}
+            {loading && <p>Thinking...</p>}
           </div>
           <form onSubmit={send}>
-            <input value={input} onChange={(event) => setInput(event.target.value)} placeholder="Ask about setup, strategies, or your account..." />
-            <button type="submit"><Send size={16} /></button>
+            <input
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              disabled={loading}
+              placeholder="Ask about setup, strategies, or your account..."
+            />
+            <button type="submit" disabled={loading || !input.trim()} aria-label="Send message"><Send size={16} /></button>
           </form>
           <small><MessageCircle size={13} /> AI responses are informational only. Trading involves risk.</small>
         </section>

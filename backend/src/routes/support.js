@@ -1,5 +1,4 @@
 const express = require('express');
-const { authMiddleware } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -109,20 +108,42 @@ If you cannot answer a question confidently, always end with:
 
 Never answer questions unrelated to Avalisa Bot or Pocket Option trading.`;
 
+function normalizeMessages(messages, fallbackMessage) {
+  const source = Array.isArray(messages) && messages.length > 0
+    ? messages
+    : [{ role: 'user', content: fallbackMessage }];
+
+  const normalized = source
+    .slice(-20)
+    .map((message) => ({
+      role: message.role === 'assistant' ? 'assistant' : 'user',
+      content: String(message.content || '').trim(),
+    }))
+    .filter((message) => message.content);
+
+  while (normalized.length > 0 && normalized[0].role !== 'user') {
+    normalized.shift();
+  }
+
+  return normalized.length > 0 ? normalized : [{ role: 'user', content: fallbackMessage }];
+}
+
 // POST /api/support/chat
-router.post('/chat', authMiddleware, async (req, res) => {
+router.post('/chat', async (req, res) => {
   let userMessage;
   if (req.body.message) {
-    userMessage = req.body.message;
+    userMessage = String(req.body.message).trim();
   } else if (req.body.messages && req.body.messages.length > 0) {
-    userMessage = req.body.messages[req.body.messages.length - 1].content;
+    userMessage = String(req.body.messages[req.body.messages.length - 1].content || '').trim();
   } else {
     return res.status(400).json({ error: 'message or messages required' });
   }
 
-  const trimmedMessages = req.body.messages
-    ? req.body.messages.slice(-20)
-    : [{ role: 'user', content: userMessage }];
+  if (!userMessage) {
+    return res.status(400).json({ error: 'message cannot be empty' });
+  }
+
+  const trimmedMessages = normalizeMessages(req.body.messages, userMessage);
 
   try {
     let reply;
@@ -136,11 +157,15 @@ router.post('/chat', authMiddleware, async (req, res) => {
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1024,
         system: SYSTEM_PROMPT,
-        messages: trimmedMessages.map(m => ({ role: m.role, content: m.content })),
+        messages: trimmedMessages,
       });
       reply = response.content[0].text;
       provider = 'claude';
     } else {
+      if (!process.env.GOOGLE_AI_API_KEY) {
+        return res.status(503).json({ error: 'AI support is not configured yet' });
+      }
+
       // Default: Gemini via REST API (free)
       const response = await fetch(
         'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + process.env.GOOGLE_AI_API_KEY,
@@ -148,7 +173,10 @@ router.post('/chat', authMiddleware, async (req, res) => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: userMessage }] }],
+            contents: trimmedMessages.map((message) => ({
+              role: message.role === 'assistant' ? 'model' : 'user',
+              parts: [{ text: message.content }],
+            })),
             systemInstruction: {
               parts: [{ text: SYSTEM_PROMPT }],
             },
