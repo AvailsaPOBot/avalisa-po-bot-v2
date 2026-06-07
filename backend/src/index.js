@@ -12,10 +12,22 @@ process.on('unhandledRejection', (reason) => {
   process.exit(1);
 });
 
+// Fail fast on missing required config (clear message instead of obscure later errors)
+const REQUIRED_ENV = ['JWT_SECRET', 'DATABASE_URL', 'WHOP_WEBHOOK_SECRET'];
+const missingEnv = REQUIRED_ENV.filter((k) => !process.env[k]);
+if (missingEnv.length) {
+  console.error(`FATAL: missing required env var(s): ${missingEnv.join(', ')}. Set them and restart.`);
+  process.exit(1);
+}
+
 const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const prisma = require('./lib/prisma');
+
+// Security headers (defensive require so the app still boots if `npm install` hasn't run yet)
+let helmet = null;
+try { helmet = require('helmet'); } catch { console.warn('[startup] helmet not installed — run `npm install` to enable security headers'); }
 
 const authRoutes = require('./routes/auth');
 const licenseRoutes = require('./routes/license');
@@ -27,6 +39,9 @@ const webhookRoutes = require('./routes/webhooks');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Security headers (helmet defaults; safe for a JSON API). No-op if helmet isn't installed yet.
+if (helmet) app.use(helmet());
 
 // CORS — allow dashboard + extension
 const allowedOrigins = [
@@ -94,9 +109,14 @@ app.use('/api/webhooks', webhookRoutes);
 // JSON body parser for all other routes
 app.use(express.json({ limit: '1mb' }));
 
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString(), version: '2.0.0' });
+// Health check — reflects real DB status so Render (and we) can see degradation, not a fake 'ok'
+app.get('/health', async (req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ status: 'ok', db: 'up', timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(503).json({ status: 'degraded', db: 'down', timestamp: new Date().toISOString() });
+  }
 });
 
 // API routes
