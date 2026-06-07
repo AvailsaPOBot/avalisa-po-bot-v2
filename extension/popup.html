@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Avalisa Trading Tool</title>
+  <title>Avalisa PO Bot</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -11,7 +11,8 @@
       background: #0f0f23; color: #e2e8f0;
       width: 300px; padding: 20px;
     }
-    .logo { font-size: 18px; font-weight: 700; color: #a78bfa; margin-bottom: 6px; }
+    .logo { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 700; color: #a78bfa; margin-bottom: 6px; }
+    .logo img { width: 58px; height: 28px; object-fit: contain; flex-shrink: 0; }
     .subtitle { font-size: 12px; color: #64748b; margin-bottom: 20px; }
     .info-box {
       background: #1a1a2e; border: 1px solid #2d2d5b; border-radius: 8px;
@@ -45,7 +46,7 @@
   </style>
 </head>
 <body>
-  <div class="logo">⚡ Avalisa Bot</div>
+  <div class="logo"><img src="icons/avalisa-signature-logo-transparent.png" alt="Avalisa PO Bot" /><span>Avalisa PO Bot</span></div>
   <div class="subtitle">Trading Strategy Tool for Pocket Option</div>
 
   <div id="main-content">

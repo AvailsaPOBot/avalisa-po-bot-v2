@@ -11,7 +11,9 @@ async function loadFromStorage() {
       state.settings = data.settings || getDefaultSettings();
       const minPct = Number(data.payoutMinPercent);
       state.payoutMinPercent = Number.isFinite(minPct) && minPct >= 1 && minPct <= 100 ? minPct : 90;
-      state.payoutAction = ['stop', 'switch', 'keep'].includes(data.payoutAction) ? data.payoutAction : 'stop';
+      state.payoutAction = data.payoutAction === 'keep'
+        ? 'off'
+        : (['off', 'stop', 'switch'].includes(data.payoutAction) ? data.payoutAction : 'switch');
       resolve();
     });
   });
@@ -29,10 +31,12 @@ if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged)
         if (el && Number(el.value) !== v) el.value = v;
       }
     }
-    if (changes.payoutAction && ['stop', 'switch', 'keep'].includes(changes.payoutAction.newValue)) {
-      state.payoutAction = changes.payoutAction.newValue;
-      const radio = document.querySelector(`input[name="av-payout-action"][value="${state.payoutAction}"]`);
-      if (radio && !radio.checked) radio.checked = true;
+    if (changes.payoutAction && ['off', 'stop', 'switch', 'keep'].includes(changes.payoutAction.newValue)) {
+      state.payoutAction = changes.payoutAction.newValue === 'keep' ? 'off' : changes.payoutAction.newValue;
+      const enabled = document.getElementById('av-payout-enabled');
+      const action = document.getElementById('av-payout-action');
+      if (enabled) enabled.checked = state.payoutAction !== 'off';
+      if (action && state.payoutAction !== 'off') action.value = state.payoutAction;
     }
   });
 }

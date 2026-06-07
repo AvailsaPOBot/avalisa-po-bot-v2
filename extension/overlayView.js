@@ -4,13 +4,13 @@
  */
 
 function getOverlayHTML() {
-  const logoUrl = chrome.runtime.getURL('icons/AvalisaBot_Logo.png');
+  const logoUrl = chrome.runtime.getURL('icons/avalisa-signature-logo-transparent.png');
   return `
     <div id="avalisa-panel">
       <div class="av-header">
         <span class="av-logo">
-          <img src="${logoUrl}" alt="Avalisa" class="av-logo-img" />
-          <span>Avalisa Bot</span>
+          <img src="${logoUrl}" alt="Avalisa PO Bot" class="av-logo-img" />
+          <span>Avalisa PO Bot</span>
         </span>
         <button id="av-close" class="av-icon-btn">✕</button>
       </div>
@@ -33,71 +33,63 @@ function getOverlayHTML() {
 
       <div class="av-section">
         <div class="av-row" id="av-row-strategy">
-          <label class="av-label">Strategy</label>
-          <select id="av-strategy" class="av-select" title="">
-            <option value="martingale">Martingale</option>
-            <option value="ai">Avalisa AI</option>
+          <label class="av-label" title="Choose the bot logic. Martingale follows your direction rules. Avalisa AI waits for indicator-based signals.">Strategy</label>
+          <select id="av-strategy" class="av-select" title="Choose the bot logic. Martingale follows your direction rules. Avalisa AI waits for indicator-based signals.">
+            <option value="martingale" title="Rule mode: trade the selected direction and increase after losses.">Martingale</option>
+            <option value="ai" title="Signal mode: Avalisa evaluates candles, RSI, Bollinger Bands, volatility, and trend.">Avalisa AI</option>
           </select>
         </div>
-        <div class="av-row av-row-sub" id="av-row-bot-pill" style="display:none">
-          <span></span>
-          <div id="av-bot-pill" class="av-bot-pill" title="Open bot settings">
-            <span class="av-bot-pill-ai">AI</span>
-            <span class="av-bot-pill-name">Avalisa</span>
-            <svg class="av-bot-pill-arrow" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 8 L8 2 M8 2 L4 2 M8 2 L8 6" stroke="#A78BFA" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
-          </div>
-        </div>
         <div class="av-row" id="av-row-direction">
-          <label class="av-label">Direction</label>
-          <select id="av-direction" class="av-select">
-            <option value="alternating">Alternating</option>
-            <option value="call">Always Buy</option>
-            <option value="put">Always Sell</option>
+          <label class="av-label" title="Direction used by Martingale mode.">Direction</label>
+          <select id="av-direction" class="av-select" title="Direction used by Martingale mode.">
+            <option value="alternating" title="Switches Buy/Sell each trade.">Alternating</option>
+            <option value="call" title="Always places Buy/Call trades.">Always Buy</option>
+            <option value="put" title="Always places Sell/Put trades.">Always Sell</option>
           </select>
         </div>
         <div class="av-row" id="av-row-timeframe">
-          <label class="av-label">Timeframe</label>
-          <select id="av-timeframe" class="av-select">
-            <option value="S30">30s</option>
-            <option value="M1" selected>1min</option>
-            <option value="M3">3min</option>
-            <option value="M5">5min</option>
+          <label class="av-label" title="Trade expiry for Martingale mode.">Timeframe</label>
+          <select id="av-timeframe" class="av-select" title="Trade expiry for Martingale mode.">
+            <option value="S30" title="30 second expiry.">30s</option>
+            <option value="M1" selected title="1 minute expiry.">1min</option>
+            <option value="M3" title="3 minute expiry.">3min</option>
+            <option value="M5" title="5 minute expiry.">5min</option>
           </select>
         </div>
         <div class="av-row" id="av-row-intensity" style="display:none">
-          <label class="av-label">Intensity</label>
-          <select id="av-intensity" class="av-select">
-            <option value="low">Low</option>
-            <option value="mid" selected>Mid</option>
-            <option value="high">High</option>
+          <label class="av-label" title="How strict Avalisa AI is before placing a signal.">Intensity</label>
+          <select id="av-intensity" class="av-select" title="Low trades fastest. Mid is balanced and now allows OTC. High is strict and skips OTC.">
+            <option value="low" title="Most active. Lower confirmation, allows OTC.">Low</option>
+            <option value="mid" selected title="Balanced. More confirmation than Low, now allows OTC.">Mid</option>
+            <option value="high" title="Most selective. Strongest filters and skips OTC.">High</option>
           </select>
         </div>
         <div class="av-row" id="av-row-ai-pair-mode" style="display:none">
-          <label class="av-label">Pair Scan</label>
-          <select id="av-ai-pair-mode" class="av-select">
-            <option value="auto" selected>Auto scan favorites</option>
-            <option value="current">Current pair only</option>
+          <label class="av-label" title="Controls whether AI can rotate through favorite pairs.">Pair Scan</label>
+          <select id="av-ai-pair-mode" class="av-select" title="Auto scan checks favorite pairs. Current pair only stays on the visible chart.">
+            <option value="auto" selected title="Scan PO favorite pairs and switch to a payout-qualified signal.">Auto scan favorites</option>
+            <option value="current" title="Never rotate pairs; trade only the visible chart.">Current pair only</option>
           </select>
         </div>
         <div class="av-row">
-          <label class="av-label">Start Amount ($)</label>
-          <input id="av-start-amount" type="number" min="1" step="1" value="1" class="av-input av-input-sm" />
+          <label class="av-label" title="First stake amount. Martingale resets to this after a win.">Start Amount ($)</label>
+          <input id="av-start-amount" type="number" min="1" step="1" value="1" class="av-input av-input-sm" title="First stake amount. Martingale resets to this after a win." />
         </div>
         <div class="av-row">
-          <label class="av-label">Martingale ×</label>
-          <select id="av-multiplier" class="av-select">
-            <option value="2.0" selected>2.0×</option>
-            <option value="2.2">2.2×</option>
-            <option value="2.4">2.4×</option>
-            <option value="2.6">2.6×</option>
-            <option value="2.8">2.8×</option>
-            <option value="3.0">3.0×</option>
+          <label class="av-label" title="How much to multiply the next stake after a loss.">Martingale ×</label>
+          <select id="av-multiplier" class="av-select" title="How much to multiply the next stake after a loss.">
+            <option value="2.0" selected title="Double after each loss.">2.0×</option>
+            <option value="2.2" title="Increase by 2.2x after each loss.">2.2×</option>
+            <option value="2.4" title="Increase by 2.4x after each loss.">2.4×</option>
+            <option value="2.6" title="Increase by 2.6x after each loss.">2.6×</option>
+            <option value="2.8" title="Increase by 2.8x after each loss.">2.8×</option>
+            <option value="3.0" title="Triple after each loss.">3.0×</option>
           </select>
         </div>
         <div class="av-row">
-          <label class="av-label">Martingale Steps</label>
-          <select id="av-steps" class="av-select">
-            <option value="infinite" selected>Infinite</option>
+          <label class="av-label" title="Maximum recovery steps before returning to the start amount.">Martingale Steps</label>
+          <select id="av-steps" class="av-select" title="Maximum recovery steps before returning to the start amount. Ties keep the same step and amount.">
+            <option value="infinite" selected title="Keep recovering until a win or manual stop.">Infinite</option>
             <option value="1">1</option>
             <option value="2">2</option>
             <option value="3">3</option>
@@ -109,28 +101,23 @@ function getOverlayHTML() {
             <option value="12">12</option>
           </select>
         </div>
-      </div>
-
-      <div class="av-section">
-        <div class="av-section-title">Payout Monitor</div>
-        <div class="av-row">
-          <label class="av-label" for="av-payout-min">Minimum payout %</label>
+        <div class="av-row av-payout-row">
+          <label class="av-label" for="av-payout-min" title="Minimum payout Avalisa should accept before placing a trade.">Minimum payout %</label>
+          <span class="av-payout-controls">
+          <label class="av-switch" title="When on, Avalisa checks payout before trading.">
+            <input id="av-payout-enabled" type="checkbox" checked />
+            <span class="av-switch-slider"></span>
+          </label>
           <input id="av-payout-min" type="number" min="1" max="100" step="1" value="90"
-            class="av-input av-input-sm" />
+            class="av-input av-input-sm" title="Minimum payout Avalisa should accept before placing a trade." />
+          </span>
         </div>
-        <div class="av-radio-group">
-          <label class="av-radio-item">
-            <input type="radio" name="av-payout-action" value="stop" checked />
-            <span>Stop bot</span>
-          </label>
-          <label class="av-radio-item">
-            <input type="radio" name="av-payout-action" value="switch" />
-            <span>Auto-switch to highest-payout favorite</span>
-          </label>
-          <label class="av-radio-item">
-            <input type="radio" name="av-payout-action" value="keep" />
-            <span>Keep trading (ignore payout)</span>
-          </label>
+        <div class="av-row av-payout-action-row">
+          <span></span>
+          <select id="av-payout-action" class="av-select" title="Choose how Avalisa reacts when payout is below the minimum.">
+            <option value="switch" selected title="Try to switch to the highest-payout favorite that meets the minimum.">Auto-switch favorite</option>
+            <option value="stop" title="Stop the bot when payout is below the minimum.">Stop bot</option>
+          </select>
         </div>
       </div>
 
@@ -190,12 +177,13 @@ function getOverlayCSS() {
       display: inline-flex; align-items: center; gap: 8px;
       font-size: 15px; font-weight: 700; color: #a78bfa;
     }
-    .av-logo-img { height: 24px; width: auto; display: block; flex-shrink: 0; }
+    .av-logo-img { height: 26px; width: 52px; object-fit: contain; display: block; flex-shrink: 0; }
     .av-icon-btn { background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 14px; }
     .av-icon-btn:hover { color: #e2e8f0; }
     .av-section { margin-bottom: 12px; border-bottom: 1px solid #2d2d5b; padding-bottom: 12px; }
     .av-section:last-child { border-bottom: none; margin-bottom: 0; }
     .av-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .av-row:last-child { margin-bottom: 0; }
     .av-label { font-size: 12px; color: #94a3b8; }
     .av-select, .av-input {
       background: #0f0f23; border: 1px solid #2d2d5b; border-radius: 6px;
@@ -205,22 +193,6 @@ function getOverlayCSS() {
     .av-select:disabled, .av-input:disabled { opacity: 0.4; cursor: not-allowed; }
     .av-input { width: 100%; box-sizing: border-box; margin-top: 4px; padding: 6px 10px; }
     .av-input-sm { width: 130px; margin-top: 0; padding: 4px 8px; }
-    .av-radio-item input[type="radio"]:disabled + span { opacity: 0.4; cursor: not-allowed; }
-    .av-radio-item input[type="radio"]:disabled { cursor: not-allowed; }
-    .av-bot-pill {
-      display: inline-flex; align-items: center; gap: 8px;
-      background: #1F1A3E; border: 0.5px solid #7C3AED; border-radius: 8px;
-      padding: 8px 12px; cursor: pointer; width: 130px; box-sizing: border-box;
-      transition: background 0.15s ease;
-    }
-    .av-bot-pill:hover { background: #2A2350; }
-    .av-bot-pill-ai {
-      background: #7C3AED; color: #fff; font-size: 9px; font-weight: 700;
-      padding: 2px 5px; border-radius: 4px; letter-spacing: 0.05em;
-    }
-    .av-bot-pill-name { color: #ECEAFF; font-size: 13px; flex: 1; }
-    .av-bot-pill-arrow { flex-shrink: 0; }
-    .av-row-sub { margin-top: -4px; margin-bottom: 8px; }
     .av-sublink {
       font-size: 11px; color: #A78BFA; text-decoration: none; cursor: pointer;
     }
@@ -237,8 +209,11 @@ function getOverlayCSS() {
     .av-btn-red { background: #dc2626; color: #fff; }
     .av-btn-sm { padding: 4px 10px; font-size: 11px; flex: none; }
     #av-logout-btn { background: #dc2626; color: #ffffff; }
-    .av-user-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-    .av-user-row .av-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .av-user-row { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
+    .av-user-row .av-label {
+      flex: 1 1 auto; min-width: 0; max-width: 118px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
     .av-plan-badge {
       font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px;
       text-transform: uppercase; letter-spacing: 0.5px;
@@ -261,12 +236,29 @@ function getOverlayCSS() {
       font-size: 11px; font-weight: 700; color: #a78bfa; text-transform: uppercase;
       letter-spacing: 0.5px; margin-bottom: 8px;
     }
-    .av-radio-group { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
-    .av-radio-item {
-      display: flex; align-items: center; gap: 8px; cursor: pointer;
-      font-size: 12px; color: #cbd5e1;
+    .av-payout-row { margin-top: 8px; }
+    .av-payout-controls {
+      display: inline-flex; align-items: center; justify-content: flex-end;
+      gap: 10px; width: 130px;
     }
-    .av-radio-item input[type="radio"] { accent-color: #7c3aed; cursor: pointer; margin: 0; }
+    .av-payout-action-row { margin-top: -3px; }
+    .av-switch {
+      position: relative; display: inline-block; width: 36px; height: 20px; flex-shrink: 0;
+    }
+    .av-switch input { opacity: 0; width: 0; height: 0; }
+    .av-switch-slider {
+      position: absolute; cursor: pointer; inset: 0; background: #334155;
+      transition: 0.2s; border-radius: 999px; border: 1px solid #475569;
+    }
+    .av-switch-slider:before {
+      content: ""; position: absolute; height: 14px; width: 14px; left: 2px; top: 2px;
+      background: #e2e8f0; transition: 0.2s; border-radius: 50%;
+    }
+    .av-switch input:checked + .av-switch-slider {
+      background: #7c3aed; border-color: #a78bfa;
+    }
+    .av-switch input:checked + .av-switch-slider:before { transform: translateX(16px); }
+    .av-switch input:disabled + .av-switch-slider { opacity: 0.45; cursor: not-allowed; }
     .av-footer {
       margin-top: 12px; padding-top: 10px; border-top: 1px solid #2d2d5b;
       font-size: 10px; color: #64748b; text-align: center;

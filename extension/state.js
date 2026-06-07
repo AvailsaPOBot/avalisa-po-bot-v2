@@ -31,10 +31,11 @@ const state = {
   recentCloseEvents: [], // [{ ts, event, payload }]
   lastTradeResultDebug: null,
   aiNoProgressCycles: 0,
+  unconfirmedOrderFailures: 0,
   lastPairSwitchAt: 0,
   // Payout monitor (populated from chrome.storage.local)
   payoutMinPercent: 90,
-  payoutAction: 'stop',
+  payoutAction: 'switch',
 };
 
 function getDefaultSettings() {
@@ -56,10 +57,12 @@ const MAX_CANDLE_BUFFER = 50;
 // PO's updateHistoryNewFast seed commonly gives only 12-15 trade-duration
 // candles right after page load. Gate by intensity: Low starts quickly, while
 // Mid/High wait for more evidence. All modes keep/use up to 50 when available.
+// Mid now allows OTC; High remains the strict OTC-filtered mode.
 const REQUIRED_CANDLES_BY_INTENSITY = { low: 12, mid: 20, high: 30 };
 const IDEAL_CANDLES = 50;
 const AI_MAX_NO_PROGRESS_CYCLES = 3;
 const AI_NO_PROGRESS_RETRY_MS = 5000;
 const LATE_OPEN_WATCH_MS = 90000;
+const MAX_UNCONFIRMED_ORDER_FAILURES = 3;
 const CANDLE_CACHE_KEY = 'avalisaCandleCache';
 let candleCacheSaveTimer = null;

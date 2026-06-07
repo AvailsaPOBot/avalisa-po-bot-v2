@@ -432,6 +432,35 @@ function clearTradeLock() {
   state.isTradeOpen = false;
 }
 
+async function recoverAfterUnconfirmedOrder() {
+  state.unconfirmedOrderFailures = (state.unconfirmedOrderFailures || 0) + 1;
+  closePOPopovers();
+
+  if (state.unconfirmedOrderFailures >= MAX_UNCONFIRMED_ORDER_FAILURES) {
+    updateStatus('error', `Order confirmation failed ${state.unconfirmedOrderFailures} times — stopped to avoid a stuck loop`);
+    state.running = false;
+    state.stopRequested = true;
+    clearTradeLock();
+    updateUI();
+    return false;
+  }
+
+  const { minPct } = getPayoutSettings();
+  const favorites = getFavoritePairs()
+    .filter(fav => fav.payout >= minPct)
+    .sort((a, b) => b.payout - a.payout);
+
+  if (favorites.length > 0) {
+    console.warn('[Avalisa] Recovering unconfirmed order by refreshing a payout-qualified favorite:', favorites[0].name, favorites[0].payout);
+    clickFavoritePair(favorites[0]);
+    await sleep(2500);
+  } else {
+    await sleep(AI_NO_PROGRESS_RETRY_MS);
+  }
+
+  return true;
+}
+
 function getNextDirection() {
   // Martingale mode — use user direction setting
   const dir = state.settings.direction;
@@ -468,6 +497,16 @@ async function runTradeCycle(generation) {
     return;
   }
 
+  const aiAllowanceBlock = getAiAllowanceBlock(license);
+  if (aiAllowanceBlock) {
+    updateStatus('error', aiAllowanceBlock.message);
+    state.running = false;
+    state.stopRequested = true;
+    updateUI();
+    showLimitReachedMessage({ reason: aiAllowanceBlock.reason });
+    return;
+  }
+
   // Payout monitor — only on fresh martingale sequence starts (never mid-sequence)
   if (state.martingaleStep === 0) {
     const pay = await checkPayoutBeforeTrade({
@@ -486,14 +525,14 @@ async function runTradeCycle(generation) {
     }
   }
 
-  // AI strategy guard: requires the Pro plan. Stored as lifetime internally.
-  if (state.settings.strategy === 'ai' && license.plan !== 'lifetime') {
+  // AI strategy guard: Basic gets limited AI trades; Pro gets unlimited current modes.
+  if (state.settings.strategy === 'ai' && !['basic', 'lifetime'].includes(license.plan)) {
     state.settings.strategy = 'martingale';
     state.settings.aiAssist = false;
     const stratEl = document.getElementById('av-strategy');
     if (stratEl) stratEl.value = 'martingale';
     updateUI();
-    updateStatus('error', 'AI strategy requires Pro plan. Switched to Martingale.');
+    updateStatus('error', 'Avalisa AI requires Basic or Pro. Switched to Martingale.');
   }
 
   // AI mode: local rule engine — zero network calls
@@ -553,9 +592,9 @@ async function runTradeCycle(generation) {
       // SKIP: re-check soon, using the live PO duration as the retry clock.
       const candleMs = getCurrentPeriodSeconds() * 1000;
       const retryMs = noProgressReason ? 5000 : Math.min(candleMs, 30000);
-      // v2.3.2: friendlier OTC message — Mid/High intensity skips OTC by design.
+      // High intensity skips OTC by design. Low/Mid can trade OTC.
       const skipMsg = reason === 'otc_filter'
-        ? `SKIP — OTC pair (use Low intensity) — retrying (${state.aiNoProgressCycles || 0})`
+        ? `SKIP — OTC pair (use Low or Mid intensity) — retrying (${state.aiNoProgressCycles || 0})`
         : `SKIP (${reason}) — scanning again (${state.aiNoProgressCycles || 0})`;
       updateStatus('running', skipMsg);
       await sleep(retryMs);
@@ -673,8 +712,10 @@ async function runTradeCycle(generation) {
     if (!openResult.opened) {
       console.warn('[Avalisa] No late balance confirmation — clearing lock and continuing without counting trade:', openResult.method);
       clearTradeLock();
-      const cooldownMs = Math.min(Math.max(getCurrentPeriodSeconds() * 1000, AI_NO_PROGRESS_RETRY_MS), 60000);
-      updateStatus('running', `No confirmed order — cooling down ${Math.round(cooldownMs / 1000)}s`);
+      const canContinue = await recoverAfterUnconfirmedOrder();
+      if (!canContinue || !isCycleActive(generation)) return;
+      const cooldownMs = Math.min(Math.max(AI_NO_PROGRESS_RETRY_MS, 5000), 15000);
+      updateStatus('running', `No confirmed order — refreshed controls, retrying in ${Math.round(cooldownMs / 1000)}s`);
       await sleep(cooldownMs);
       if (isCycleActive(generation)) runTradeCycle(generation).catch(console.error);
       return;
@@ -683,6 +724,7 @@ async function runTradeCycle(generation) {
   const balanceDuringTrade = openResult.balanceDuring;
 
   setTradeLock('trade_open');
+  state.unconfirmedOrderFailures = 0;
   console.log('[Avalisa] Trade confirmed open. isTradeOpen = true. Balance during:', balanceDuringTrade, 'method:', openResult.method);
 
   const tradeGuardTimeout = setTimeout(() => {
@@ -823,17 +865,42 @@ function injectHeaderButton() {
 
 function applyStrategyUI(strategy) {
   const isAi = strategy === 'ai';
+  const strategySelect = document.getElementById('av-strategy');
   const rowDirection = document.getElementById('av-row-direction');
   const rowTimeframe = document.getElementById('av-row-timeframe');
   const rowIntensity = document.getElementById('av-row-intensity');
   const rowAiPairMode = document.getElementById('av-row-ai-pair-mode');
-  const rowPill = document.getElementById('av-row-bot-pill');
 
   if (rowDirection) rowDirection.style.display = isAi ? 'none' : 'flex';
   if (rowTimeframe) rowTimeframe.style.display = isAi ? 'none' : 'flex';
   if (rowIntensity) rowIntensity.style.display = isAi ? 'flex' : 'none';
   if (rowAiPairMode) rowAiPairMode.style.display = isAi ? 'flex' : 'none';
-  if (rowPill) rowPill.style.display = isAi ? 'flex' : 'none';
+  if (strategySelect) {
+    strategySelect.style.borderColor = isAi ? '#7C3AED' : '#2d2d5b';
+    strategySelect.style.borderWidth = isAi ? '2px' : '1px';
+  }
+}
+
+function applyPayoutControlsUI() {
+  const payoutEnabled = document.getElementById('av-payout-enabled');
+  const payoutMin = document.getElementById('av-payout-min');
+  const payoutAction = document.getElementById('av-payout-action');
+  const enabled = payoutEnabled ? payoutEnabled.checked : true;
+  const locked = state.running;
+  if (payoutMin) payoutMin.disabled = locked || !enabled;
+  if (payoutAction) payoutAction.disabled = locked || !enabled;
+}
+
+function formatUserEmailForPanel(email) {
+  const value = String(email || '').trim();
+  if (value.length <= 22) return value;
+  const at = value.indexOf('@');
+  if (at > 0) {
+    const local = value.slice(0, at);
+    const domain = value.slice(at + 1);
+    if (local.length > 12) return `${local.slice(0, 12)}...@${domain}`;
+  }
+  return `${value.slice(0, 17)}...`;
 }
 
 function bindOverlayEvents() {
@@ -888,14 +955,17 @@ function bindOverlayEvents() {
     payoutMin.addEventListener('change', commit);
     payoutMin.addEventListener('blur', commit);
   }
-  document.querySelectorAll('input[name="av-payout-action"]').forEach(r => {
-    r.addEventListener('change', () => {
-      const sel = document.querySelector('input[name="av-payout-action"]:checked');
-      if (!sel) return;
-      state.payoutAction = sel.value;
-      chrome.storage.local.set({ payoutAction: sel.value });
-    });
-  });
+  const payoutEnabled = document.getElementById('av-payout-enabled');
+  const payoutAction = document.getElementById('av-payout-action');
+  const commitPayoutAction = () => {
+    const enabled = payoutEnabled ? payoutEnabled.checked : true;
+    const action = enabled ? (payoutAction?.value || 'switch') : 'off';
+    state.payoutAction = action;
+    applyPayoutControlsUI();
+    chrome.storage.local.set({ payoutAction: action });
+  };
+  if (payoutEnabled) payoutEnabled.addEventListener('change', commitPayoutAction);
+  if (payoutAction) payoutAction.addEventListener('change', commitPayoutAction);
 
   document.getElementById('av-affiliate-link').href = state.affiliateLink;
   document.getElementById('av-upgrade-link').href = `${DASHBOARD_URL}/pricing`;
@@ -1083,11 +1153,19 @@ async function startBot() {
     return;
   }
 
+  const aiAllowanceBlock = getAiAllowanceBlock(license);
+  if (aiAllowanceBlock) {
+    updateStatus('error', aiAllowanceBlock.message);
+    showLimitReachedMessage({ reason: aiAllowanceBlock.reason });
+    return;
+  }
+
   state.running = true;
   clearTradeLock();                  // clear any stale open-trade flag from last run
   state.currentAmount = parseFloat(state.settings.startAmount) || 1.0;
   state.martingaleStep = 0;
   state.aiNoProgressCycles = 0;
+  state.unconfirmedOrderFailures = 0;
 
   const gen = startGeneration;
   updateUI();
@@ -1102,6 +1180,7 @@ function stopBot() {
   state.stopRequested = true;
   clearTradeLock();
   state.aiNoProgressCycles = 0;
+  state.unconfirmedOrderFailures = 0;
   updateUI();
   updateStatus('', 'Stopped');
   updateBottomStatus(); // re-evaluate idle AI status (Ready / Loading / Waiting)
@@ -1158,17 +1237,29 @@ function updateUI() {
   const lockedIds = [
     'av-strategy', 'av-direction', 'av-timeframe', 'av-intensity', 'av-ai-pair-mode',
     'av-start-amount', 'av-multiplier', 'av-steps',
-    'av-payout-min',
+    'av-payout-min', 'av-payout-enabled', 'av-payout-action',
   ];
   const lockTitle = state.running ? 'Stop bot to change strategy' : '';
   lockedIds.forEach(id => {
     const el = document.getElementById(id);
-    if (el) { el.disabled = state.running; el.title = lockTitle; }
+    if (el) {
+      if (!el.dataset.tip) el.dataset.tip = el.title || '';
+      el.disabled = state.running;
+      el.title = state.running ? lockTitle : el.dataset.tip;
+    }
   });
-  document.querySelectorAll('input[name="av-payout-action"]').forEach(r => {
-    r.disabled = state.running;
-    r.title = lockTitle;
-  });
+  const payoutEnabled = document.getElementById('av-payout-enabled');
+  const payoutAction = document.getElementById('av-payout-action');
+  if (payoutEnabled) {
+    if (!payoutEnabled.dataset.tip) payoutEnabled.dataset.tip = payoutEnabled.title || '';
+    payoutEnabled.disabled = state.running;
+    payoutEnabled.title = lockTitle || payoutEnabled.dataset.tip || payoutEnabled.title;
+  }
+  if (payoutAction) {
+    if (!payoutAction.dataset.tip) payoutAction.dataset.tip = payoutAction.title || '';
+    payoutAction.title = lockTitle || payoutAction.dataset.tip || payoutAction.title;
+  }
+  applyPayoutControlsUI();
 
   // Auth UI
   if (state.jwt) {
@@ -1176,7 +1267,10 @@ function updateUI() {
     if (loggedIn) loggedIn.style.display = 'flex';
     chrome.storage.local.get('userEmail', data => {
       const emailEl = document.getElementById('av-user-email');
-      if (emailEl && data.userEmail) emailEl.textContent = data.userEmail;
+      if (emailEl && data.userEmail) {
+        emailEl.textContent = formatUserEmailForPanel(data.userEmail);
+        emailEl.title = data.userEmail;
+      }
     });
     // Plan badge
     const badgeEl = document.getElementById('av-plan-badge');
@@ -1214,9 +1308,16 @@ function updateUI() {
       const v = Number.isFinite(+state.payoutMinPercent) ? +state.payoutMinPercent : 90;
       payoutMin.value = Math.max(1, Math.min(100, v));
     }
-    const action = ['stop', 'switch', 'keep'].includes(state.payoutAction) ? state.payoutAction : 'stop';
-    const radio = document.querySelector(`input[name="av-payout-action"][value="${action}"]`);
-    if (radio) radio.checked = true;
+    const action = state.payoutAction === 'keep'
+      ? 'off'
+      : (['off', 'stop', 'switch'].includes(state.payoutAction) ? state.payoutAction : 'switch');
+    const payoutEnabled = document.getElementById('av-payout-enabled');
+    const payoutAction = document.getElementById('av-payout-action');
+    if (payoutEnabled) payoutEnabled.checked = action !== 'off';
+    if (payoutAction) {
+      payoutAction.value = action === 'off' ? 'switch' : action;
+    }
+    applyPayoutControlsUI();
 
     updateBottomStatus();
   }
@@ -1240,6 +1341,22 @@ function updateTradeCounter() {
   } else {
     el.textContent = `Trades this session: ${state.tradesCount}`;
   }
+}
+
+function getAiAllowanceBlock(license) {
+  if (state.settings?.strategy !== 'ai') return null;
+  if (isDemoMode()) return null;
+  if (!license || license.plan === 'lifetime') return null;
+
+  const allowance = Number(license.aiTradesAllowance);
+  const used = Number(license.aiTradesUsed);
+  if (!Number.isFinite(allowance) || !Number.isFinite(used)) return null;
+  if (used < allowance) return null;
+
+  return {
+    reason: 'AI trade allowance exhausted',
+    message: `Avalisa AI allowance reached (${used}/${allowance}). Upgrade to Pro for unlimited AI.`,
+  };
 }
 
 function showLimitReachedMessage(license) {

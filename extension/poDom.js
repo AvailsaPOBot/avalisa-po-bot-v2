@@ -81,7 +81,9 @@ function setTradeAmount(amount) {
   input.focus();
   input.select();
 
-  const typed = document.execCommand('insertText', false, valueStr);
+  const typed = typeof document.execCommand === 'function'
+    ? document.execCommand('insertText', false, valueStr)
+    : false;
 
   if (!typed) {
     const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
@@ -91,6 +93,27 @@ function setTradeAmount(amount) {
   }
 
   input.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+  const acceptedValue = parseFloat(String(input.value || '').replace(/[^0-9.]/g, ''));
+  if (!Number.isFinite(acceptedValue) || Math.abs(acceptedValue - amount) > 0.01) {
+    console.warn('[Avalisa] setTradeAmount: value did not stick. wanted:', valueStr, 'actual:', input.value);
+    input.focus();
+    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    nativeSetter.call(input, valueStr);
+    input.dispatchEvent(new InputEvent('input', {
+      bubbles: true,
+      inputType: 'insertReplacementText',
+      data: valueStr,
+    }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    input.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+  }
+
+  const finalValue = parseFloat(String(input.value || '').replace(/[^0-9.]/g, ''));
+  if (!Number.isFinite(finalValue) || Math.abs(finalValue - amount) > 0.01) {
+    console.warn('[Avalisa] setTradeAmount: PO rejected amount. wanted:', valueStr, 'actual:', input.value);
+    return false;
+  }
+
   return true;
 }
 
@@ -392,7 +415,9 @@ function clickFavoritePair(fav) {
 
 function getPayoutSettings() {
   const minPct = Number.isFinite(+state.payoutMinPercent) ? +state.payoutMinPercent : 90;
-  const action = ['stop', 'switch', 'keep'].includes(state.payoutAction) ? state.payoutAction : 'stop';
+  const action = state.payoutAction === 'keep'
+    ? 'off'
+    : (['off', 'stop', 'switch'].includes(state.payoutAction) ? state.payoutAction : 'switch');
   return { minPct, action };
 }
 
@@ -407,7 +432,7 @@ async function checkPayoutBeforeTrade(options = {}) {
   }
   console.log(`[Avalisa] Payout Monitor: current=${current}% threshold=${minPct}% action=${action}`);
 
-  if (action === 'keep' || current >= minPct) return { proceed: true };
+  if (action === 'off' || current >= minPct) return { proceed: true };
 
   if (action === 'stop') {
     return { proceed: false, halt: true, reason: `Payout ${current}% below ${minPct}% threshold` };
