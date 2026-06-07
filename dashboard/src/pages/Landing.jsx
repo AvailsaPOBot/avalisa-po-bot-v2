@@ -30,8 +30,8 @@ const features = [
 
 const plans = [
   { name: 'Demo', price: '10', unit: 'trades', text: 'Test Martingale mode first.', cta: 'Start Demo', href: '/register', features: ['10 trades', 'Martingale only', 'No start amount cap', 'Support chat'] },
-  { name: 'Basic', price: '$69', text: 'Unlimited Martingale access.', cta: 'Get Basic Plan', href: '/pricing#basic', featured: true, features: ['Unlimited trades', 'Martingale only', 'No start amount cap', 'Email support'] },
-  { name: 'Pro', price: '$119', text: 'Martingale plus Avalisa AI.', cta: 'Get Pro Plan', href: '/pricing#pro', features: ['Unlimited trades', 'Martingale mode', 'Avalisa AI mode', 'Affiliate unlock'] },
+  { name: 'Basic', price: '$69', text: 'Unlimited Martingale plus limited Avalisa AI.', cta: 'Get Basic Plan', href: '/pricing#basic', featured: true, features: ['Unlimited Martingale', '10 Avalisa AI trades', 'No start amount cap', 'Email support'] },
+  { name: 'Pro', price: '$119', text: 'Everything unlocked for current modes.', cta: 'Get Pro Plan', href: '/pricing#pro', features: ['Unlimited Martingale', 'Avalisa AI unlocked', 'Affiliate unlock', 'Priority support'] },
 ];
 
 const faqs = [
@@ -314,10 +314,10 @@ export default function Landing() {
               <li><Gift size={16} /> Test first with 10 demo trades</li>
             </ul>
             <div className="lux-actions">
-              <ButtonLink href={AFFILIATE_URL} external className="lux-button--gold" icon={ArrowRight}>Sign Up</ButtonLink>
+              <ButtonLink href={AFFILIATE_URL} external className="lux-button--gold" icon={ArrowRight}>Sign Up — Unlock Pro Free</ButtonLink>
               <ButtonLink href={CHROME_EXTENSION_URL} external className="lux-button--ghost" icon={Puzzle}>Chrome Extension</ButtonLink>
             </div>
-            <p className="lux-micro">No credit card required. Demo first.</p>
+            <p className="lux-micro">No credit card required. Demo first. <strong>Register Pocket Option through us and the Pro plan unlocks free.</strong> New to Pocket Option? Use code <strong>50START</strong> for a 50% first-deposit bonus (Pocket Option offer, terms apply).</p>
           </motion.div>
           <TradingStage />
         </div>
