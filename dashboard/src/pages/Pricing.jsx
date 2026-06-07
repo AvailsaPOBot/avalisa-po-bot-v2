@@ -43,23 +43,23 @@ export default function Pricing() {
       name: 'Basic',
       price: '$69',
       period: 'one-time',
-      description: 'Unlimited Martingale access for traders who want the core bot.',
+      description: 'Unlimited Martingale access plus 10 Avalisa AI trades.',
       cta: 'Buy Basic — $69',
       href: appendEmail(process.env.REACT_APP_WHOP_BASIC_URL),
       external: true,
       featured: true,
-      features: ['Unlimited trades', 'Martingale mode only', 'No starting amount cap', 'Cloud settings sync', 'Trade history'],
+      features: ['Unlimited Martingale', '10 Avalisa AI trades', 'No starting amount cap', 'Cloud settings sync', 'Trade history'],
     },
     {
       id: 'pro',
       name: 'Pro',
       price: '$119',
       period: 'one-time',
-      description: 'Unlock Martingale and Avalisa AI with no trade limit.',
+      description: 'Unlock everything available in the current product.',
       cta: 'Buy Pro — $119',
       href: appendEmail(process.env.REACT_APP_WHOP_PRO_URL || process.env.REACT_APP_WHOP_LIFETIME_URL),
       external: true,
-      features: ['Unlimited trades', 'Martingale mode', 'Avalisa AI mode', 'No starting amount cap', 'Affiliate users get this plan'],
+      features: ['Unlimited Martingale', 'Avalisa AI unlocked', 'Current modes included', 'No starting amount cap', 'Priority support'],
     },
   ];
 
@@ -96,6 +96,10 @@ export default function Pricing() {
           <img src="/images/landing/avalisa-blonde-pricing.png" alt="Avalisa pricing guide" />
         </aside>
       </section>
+
+      <p className="lux-affiliate-note lux-shell">
+        New to Pocket Option? Sign up through us and the <strong>Pro plan unlocks free</strong> — use code <strong>50START</strong> for a 50% first-deposit bonus (Pocket Option offer, terms apply).
+      </p>
 
       <p className="lux-risk-note lux-shell">
         Trading involves risk. Avalisa does not guarantee profits. Use demo mode first and trade responsibly.
