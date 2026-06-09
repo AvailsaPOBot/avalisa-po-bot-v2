@@ -2,6 +2,7 @@ const express = require('express');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
 const prisma = require('../lib/prisma');
 const { PLAN_IDS, getPlanEntitlements } = require('../lib/plans');
+const { buildUserSearchWhere } = require('../lib/adminUsers');
 
 const router = express.Router();
 
@@ -218,10 +219,14 @@ router.delete('/users/:id', async (req, res) => {
   }
 });
 
-// GET /api/admin/users — list recent users with plan + win rate + latest balance
+// GET /api/admin/users — list recent users with plan + win rate + latest balance.
+// Optional ?search= filters by email or poUserId (case-insensitive contains), so
+// older paying customers outside the recent-50 window are still findable.
 router.get('/users', async (req, res) => {
   try {
+    const where = buildUserSearchWhere(req.query.search);
     const users = await prisma.user.findMany({
+      where,
       orderBy: { createdAt: 'desc' },
       take: 50,
       select: {
