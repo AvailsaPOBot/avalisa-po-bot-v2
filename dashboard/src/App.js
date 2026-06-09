@@ -8,6 +8,8 @@ import Landing from './pages/Landing';
 import FloatingChat from './components/FloatingChat';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import AuthCallback from './pages/AuthCallback';
 import Dashboard from './pages/Dashboard';
 import Pricing from './pages/Pricing';
@@ -25,6 +27,8 @@ function AppShell() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/support" element={<Support />} />

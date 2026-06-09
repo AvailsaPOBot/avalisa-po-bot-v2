@@ -49,7 +49,7 @@ export default function Login() {
 
           <div className="lux-auth-options">
             <label><input type="checkbox" checked={form.remember} onChange={(e) => setForm((f) => ({ ...f, remember: e.target.checked }))} /> Remember me</label>
-            <a href="mailto:avalisapobot@gmail.com?subject=Avalisa%20password%20reset%20help">Forgot password?</a>
+            <Link to="/forgot-password">Forgot password?</Link>
           </div>
 
           <button type="submit" disabled={loading}>{loading ? 'Signing in...' : 'Sign In'}</button>

@@ -5,6 +5,8 @@ const jwt = require('jsonwebtoken');
 const { authMiddleware } = require('../middleware/auth');
 const prisma = require('../lib/prisma');
 const { PLAN_IDS, getPlanEntitlements } = require('../lib/plans');
+const { sendEmail, emailConfigured } = require('../lib/email');
+const { createResetToken, decodeUserId, verifyResetToken } = require('../lib/resetToken');
 
 const router = express.Router();
 
@@ -194,6 +196,88 @@ router.post('/login', async (req, res) => {
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+function resetEmailHtml(resetUrl) {
+  return `
+  <div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:480px;margin:0 auto;color:#1a1a1a">
+    <h2 style="color:#0a0a0f">Reset your Avalisa PO Bot password</h2>
+    <p>We received a request to reset your password. Click the button below to choose a new one. This link expires in <strong>1 hour</strong>.</p>
+    <p style="text-align:center;margin:28px 0">
+      <a href="${resetUrl}" style="background:#d8a24a;color:#0a0a0f;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:600;display:inline-block">Reset password</a>
+    </p>
+    <p style="font-size:13px;color:#555">If the button doesn't work, paste this link into your browser:<br><a href="${resetUrl}">${resetUrl}</a></p>
+    <p style="font-size:13px;color:#555">If you didn't request this, you can safely ignore this email — your password won't change.</p>
+  </div>`;
+}
+
+// POST /api/auth/forgot-password — email a reset link
+router.post('/forgot-password', async (req, res) => {
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  // Always answer the same way so we never reveal which emails are registered.
+  const genericMessage = 'If an account exists for that email, a password reset link has been sent.';
+  if (!email) return res.status(400).json({ error: 'Email is required' });
+
+  try {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) return res.json({ message: genericMessage });
+
+    if (!emailConfigured()) {
+      console.error('[forgot-password] RESEND_API_KEY not set — cannot send reset email');
+      return res.json({ message: genericMessage });
+    }
+
+    const token = createResetToken(user);
+    const resetUrl = `${frontendUrl()}/reset-password?token=${encodeURIComponent(token)}`;
+
+    try {
+      await sendEmail({
+        to: user.email,
+        subject: 'Reset your Avalisa PO Bot password',
+        html: resetEmailHtml(resetUrl),
+        text: `Reset your Avalisa PO Bot password:\n\n${resetUrl}\n\nThis link expires in 1 hour. If you didn't request this, you can ignore this email.`,
+      });
+    } catch (err) {
+      // Log but don't reveal send failures to the caller.
+      console.error('[forgot-password] email send failed:', err.message);
+    }
+
+    return res.json({ message: genericMessage });
+  } catch (err) {
+    console.error('Forgot-password error:', err);
+    return res.status(500).json({ error: 'Failed to process request' });
+  }
+});
+
+// POST /api/auth/reset-password — set a new password using a reset token
+router.post('/reset-password', async (req, res) => {
+  const { token, password } = req.body || {};
+  if (!token || !password) return res.status(400).json({ error: 'Token and new password are required' });
+  if (String(password).length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+
+  try {
+    const userId = decodeUserId(token);
+    if (!userId) return res.status(400).json({ error: 'Invalid or expired reset link' });
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !verifyResetToken(token, user)) {
+      return res.status(400).json({ error: 'Invalid or expired reset link' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
+
+    // Sign the user in straight away after a successful reset.
+    const authToken = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '30d' });
+    return res.json({
+      message: 'Password updated. You are now signed in.',
+      token: authToken,
+      user: { id: user.id, email: user.email, poUserId: user.poUserId, isAdmin: user.isAdmin, createdAt: user.createdAt },
+    });
+  } catch (err) {
+    console.error('Reset-password error:', err);
+    return res.status(500).json({ error: 'Failed to reset password' });
   }
 });
 
