@@ -1,7 +1,7 @@
 const express = require('express');
 const { authMiddleware } = require('../middleware/auth');
 const prisma = require('../lib/prisma');
-const { PLAN_IDS, getPlanEntitlements } = require('../lib/plans');
+const { PLAN_IDS, getPlanEntitlements, getAiTradesAllowanceForPlan } = require('../lib/plans');
 
 const router = express.Router();
 
@@ -34,7 +34,7 @@ router.post('/check', async (req, res) => {
           allowed: true,
           plan: PLAN_IDS.PRO,
           tradesRemaining: null,
-          aiTradesAllowance: license.aiTradesAllowance,
+          aiTradesAllowance: getAiTradesAllowanceForPlan(license.plan),
           aiTradesUsed: license.aiTradesUsed,
         });
       }
@@ -46,7 +46,7 @@ router.post('/check', async (req, res) => {
           tradesRemaining: null,
           tradesUsed: license.tradesUsed,
           tradesLimit: entitlements.tradesLimit,
-          aiTradesAllowance: license.aiTradesAllowance,
+          aiTradesAllowance: getAiTradesAllowanceForPlan(license.plan),
           aiTradesUsed: license.aiTradesUsed,
         });
       }
@@ -58,7 +58,7 @@ router.post('/check', async (req, res) => {
         tradesRemaining: remaining,
         tradesUsed: license.tradesUsed,
         tradesLimit: entitlements.tradesLimit,
-        aiTradesAllowance: license.aiTradesAllowance,
+        aiTradesAllowance: getAiTradesAllowanceForPlan(license.plan),
         aiTradesUsed: license.aiTradesUsed,
       });
     }
@@ -145,24 +145,13 @@ router.post('/claim', authMiddleware, async (req, res) => {
     const license = await prisma.license.findUnique({ where: { userId: req.userId } });
     if (!license) return res.status(404).json({ error: 'No license found' });
 
-    if (license.plan !== PLAN_IDS.DEMO) {
-      return res.status(400).json({ error: 'You already have an active plan.' });
-    }
-    if (license.claimStatus === 'pending') {
-      return res.status(400).json({ error: 'Your claim is already under review. Please wait.' });
-    }
-    if (license.claimStatus === 'approved') {
-      return res.status(400).json({ error: 'Your claim has already been approved.' });
-    }
-    // 'rejected' falls through — resubmission allowed
+    const user = await prisma.user.findUnique({ where: { id: req.userId } });
 
-    // Check if UID is already linked to another user account
+    // ── 1:1 enforcement — a PO UID belongs to exactly one account ──
     const uidLinkedUser = await prisma.user.findUnique({ where: { poUserId: uid } });
     if (uidLinkedUser && uidLinkedUser.id !== req.userId) {
       return res.status(400).json({ error: 'This PO UID is already linked to another account.' });
     }
-
-    // Check if UID already claimed by another license (pending or approved)
     const uidClaimed = await prisma.license.findFirst({
       where: {
         claimedPoUid: uid,
@@ -173,6 +162,31 @@ router.post('/claim', authMiddleware, async (req, res) => {
     if (uidClaimed) {
       return res.status(400).json({ error: 'This PO UID has already been claimed by another account.' });
     }
+
+    // A PO UID is locked to an account once set — only an admin can change it.
+    if (user?.poUserId && user.poUserId !== uid) {
+      return res.status(400).json({ error: `Your account is already linked to PO UID ${user.poUserId}. Email support to change it.` });
+    }
+
+    // Paid accounts (already bought a plan): just bind their PO UID — access is
+    // already active, so no review needed. This is the "I paid, now connect my UID" path.
+    if (license.plan !== PLAN_IDS.DEMO) {
+      if (user?.poUserId === uid) {
+        return res.json({ status: 'approved', message: `Your PO UID is already linked to your ${license.plan} plan.` });
+      }
+      await prisma.user.update({ where: { id: req.userId }, data: { poUserId: uid } });
+      await prisma.license.update({ where: { userId: req.userId }, data: { claimedPoUid: uid } });
+      return res.json({ status: 'approved', message: "PO UID linked to your account. You're all set." });
+    }
+
+    // ── Below: DEMO users claiming free Pro via the affiliate link ──
+    if (license.claimStatus === 'pending') {
+      return res.status(400).json({ error: 'Your claim is already under review. Please wait.' });
+    }
+    if (license.claimStatus === 'approved') {
+      return res.status(400).json({ error: 'Your claim has already been approved.' });
+    }
+    // 'rejected' falls through — resubmission allowed
 
     // Check AffiliateReferral — auto-approve if UID was already registered via our link
     const referral = await prisma.affiliateReferral.findUnique({ where: { poUid: uid } });

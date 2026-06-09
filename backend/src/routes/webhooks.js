@@ -1,7 +1,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const prisma = require('../lib/prisma');
-const { getPaidPlanFromWhop, getPlanEntitlements } = require('../lib/plans');
+const { getPaidPlanFromWhop, getPlanEntitlements, getAiTradesAllowanceForPlan } = require('../lib/plans');
 
 const router = express.Router();
 
@@ -180,6 +180,7 @@ async function handleWhopMembership(data) {
     return;
   }
   const tradesLimit = getPlanEntitlements(plan).tradesLimit;
+  const aiTradesAllowance = getAiTradesAllowanceForPlan(plan);
 
   await prisma.license.upsert({
     where: { userId: user.id },
@@ -187,6 +188,7 @@ async function handleWhopMembership(data) {
       plan,
       tradesUsed: 0,
       tradesLimit,
+      ...(aiTradesAllowance !== null && { aiTradesAllowance }),
       lemonsqueezyOrderId: `whop_${membershipId}`,
       expiresAt: null,
     },
@@ -195,6 +197,7 @@ async function handleWhopMembership(data) {
       plan,
       tradesUsed: 0,
       tradesLimit,
+      ...(aiTradesAllowance !== null && { aiTradesAllowance }),
       lemonsqueezyOrderId: `whop_${membershipId}`,
     },
   });

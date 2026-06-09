@@ -37,6 +37,25 @@ For production migrations, use:
 npm run db:migrate
 ```
 
+### Supabase Security
+
+Avalisa uses Supabase as Postgres only. The extension and dashboard should call
+the backend API, not Supabase Data API endpoints such as `supabase-js`,
+`/rest/v1`, or `/graphql/v1`.
+
+After creating Prisma tables in Supabase, run:
+
+```bash
+psql "$DIRECT_URL" -f backend/prisma/supabase-data-api-hardening.sql
+```
+
+Or paste `backend/prisma/supabase-data-api-hardening.sql` into the Supabase SQL
+Editor. This revokes Data API grants from `anon`, `authenticated`, and
+`service_role`, disables future automatic grants, and enables RLS on public
+tables as defense in depth. If a future feature intentionally uses the Supabase
+Data API, add the minimum explicit `GRANT` plus matching RLS policies in the
+same change.
+
 ### Backend Environment Variables
 
 | Variable | Required | Description |

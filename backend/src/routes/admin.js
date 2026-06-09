@@ -1,7 +1,7 @@
 const express = require('express');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
 const prisma = require('../lib/prisma');
-const { PLAN_IDS, getPlanEntitlements } = require('../lib/plans');
+const { PLAN_IDS, getPlanEntitlements, getAiTradesAllowanceForPlan } = require('../lib/plans');
 const { buildUserSearchWhere } = require('../lib/adminUsers');
 
 const router = express.Router();
@@ -37,12 +37,14 @@ router.post('/grant-access', async (req, res) => {
     }
 
     // Upsert license
+    const aiTradesAllowance = getAiTradesAllowanceForPlan(plan);
     const license = await prisma.license.upsert({
       where: { userId: user.id },
       update: {
         plan,
         tradesUsed: 0,
         tradesLimit: getPlanEntitlements(plan)?.tradesLimit ?? null,
+        ...(aiTradesAllowance !== null && { aiTradesAllowance }),
         expiresAt: null,
       },
       create: {
@@ -50,6 +52,7 @@ router.post('/grant-access', async (req, res) => {
         plan,
         tradesUsed: 0,
         tradesLimit: getPlanEntitlements(plan)?.tradesLimit ?? null,
+        ...(aiTradesAllowance !== null && { aiTradesAllowance }),
       },
     });
 
@@ -156,11 +159,13 @@ router.patch('/users/:id', async (req, res) => {
       }));
     }
     if (plan !== undefined) {
+      const aiTradesAllowance = getAiTradesAllowanceForPlan(plan);
       updates.push(prisma.license.update({
         where: { userId: id },
         data: {
           plan,
           tradesLimit: getPlanEntitlements(plan)?.tradesLimit ?? null,
+          ...(aiTradesAllowance !== null && { aiTradesAllowance }),
         },
       }));
     }

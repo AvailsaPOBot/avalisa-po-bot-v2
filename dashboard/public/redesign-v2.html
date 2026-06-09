@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Avalisa — Redesign v2</title>
+<style>
+  :root{--bg:#08090d;--panel:#13151c;--p2:#1a1d27;--gold:#d4af37;--gold2:#f0d77a;--text:#eef0f6;--muted:#9aa0b4;--line:#262a36;--good:#37d49a;--po:#ff7a00}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font:16px/1.55 -apple-system,Segoe UI,Roboto,sans-serif}
+  .wrap{max-width:1140px;margin:0 auto;padding:0 22px}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:14px 24px;border-radius:12px;font-weight:800;font-size:15px;cursor:pointer}
+  .gold{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#1a1400}
+  .ghost{border:1px solid var(--line);color:var(--text)}
+  .kick{color:var(--gold2);font-size:13px;letter-spacing:.16em;text-transform:uppercase}
+  header{position:sticky;top:0;background:rgba(8,9,13,.85);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);z-index:9}
+  .nav{display:flex;align-items:center;justify-content:space-between;height:64px}
+  .brand{display:flex;align-items:center;gap:12px;font-weight:800}
+  .brand img{height:30px}
+  .po-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(255,122,0,.12);border:1px solid rgba(255,122,0,.4);color:#ffb978;border-radius:999px;padding:6px 14px;font-size:13px;font-weight:700}
+  .po-badge img{height:16px}
+  /* HERO */
+  .hero{display:grid;grid-template-columns:1fr 1fr;gap:30px;align-items:center;padding:46px 0 30px}
+  h1{font-size:48px;line-height:1.06;letter-spacing:-.02em;margin:16px 0}
+  h1 span{color:var(--gold2)}
+  .lede{color:#c7ccdb;font-size:18px;max-width:540px;margin:12px 0 22px}
+  .cta-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+  .micro{color:var(--muted);font-size:13px}
+  .micro b{color:var(--gold2)}
+  .stage{position:relative;min-height:420px}
+  .mascot{position:absolute;right:-6px;bottom:0;height:430px;filter:drop-shadow(0 20px 50px rgba(0,0,0,.6));z-index:1}
+  .monitor{position:absolute;left:0;top:14px;width:78%;z-index:2}
+  .monitor .scr{border:3px solid #2b2f3c;border-radius:12px;overflow:hidden;background:#0d0f15;box-shadow:0 24px 60px rgba(0,0,0,.6)}
+  .monitor .scr img{width:100%;display:block}
+  .monitor .stand{width:90px;height:16px;background:#20232e;margin:0 auto;border-radius:0 0 8px 8px}
+  .phone{position:absolute;right:18%;bottom:6px;width:128px;z-index:3;border:5px solid #2b2f3c;border-radius:22px;overflow:hidden;background:#0d0f15;box-shadow:0 18px 40px rgba(0,0,0,.7)}
+  .phone img{width:100%;display:block}
+  .tag{position:absolute;z-index:4;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 11px;font-size:12px;font-weight:700}
+  .tag.t1{left:2%;top:2px}.tag.t2{right:4%;top:120px;color:var(--good)}
+  /* strip */
+  .strip{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:#0c0e13}
+  .strip .wrap{display:flex;align-items:center;gap:18px;padding:16px 22px;flex-wrap:wrap;color:var(--muted);font-size:14px}
+  .strip img{height:22px}
+  section{padding:60px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:30px;letter-spacing:-.01em;margin:6px 0 8px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:24px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:24px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px}
+  .card .ic{width:44px;height:44px;border-radius:11px;background:rgba(212,175,55,.14);display:flex;align-items:center;justify-content:center;font-size:21px;margin-bottom:8px}
+  .card h3{font-size:18px;margin:6px 0}.card p{color:var(--muted);font-size:14px}
+  .new{background:var(--good);color:#06281c;font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;letter-spacing:.06em}
+  .ways .card{border-color:rgba(212,175,55,.3)}
+  /* income */
+  .income{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:24px}
+  .income .card{border-color:rgba(55,212,154,.35)}
+  .pill{display:inline-block;font-size:12px;font-weight:800;color:var(--good);background:rgba(55,212,154,.12);padding:3px 10px;border-radius:999px}
+  .annot{background:#0e1a16;border:1px dashed var(--good);color:#bdedd9;font-size:12px;border-radius:10px;padding:8px 12px;margin:12px 0}
+  .risk{color:#7e8398;font-size:12px;text-align:center;padding:24px 0}
+  @media(max-width:860px){.hero,.grid3,.grid2,.income{grid-template-columns:1fr}.stage{min-height:340px}h1{font-size:34px}.mascot{height:300px}}
+</style>
+</head>
+<body>
+<header><div class="wrap nav">
+  <div class="brand"><img src="/images/brand/avalisa-signature-logo-gold.png" alt="Avalisa" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'Avalisa PO Bot'}))"></div>
+  <span class="po-badge"><img src="/images/PO_Logo.png" alt="" onerror="this.style.display='none'"> Built for Pocket Option</span>
+  <a class="btn gold" style="padding:9px 16px">Start Free</a>
+</div></header>
+
+<!-- HERO: mascot + real device mockups + clear "trading bot for PO" -->
+<div class="wrap hero">
+  <div>
+    <span class="po-badge"><img src="/images/PO_Logo.png" alt="" onerror="this.style.display='none'"> Works on Pocket Option · Desktop &amp; Mobile</span>
+    <h1>The <span>automated trading bot</span> built for Pocket Option.</h1>
+    <p class="lede">Avalisa runs right on your Pocket Option chart — scans for setups, skips the weak ones, and trades from a clean panel you control. On your computer and your phone.</p>
+    <div class="cta-row">
+      <a class="btn gold">Start Free on Pocket Option →</a>
+      <a class="btn ghost">See Plans</a>
+    </div>
+    <p class="micro">Demo first — 10 free trades, no risk. <b>Join Pocket Option through us → Pro unlocks free.</b></p>
+  </div>
+  <div class="stage">
+    <span class="tag t1">🟠 Live on Pocket Option</span>
+    <span class="tag t2">✓ You control every trade</span>
+    <div class="monitor">
+      <div class="scr"><img src="/images/bot-screenshot.png" alt="Avalisa bot panel on Pocket Option" onerror="this.src='/images/Screenshot.png'"></div>
+      <div class="stand"></div>
+    </div>
+    <div class="phone"><img src="/images/bot-screenshot.png" alt="Avalisa mobile bot" onerror="this.style.opacity=.2"></div>
+    <img class="mascot" src="/images/landing/generated/avalisa-hero-girl-gemini.png" alt="Avalisa" onerror="this.style.display='none'">
+  </div>
+</div>
+<div class="annot wrap">DESIGN NOTES → (1) PO logo + "Built for Pocket Option" up top so PO users instantly get it. (2) Real bot-on-PO screenshot in the desktop + phone frames = "this is a trading bot for PO" at a glance. (3) Mascot as the hook. (4) Win-rate framed honestly below (no unprovable "beats competitors" claim — see note).</div>
+
+<!-- PO trust strip -->
+<div class="strip"><div class="wrap">
+  <img src="/images/PO_Logo.png" alt="Pocket Option" onerror="this.replaceWith(Object.assign(document.createElement('b'),{textContent:'Pocket Option'}))">
+  <span>Avalisa is built around Pocket Option — the broker you already trade on. New here? Create your PO account through us and we unlock Pro for free.</span>
+</div></div>
+
+<!-- WHY IT STANDS OUT -->
+<section><div class="wrap">
+  <span class="kick">Why Avalisa</span>
+  <h2>A bot that actually works — and shows you how.</h2>
+  <div class="grid3">
+    <div class="card"><div class="ic">🎯</div><h3>Selective by design</h3><p>It skips weak setups and only trades when its filters pass — you watch the win/loss play out live in the panel, in real time.</p></div>
+    <div class="card"><div class="ic">🪟</div><h3>Not a black box</h3><p>Pair scan, payout filter, risk mode and next action are all visible before it executes. You can stop anytime.</p></div>
+    <div class="card"><div class="ic">⚡</div><h3>Clean &amp; easy</h3><p>Premium UI, set up in minutes. Pick a strategy, set your amount, hit Start. Works on desktop and mobile.</p></div>
+  </div>
+</div></section>
+
+<!-- TWO WAYS TO USE -->
+<section class="ways"><div class="wrap">
+  <span class="kick">Use it your way</span>
+  <h2>Desktop or mobile — same bot, same control</h2>
+  <div class="grid2">
+    <div class="card"><div class="ic">🖥️</div><h3>Chrome Extension (desktop)</h3><p>Full real-money trading on Pocket Option in your browser. The complete Avalisa panel, AI + Martingale modes.</p></div>
+    <div class="card"><span class="new">NEW</span><div class="ic" style="margin-top:8px">📱</div><h3>Avalisa Mobile Bot</h3><p>Trade Pocket Option from your phone with the same panel — for traders who live on mobile. iOS first, demo supported.</p></div>
+  </div>
+</div></section>
+
+<!-- TWO INCOME PATHS (Oil's model) -->
+<section><div class="wrap">
+  <span class="kick">Get started — two ways in</span>
+  <h2>Free with Pocket Option, or buy a plan</h2>
+  <div class="annot">DESIGN NOTE → mirrors your 2 income paths: (1) affiliate signups (free Pro via our PO link = recurring revshare), (2) plan sales. Affiliate path is the hero CTA.</div>
+  <div class="income">
+    <div class="card"><span class="pill">Most popular · Free</span><h3 style="margin-top:10px">Join Pocket Option through us</h3><p>Create a new PO account with our link and <b style="color:var(--gold2)">Pro unlocks free</b> — Martingale + unlimited Avalisa AI. Use code <b style="color:var(--gold2)">50START</b> for a 50% first-deposit bonus (PO offer, terms apply).</p><a class="btn gold" style="margin-top:14px">Create PO account → unlock Pro</a></div>
+    <div class="card"><span class="pill" style="color:var(--gold2);background:rgba(212,175,55,.12)">Already on PO?</span><h3 style="margin-top:10px">Buy a plan</h3><p>Basic <b>$69</b> — unlimited Martingale + 10 Avalisa AI trades. Pro <b>$119</b> — unlimited AI. One-time, no subscription.</p><a class="btn ghost" style="margin-top:14px">See plans</a></div>
+  </div>
+</div></section>
+
+<div class="wrap risk">⚠️ Trading involves risk. Avalisa does not guarantee profits. Use demo mode first and never trade with money you cannot afford to lose. · Support: avalisapobot@gmail.com</div>
+</body>
+</html>

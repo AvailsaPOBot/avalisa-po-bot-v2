@@ -8,7 +8,7 @@ const VALID_TABS = ['settings', 'history', 'bots', 'admin'];
 
 const STRATEGIES = [
   { id: 'martingale', label: 'Martingale', plans: ['free', 'basic', 'lifetime'], desc: 'Double on loss to recover' },
-  { id: 'ai', label: 'Avalisa AI', plans: ['lifetime'], desc: 'Local rule engine with AI-style pair scanning (Pro)' },
+  { id: 'ai', label: 'Avalisa AI', plans: ['basic', 'lifetime'], desc: 'AI-style pair scanning with plan-based allowance' },
 ];
 
 const TIMEFRAMES = ['S30', 'M1', 'M3', 'M5', 'M30', 'H1'];
@@ -787,8 +787,8 @@ export default function Dashboard() {
                   value={adminPlan}
                   onChange={e => setAdminPlan(e.target.value)}
                 >
-                  <option value="lifetime">Pro ($119, unlimited)</option>
-                  <option value="basic">Basic ($69, Martingale)</option>
+                  <option value="lifetime">Pro (current modes unlocked)</option>
+                  <option value="basic">Basic (Martingale + 10 AI trades)</option>
                 </select>
               </div>
               <button

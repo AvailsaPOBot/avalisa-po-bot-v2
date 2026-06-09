@@ -1,7 +1,7 @@
 const express = require('express');
 const { authMiddleware } = require('../middleware/auth');
 const prisma = require('../lib/prisma');
-const { PLAN_IDS } = require('../lib/plans');
+const { canUseStrategy } = require('../lib/plans');
 
 const router = express.Router();
 
@@ -39,8 +39,8 @@ router.get('/token-status', authMiddleware, async (req, res) => {
 // Body: { indicators: {...} }
 router.post('/signal', authMiddleware, async (req, res) => {
   const license = await prisma.license.findUnique({ where: { userId: req.userId } });
-  if (!license || license.plan !== PLAN_IDS.PRO) {
-    return res.status(403).json({ error: 'AI trading requires Pro plan' });
+  if (!license || !canUseStrategy(license.plan, 'ai')) {
+    return res.status(403).json({ error: 'AI trading requires a plan with Avalisa AI access' });
   }
 
   const { indicators } = req.body;
