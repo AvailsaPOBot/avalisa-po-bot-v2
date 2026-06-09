@@ -39,9 +39,7 @@ services:
         sync: false
       - key: FACEBOOK_OAUTH_CLIENT_SECRET
         sync: false
-      - key: GMAIL_USER
-        sync: false
-      - key: GMAIL_APP_PASSWORD
+      - key: BREVO_API_KEY
         sync: false
       - key: EMAIL_FROM
         sync: false

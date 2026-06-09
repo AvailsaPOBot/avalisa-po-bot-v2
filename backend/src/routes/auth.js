@@ -224,24 +224,20 @@ router.post('/forgot-password', async (req, res) => {
     if (!user) return res.json({ message: genericMessage });
 
     if (!emailConfigured()) {
-      console.error('[forgot-password] RESEND_API_KEY not set — cannot send reset email');
+      console.error('[forgot-password] BREVO_API_KEY not set — cannot send reset email');
       return res.json({ message: genericMessage });
     }
 
     const token = createResetToken(user);
     const resetUrl = `${frontendUrl()}/reset-password?token=${encodeURIComponent(token)}`;
 
-    try {
-      await sendEmail({
-        to: user.email,
-        subject: 'Reset your Avalisa PO Bot password',
-        html: resetEmailHtml(resetUrl),
-        text: `Reset your Avalisa PO Bot password:\n\n${resetUrl}\n\nThis link expires in 1 hour. If you didn't request this, you can ignore this email.`,
-      });
-    } catch (err) {
-      // Log but don't reveal send failures to the caller.
-      console.error('[forgot-password] email send failed:', err.message);
-    }
+    // Fire-and-forget: never block the response on email delivery.
+    sendEmail({
+      to: user.email,
+      subject: 'Reset your Avalisa PO Bot password',
+      html: resetEmailHtml(resetUrl),
+      text: `Reset your Avalisa PO Bot password:\n\n${resetUrl}\n\nThis link expires in 1 hour. If you didn't request this, you can ignore this email.`,
+    }).catch((err) => console.error('[forgot-password] email send failed:', err.message));
 
     return res.json({ message: genericMessage });
   } catch (err) {
