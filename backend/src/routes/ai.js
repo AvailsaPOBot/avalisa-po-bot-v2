@@ -70,15 +70,23 @@ router.post('/signal', authMiddleware, async (req, res) => {
 
   try {
     const apiKey = process.env.GOOGLE_AI_API_KEY;
-    const geminiRes = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: systemPrompt }] },
-        contents: [{ role: 'user', parts: [{ text: userMessage }] }],
-        generationConfig: { temperature: 0.2, maxOutputTokens: 128 },
-      }),
-    });
+    const ctl = new AbortController();
+    const timeout = setTimeout(() => ctl.abort(), 15000);
+    let geminiRes;
+    try {
+      geminiRes = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents: [{ role: 'user', parts: [{ text: userMessage }] }],
+          generationConfig: { temperature: 0.2, maxOutputTokens: 128 },
+        }),
+        signal: ctl.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
     if (!geminiRes.ok) {
       const errText = await geminiRes.text();
       console.error('[AI] Gemini error:', geminiRes.status, errText);
