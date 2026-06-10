@@ -167,22 +167,30 @@ router.post('/chat', async (req, res) => {
       }
 
       // Default: Gemini via REST API (free)
-      const response = await fetch(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + process.env.GOOGLE_AI_API_KEY,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: trimmedMessages.map((message) => ({
-              role: message.role === 'assistant' ? 'model' : 'user',
-              parts: [{ text: message.content }],
-            })),
-            systemInstruction: {
-              parts: [{ text: SYSTEM_PROMPT }],
-            },
-          }),
-        }
-      );
+      const ctl = new AbortController();
+      const timeout = setTimeout(() => ctl.abort(), 15000);
+      let response;
+      try {
+        response = await fetch(
+          'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + process.env.GOOGLE_AI_API_KEY,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: trimmedMessages.map((message) => ({
+                role: message.role === 'assistant' ? 'model' : 'user',
+                parts: [{ text: message.content }],
+              })),
+              systemInstruction: {
+                parts: [{ text: SYSTEM_PROMPT }],
+              },
+            }),
+            signal: ctl.signal,
+          }
+        );
+      } finally {
+        clearTimeout(timeout);
+      }
       const data = await response.json();
       if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
         console.error('Gemini unexpected response:', JSON.stringify(data));

@@ -8,8 +8,9 @@ process.on('uncaughtException', (err) => {
 });
 
 process.on('unhandledRejection', (reason) => {
+  // Log but do NOT exit — a single stray rejection shouldn't take the whole API
+  // down for every user. Truly unrecoverable uncaughtException still exits above.
   console.error('UNHANDLED REJECTION:', reason);
-  process.exit(1);
 });
 
 const express = require('express');
@@ -40,14 +41,13 @@ const allowedOrigins = [
   'https://pocketoption.com',
   'https://po.trade',
   'https://po.cash',
-  'chrome-extension://', // handled by wildcard below
-].filter(Boolean);
+].filter(Boolean).map(o => o.replace(/\/$/, '')); // exact-match; strip any trailing slash
 
 app.use(cors({
   origin: (origin, cb) => {
     if (!origin) return cb(null, true); // allow non-browser / server-to-server
     if (
-      allowedOrigins.some(o => origin.startsWith(o)) ||
+      allowedOrigins.includes(origin) ||
       origin.startsWith('chrome-extension://')
     ) {
       return cb(null, true);
