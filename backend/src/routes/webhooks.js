@@ -18,18 +18,16 @@ router.post('/whop', express.raw({ type: 'application/json' }), async (req, res)
     return res.status(500).json({ error: 'Webhook secret not configured' });
   }
 
-  // Whop dashboard test webhooks don't send signature headers (known bug) —
-  // allow through in non-production only.
+  // Always require valid signature headers. (A previous non-production bypass for
+  // Whop's header-less test webhooks was removed — it could grant real Pro access
+  // whenever NODE_ENV was unset, which is not guaranteed on Render.)
   if (!signatureHeader || !webhookId || !webhookTimestamp) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('[Whop] Missing signature headers — bypassing verification (non-production only)');
-    } else {
-      console.warn('[Whop] Missing required webhook signature headers');
-      return res.status(401).json({ error: 'Missing signature headers' });
-    }
-  } else if (!verifyWhopSignature({ signatureHeader, webhookId, webhookTimestamp, body: req.body, secret })) {
-      console.warn('[Whop] Invalid webhook signature');
-      return res.status(401).json({ error: 'Invalid signature' });
+    console.warn('[Whop] Missing required webhook signature headers');
+    return res.status(401).json({ error: 'Missing signature headers' });
+  }
+  if (!verifyWhopSignature({ signatureHeader, webhookId, webhookTimestamp, body: req.body, secret })) {
+    console.warn('[Whop] Invalid webhook signature');
+    return res.status(401).json({ error: 'Invalid signature' });
   }
 
   let payload;

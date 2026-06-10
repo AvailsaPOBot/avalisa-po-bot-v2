@@ -28,6 +28,11 @@ const webhookRoutes = require('./routes/webhooks');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Render serves behind a proxy. Trust the first hop so express-rate-limit keys on
+// the real client IP (fixes ERR_ERL_UNEXPECTED_X_FORWARDED_FOR) without letting
+// clients spoof X-Forwarded-For (which `true` would allow).
+app.set('trust proxy', 1);
+
 // CORS — allow dashboard + extension
 const allowedOrigins = [
   process.env.FRONTEND_URL,
