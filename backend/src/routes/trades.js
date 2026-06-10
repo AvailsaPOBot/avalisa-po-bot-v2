@@ -53,18 +53,27 @@ router.post('/log', authMiddleware, async (req, res) => {
     const isAiTrade = !!signalSnapshot;
     let unlimitedAi = false;
 
-    // Gate AI trades on real accounts against the license allowance
+    // Gate AI trades on real accounts against the license allowance.
+    // Atomic check-and-increment (conditional updateMany) so concurrent logs
+    // can't overshoot the cap — fixes the previous read-then-write race and the
+    // unawaited fire-and-forget increment that ran after trade creation.
     if (isAiTrade && !isDemoVal) {
       const license = await prisma.license.findUnique({ where: { userId: req.userId } });
       unlimitedAi = req.user?.isAdmin || license?.plan === PLAN_IDS.PRO;
-      if (!unlimitedAi && license && license.aiTradesUsed >= license.aiTradesAllowance) {
-        return res.status(403).json({
-          success: false,
-          allowed: false,
-          reason: 'AI trade allowance exhausted',
-          aiTradesUsed: license.aiTradesUsed,
-          aiTradesAllowance: license.aiTradesAllowance,
+      if (!unlimitedAi && license) {
+        const consumed = await prisma.license.updateMany({
+          where: { userId: req.userId, aiTradesUsed: { lt: license.aiTradesAllowance } },
+          data: { aiTradesUsed: { increment: 1 } },
         });
+        if (consumed.count === 0) {
+          return res.status(403).json({
+            success: false,
+            allowed: false,
+            reason: 'AI trade allowance exhausted',
+            aiTradesUsed: license.aiTradesUsed,
+            aiTradesAllowance: license.aiTradesAllowance,
+          });
+        }
       }
     }
 
@@ -84,12 +93,7 @@ router.post('/log', authMiddleware, async (req, res) => {
       },
     });
 
-    if (isAiTrade && !isDemoVal && !unlimitedAi) {
-      prisma.license.update({
-        where: { userId: req.userId },
-        data: { aiTradesUsed: { increment: 1 } },
-      }).catch(err => console.error('[trades/log] ai increment error:', err.message));
-    }
+    // (AI allowance was already consumed atomically above, before trade creation.)
 
     // Fire-and-forget trim — don't block the response
     trimTrades(req.userId, isDemoVal).catch(err =>
