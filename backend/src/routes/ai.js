@@ -1,7 +1,7 @@
 const express = require('express');
 const { authMiddleware } = require('../middleware/auth');
 const prisma = require('../lib/prisma');
-const { canUseStrategy } = require('../lib/plans');
+const { canUseStrategy, getAiTradesAllowanceForPlan, PLAN_IDS } = require('../lib/plans');
 
 const router = express.Router();
 
@@ -62,6 +62,20 @@ router.post('/signal', authMiddleware, async (req, res) => {
     return res.status(429).json({ error: 'quota_exceeded', message: 'AI quota reached, resets 1st of month' });
   }
 
+  // Enforce the per-plan AI-trade allowance HERE (where the signal is actually
+  // issued) — not only at /trades/log. Otherwise a Basic user could keep pulling
+  // AI signals past their paid trade cap. Pro/admin are unlimited.
+  const isUnlimitedAi = isAdmin || license.plan === PLAN_IDS.PRO;
+  const aiTradesAllowance = getAiTradesAllowanceForPlan(license.plan);
+  if (!isUnlimitedAi && license.aiTradesUsed >= aiTradesAllowance) {
+    return res.status(429).json({
+      error: 'ai_allowance_exhausted',
+      message: 'AI trade allowance reached for your plan.',
+      aiTradesUsed: license.aiTradesUsed,
+      aiTradesAllowance,
+    });
+  }
+
   const promptConfig = await prisma.appConfig.findUnique({ where: { key: 'ai_strategy_prompt' } });
   const systemPrompt = promptConfig?.value ||
     'You are a binary options trading signal generator. Given technical indicators, respond ONLY with a JSON object: {"signal": "CALL"|"PUT"|"SKIP", "confidence": 0-100, "reasoning": "<15 words"}. CALL = expect price up next candle. PUT = expect down. SKIP = unclear, do not trade. Be conservative — prefer SKIP over low-confidence trades.';
@@ -70,15 +84,23 @@ router.post('/signal', authMiddleware, async (req, res) => {
 
   try {
     const apiKey = process.env.GOOGLE_AI_API_KEY;
-    const geminiRes = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: systemPrompt }] },
-        contents: [{ role: 'user', parts: [{ text: userMessage }] }],
-        generationConfig: { temperature: 0.2, maxOutputTokens: 128 },
-      }),
-    });
+    const ctl = new AbortController();
+    const timeout = setTimeout(() => ctl.abort(), 15000);
+    let geminiRes;
+    try {
+      geminiRes = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents: [{ role: 'user', parts: [{ text: userMessage }] }],
+          generationConfig: { temperature: 0.2, maxOutputTokens: 128 },
+        }),
+        signal: ctl.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
     if (!geminiRes.ok) {
       const errText = await geminiRes.text();
       console.error('[AI] Gemini error:', geminiRes.status, errText);

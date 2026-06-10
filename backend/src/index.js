@@ -8,8 +8,9 @@ process.on('uncaughtException', (err) => {
 });
 
 process.on('unhandledRejection', (reason) => {
+  // Log but do NOT exit — a single stray rejection shouldn't take the whole API
+  // down for every user. Truly unrecoverable uncaughtException still exits above.
   console.error('UNHANDLED REJECTION:', reason);
-  process.exit(1);
 });
 
 // Fail fast on missing required config (clear message instead of obscure later errors)
@@ -40,6 +41,11 @@ const webhookRoutes = require('./routes/webhooks');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Render serves behind a proxy. Trust the first hop so express-rate-limit keys on
+// the real client IP (fixes ERR_ERL_UNEXPECTED_X_FORWARDED_FOR) without letting
+// clients spoof X-Forwarded-For (which `true` would allow).
+app.set('trust proxy', 1);
+
 // Security headers (helmet defaults; safe for a JSON API). No-op if helmet isn't installed yet.
 if (helmet) app.use(helmet());
 
@@ -50,14 +56,13 @@ const allowedOrigins = [
   'https://pocketoption.com',
   'https://po.trade',
   'https://po.cash',
-  'chrome-extension://', // handled by wildcard below
-].filter(Boolean);
+].filter(Boolean).map(o => o.replace(/\/$/, '')); // exact-match; strip any trailing slash
 
 app.use(cors({
   origin: (origin, cb) => {
     if (!origin) return cb(null, true); // allow non-browser / server-to-server
     if (
-      allowedOrigins.some(o => origin.startsWith(o)) ||
+      allowedOrigins.includes(origin) ||
       origin.startsWith('chrome-extension://')
     ) {
       return cb(null, true);

@@ -1,5 +1,5 @@
 const express = require('express');
-const { authMiddleware } = require('../middleware/auth');
+const { authMiddleware, optionalAuthMiddleware } = require('../middleware/auth');
 const prisma = require('../lib/prisma');
 const { PLAN_IDS, getPlanEntitlements, getAiTradesAllowanceForPlan } = require('../lib/plans');
 
@@ -9,8 +9,11 @@ const FREE_TRADE_LIMIT = getPlanEntitlements(PLAN_IDS.DEMO).tradesLimit;
 
 // POST /api/license/check
 // Called by extension before each trade session
-router.post('/check', async (req, res) => {
-  const { userId, deviceFingerprint } = req.body;
+router.post('/check', optionalAuthMiddleware, async (req, res) => {
+  // userId comes from the verified JWT (optionalAuthMiddleware), NOT the body —
+  // otherwise anyone could read another user's license by passing their id.
+  const userId = req.userId || null;
+  const { deviceFingerprint } = req.body;
   if (!deviceFingerprint) {
     return res.status(400).json({ error: 'deviceFingerprint is required' });
   }
@@ -93,8 +96,11 @@ router.post('/check', async (req, res) => {
 });
 
 // POST /api/license/increment — increment trade count after each trade
-router.post('/increment', async (req, res) => {
-  const { userId, deviceFingerprint } = req.body;
+router.post('/increment', optionalAuthMiddleware, async (req, res) => {
+  // userId from the verified JWT only — stops anyone burning another user's
+  // trade count by passing their id in the body.
+  const userId = req.userId || null;
+  const { deviceFingerprint } = req.body;
 
   try {
     if (userId) {

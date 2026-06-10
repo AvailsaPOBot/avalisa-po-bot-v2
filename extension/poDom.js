@@ -260,15 +260,61 @@ function closePOPopovers() {
   document.querySelector('.chart-container, .trading-chart, main, body')?.click();
 }
 
+function isUsableTradeButton(el) {
+  if (!(el instanceof Element)) return false;
+  if (el.closest('#avalisa-overlay') || el.closest('#avalisa-panel')) return false;
+  if (el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true') return false;
+
+  const style = window.getComputedStyle(el);
+  return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+}
+
+function resolveTradeButton(action, selectors) {
+  for (const sel of selectors) {
+    const btn = document.querySelector(sel);
+    if (isUsableTradeButton(btn)) {
+      console.log(`[Avalisa] ${action.toUpperCase()} button found with selector:`, sel);
+      return btn;
+    }
+  }
+  return null;
+}
+
 function clickCall() {
-  const btn = document.querySelector('a.btn.btn-call');
+  const selectors = [
+    'a.btn.btn-call',
+    'button.btn.btn-call',
+    '.trade-action--call',
+    '.call-action',
+    '[data-test="btn-call"]',
+    '[data-action="call"]',
+    '[class*="btn-call"]',
+    '[class*="call-btn"]',
+    'button[data-direction="call"]',
+    'a[data-direction="call"]',
+  ];
+  const btn = resolveTradeButton('call', selectors);
   if (btn) { btn.click(); return true; }
+  console.warn('[Avalisa] clickCall: no call button found. Tried:', selectors);
   return false;
 }
 
 function clickPut() {
-  const btn = document.querySelector('a.btn.btn-put');
+  const selectors = [
+    'a.btn.btn-put',
+    'button.btn.btn-put',
+    '.trade-action--put',
+    '.put-action',
+    '[data-test="btn-put"]',
+    '[data-action="put"]',
+    '[class*="btn-put"]',
+    '[class*="put-btn"]',
+    'button[data-direction="put"]',
+    'a[data-direction="put"]',
+  ];
+  const btn = resolveTradeButton('put', selectors);
   if (btn) { btn.click(); return true; }
+  console.warn('[Avalisa] clickPut: no put button found. Tried:', selectors);
   return false;
 }
 

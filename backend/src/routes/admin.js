@@ -17,6 +17,9 @@ router.post('/grant-access', async (req, res) => {
   if (!identifier) {
     return res.status(400).json({ error: 'identifier (email or PO UID) is required' });
   }
+  if (!getPlanEntitlements(plan)) {
+    return res.status(400).json({ error: `Unknown plan: ${plan}` });
+  }
 
   try {
     // Try find by email first, then by poUserId
@@ -159,6 +162,9 @@ router.patch('/users/:id', async (req, res) => {
       }));
     }
     if (plan !== undefined) {
+      if (!getPlanEntitlements(plan)) {
+        return res.status(400).json({ error: `Unknown plan: ${plan}` });
+      }
       const aiTradesAllowance = getAiTradesAllowanceForPlan(plan);
       updates.push(prisma.license.update({
         where: { userId: id },
