@@ -513,12 +513,29 @@ async function checkPayoutBeforeTrade(options = {}) {
 }
 
 function isDemoMode() {
+  // Detect the ACTIVE Pocket Option account.
+  //
+  // IMPORTANT: the demo-balance element (.js-balance-demo) is ALWAYS present in
+  // the DOM — even on a real account, it keeps holding the demo balance. Using
+  // its presence/value to decide (the old behaviour) made real accounts report
+  // as demo, so the bot read the demo balance, every real trade resolved as a
+  // "tie" (balance never moved), and Martingale never laddered on real accounts.
+  //
+  // Reliable signals instead:
+  //   1. URL — PO encodes the mode: demo => "/cabinet/demo-quick-high-low/...",
+  //      real => "/cabinet/quick-high-low/...".
+  //   2. The visible active-account label ("… Demo" vs "… Real").
+  if (/\bdemo\b/i.test(location.pathname)) return true;
+
   const labels = document.querySelectorAll('[class*="balance-info-block"] [class*="label"], [class*="balance__label"]');
   for (const el of labels) {
-    if (el.textContent.includes('Demo')) return true;
+    const t = el.textContent || '';
+    if (/\bdemo\b/i.test(t)) return true;
+    if (/\breal\b/i.test(t)) return false;
   }
-  const demoEl = document.querySelector('.js-balance-demo');
-  if (demoEl && parseFloat(demoEl.textContent.replace(/[^0-9.]/g, '')) > 0) return true;
+
+  // Couldn't resolve from URL or label → assume REAL. Never silently treat a
+  // real account as demo (that's the failure mode we're fixing).
   return false;
 }
 
