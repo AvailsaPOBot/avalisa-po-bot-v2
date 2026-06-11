@@ -51,6 +51,19 @@ function signUserToken(userId) {
   return jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '30d' });
 }
 
+// Find a user by email, case-insensitively. New accounts store a lowercased
+// email, but older accounts may have mixed-case addresses — matching both means
+// login / reset / OAuth never silently miss an existing account or create a
+// duplicate one.
+function findUserByEmail(email, select) {
+  const value = String(email || '').trim();
+  if (!value) return Promise.resolve(null);
+  return prisma.user.findFirst({
+    where: { email: { equals: value, mode: 'insensitive' } },
+    ...(select ? { select } : {}),
+  });
+}
+
 async function createUserFromOAuth(email) {
   const passwordHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
   return prisma.user.create({
@@ -76,10 +89,7 @@ async function findOrCreateOAuthUser(email) {
   const normalizedEmail = String(email || '').trim().toLowerCase();
   if (!normalizedEmail) throw new Error('missing_email');
 
-  const existing = await prisma.user.findUnique({
-    where: { email: normalizedEmail },
-    select: { id: true, email: true, poUserId: true, isAdmin: true, createdAt: true },
-  });
+  const existing = await findUserByEmail(normalizedEmail, { id: true, email: true, poUserId: true, isAdmin: true, createdAt: true });
 
   if (existing) return existing;
   return createUserFromOAuth(normalizedEmail);
@@ -129,13 +139,14 @@ async function fetchOAuthProfile(provider, accessToken) {
 
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
-  const { email, password, poUserId } = req.body;
+  const { password, poUserId } = req.body;
+  const email = String(req.body.email || '').trim().toLowerCase();
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required' });
   }
 
   try {
-    const existing = await prisma.user.findUnique({ where: { email } });
+    const existing = await findUserByEmail(email);
     if (existing) {
       return res.status(409).json({ error: 'Email already registered' });
     }
@@ -178,7 +189,7 @@ router.post('/login', async (req, res) => {
   }
 
   try {
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await findUserByEmail(email);
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
@@ -220,7 +231,7 @@ router.post('/forgot-password', async (req, res) => {
   if (!email) return res.status(400).json({ error: 'Email is required' });
 
   try {
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await findUserByEmail(email);
     if (!user) return res.json({ message: genericMessage });
 
     if (!emailConfigured()) {
