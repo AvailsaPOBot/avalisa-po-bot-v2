@@ -61,7 +61,7 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
     private var values: [String: NSTextField] = [:]
     private var sleeves: [ClosureSleeve] = []
     private var statusTimer: Timer?
-    private var stableDemoConfirmed = false
+    private var stableAccountCanTrade = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildWindow()
@@ -111,7 +111,7 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
 
         startBotButton = button("▶ Start", style: .green) { [weak self] in
             self?.sendSettings()
-            self?.eval("window.AvalisaProof && window.AvalisaProof.startDemoMartingale();")
+            self?.eval("window.AvalisaProof && window.AvalisaProof.startBot();")
         }
         stopBotButton = button("■ Stop", style: .red) { [weak self] in self?.eval("window.AvalisaProof && window.AvalisaProof.stopBot('stopped by user');") }
         startBotButton.font = .boldSystemFont(ofSize: 15)
@@ -121,8 +121,8 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
         settingsToggleButton = chevronButton("⌄") { [weak self] in
             self?.toggleSettingsDrawer()
         }
-        callButton = button("$1 CALL", style: .outline) { [weak self] in self?.eval("window.AvalisaProof && window.AvalisaProof.placeDemoTrade('call', 1);") }
-        putButton = button("$1 PUT", style: .outline) { [weak self] in self?.eval("window.AvalisaProof && window.AvalisaProof.placeDemoTrade('put', 1);") }
+        callButton = button("$1 CALL", style: .outline) { [weak self] in self?.eval("window.AvalisaProof && window.AvalisaProof.placeTrade('call', 1);") }
+        putButton = button("$1 PUT", style: .outline) { [weak self] in self?.eval("window.AvalisaProof && window.AvalisaProof.placeTrade('put', 1);") }
         callButton.isEnabled = false
         putButton.isEnabled = false
 
@@ -147,7 +147,7 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
 
         let rows = [
             row("Page", key: "pageState"),
-            row("Demo", key: "demoMode"),
+            row("Account", key: "demoMode"),
             row("Pair", key: "activePair"),
             row("Pair mode", key: "pairMode"),
             row("Bot", key: "botMode"),
@@ -935,17 +935,17 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
         let demoMode = "\(body["demoMode"] ?? "-")"
         values["demoMode"]?.stringValue = demoMode
         let lowerDemoMode = demoMode.lowercased()
-        if lowerDemoMode == "confirmed" || lowerDemoMode.contains("demo") {
-            stableDemoConfirmed = true
-        } else if lowerDemoMode.contains("real") || lowerDemoMode.contains("blocked") || lowerDemoMode.contains("denied") {
-            stableDemoConfirmed = false
+        if lowerDemoMode == "confirmed" || lowerDemoMode.contains("demo") || lowerDemoMode == "real" {
+            stableAccountCanTrade = true
+        } else if lowerDemoMode.contains("blocked") || lowerDemoMode.contains("denied") || lowerDemoMode == "unknown" {
+            stableAccountCanTrade = false
         }
-        let isDemoConfirmed = stableDemoConfirmed
+        let canTradeAccount = stableAccountCanTrade
         let botRunning = ((body["botRunning"] as? Bool) == true)
-        setEnabled(startBotButton, isDemoConfirmed && !botRunning)
+        setEnabled(startBotButton, canTradeAccount && !botRunning)
         setEnabled(stopBotButton, botRunning)
-        setEnabled(callButton, isDemoConfirmed && !botRunning)
-        setEnabled(putButton, isDemoConfirmed && !botRunning)
+        setEnabled(callButton, canTradeAccount && !botRunning)
+        setEnabled(putButton, canTradeAccount && !botRunning)
         values["activePair"]?.stringValue = "\(body["activePair"] ?? "-")"
         let pairScanEnabled = ((body["pairScanEnabled"] as? Bool) == true)
         values["pairMode"]?.stringValue = pairScanEnabled ? "auto scan" : "visible only"
@@ -965,7 +965,7 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
         values["buttons"]?.stringValue = "\(call) / \(put)"
         if botRunning {
             setStatusText("Status: Running", color: NSColor(hex: 0x34D399))
-        } else if isDemoConfirmed {
+        } else if canTradeAccount {
             setStatusText("Status: Ready", color: purpleColor)
         } else {
             setStatusText("Status: Stopped", color: purpleColor)

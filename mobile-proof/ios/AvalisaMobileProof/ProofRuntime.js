@@ -64,8 +64,8 @@
     lastAmountDebug: 'amount: idle',
     lastOrderDebug: 'order template: none',
     aiSkipStreak: 0,
-    lastTradeStatus: 'Read-only until demo mode is confirmed.',
-    guidance: 'Log in to PO, switch to demo balance, then tap Scan.',
+    lastTradeStatus: 'Read-only until account mode is confirmed.',
+    guidance: 'Log in to PO, confirm Demo or Real account mode, then tap Scan.',
   };
   let botTimer = null;
   let interimTimer = null;
@@ -241,6 +241,22 @@
     return state.duration;
   }
 
+  function canTradeCurrentAccount() {
+    return state.demoMode === 'confirmed' || state.demoMode === 'real';
+  }
+
+  function accountModeLabel() {
+    if (state.demoMode === 'real') return 'real';
+    if (state.demoMode === 'confirmed') return 'demo';
+    return state.demoMode || 'unknown';
+  }
+
+  function botModeName() {
+    const account = accountModeLabel();
+    const strategy = state.settings.strategy === 'ai' ? 'ai' : 'martingale';
+    return `${account}-${strategy}`;
+  }
+
   function inferBalanceAndMode() {
     const bodyText = text(document.body);
     const demoSelectors = [
@@ -278,7 +294,7 @@
       balanceText = match ? match[0] : '-';
     }
 
-    state.demoMode = demoConfirmed ? 'confirmed' : (realDetected ? 'real-blocked' : 'unknown');
+    state.demoMode = realDetected ? 'real' : (demoConfirmed ? 'confirmed' : 'unknown');
     state.balance = balanceText || '-';
 
     // Mobile PO: account selector shows e.g. "QT Real USD 0" or "QT Demo USD 10000"
@@ -293,20 +309,22 @@
       const acctText = acctSelectors.reduce((found, s) => found || text(document.querySelector(s)), '')
         || text(document.body).match(/QT\s+(?:Real|Demo)[^)]{0,30}/i)?.[0]
         || '';
-      if (/\bReal\b/i.test(acctText)) state.demoMode = 'real-blocked';
+      if (/\bReal\b/i.test(acctText)) state.demoMode = 'real';
       else if (/\bDemo\b|Practice/i.test(acctText)) state.demoMode = 'confirmed';
     }
 
-    if (state.demoMode === 'real-blocked') {
-      state.guidance = 'PO is in Real mode. Switch QT Real to Demo before bot buttons unlock.';
+    if (state.demoMode === 'real') {
+      state.guidance = state.pairScanEnabled
+        ? 'Real account confirmed. Auto pair scan is on; Start Bot can place real-money trades.'
+        : 'Real account confirmed. Single visible pair mode is on; Start Bot can place real-money trades.';
     } else if (state.demoMode === 'confirmed') {
       state.guidance = state.pairScanEnabled
-        ? 'Demo confirmed. Auto pair scan is on; Start Bot runs capped demo-only proof trades.'
-        : 'Demo confirmed. Single visible pair mode is on; Start Bot runs capped demo-only proof trades.';
+        ? 'Demo confirmed. Auto pair scan is on; Start Bot can place demo trades.'
+        : 'Demo confirmed. Single visible pair mode is on; Start Bot can place demo trades.';
     } else {
       state.guidance = state.pageState === 'login'
-        ? 'Log in to PO, switch to demo balance, then tap Scan.'
-        : 'Demo mode is not confirmed yet. Open the PO account selector and choose Demo.';
+        ? 'Log in to PO, confirm Demo or Real account mode, then tap Scan.'
+        : 'Account mode is not confirmed yet. Open the PO account selector and choose Demo or Real.';
     }
   }
 
@@ -985,8 +1003,8 @@
       post();
       return false;
     }
-    if (state.demoMode !== 'confirmed') {
-      state.lastTradeStatus = `blocked: demo mode not confirmed (${state.demoMode})`;
+    if (!canTradeCurrentAccount()) {
+      state.lastTradeStatus = `blocked: account mode not confirmed (${state.demoMode})`;
       post();
       return false;
     }
@@ -994,14 +1012,14 @@
     const maxAmount = options.allowProofMartingale ? maxAllowedProofAmount() : 1;
     if (!Number.isFinite(safeAmount) || safeAmount < 1 || safeAmount > maxAmount) {
       state.lastTradeStatus = options.allowProofMartingale
-        ? `blocked: proof martingale amount must be $1-$${maxAmount}`
-        : 'blocked: proof app only allows $1 demo trades';
+        ? `blocked: martingale amount must be $1-$${maxAmount}`
+        : 'blocked: manual proof buttons only allow $1 trades';
       post();
       return false;
     }
 
     if (options.allowProofMartingale && options.botInternal && safeAmount > 1 && sendDirectDemoTrade(direction, safeAmount)) {
-      state.lastTradeStatus = `demo direct ${String(direction).toUpperCase()} sent for $${safeAmount.toFixed(2)}`;
+      state.lastTradeStatus = `${accountModeLabel()} direct ${String(direction).toUpperCase()} sent for $${safeAmount.toFixed(2)}`;
       state.lastPlacedAmount = safeAmount;
       post();
       window.setTimeout(scan, 1500);
@@ -1028,8 +1046,8 @@
       }
     }
     scan();
-    if (state.demoMode !== 'confirmed') {
-      state.lastTradeStatus = `blocked: demo mode changed before click (${state.demoMode})`;
+    if (!canTradeCurrentAccount()) {
+      state.lastTradeStatus = `blocked: account mode changed before click (${state.demoMode})`;
       post();
       return false;
     }
@@ -1039,7 +1057,7 @@
       post();
       return false;
     }
-    state.lastTradeStatus = `demo ${String(direction).toUpperCase()} click sent for $${safeAmount.toFixed(2)}`;
+    state.lastTradeStatus = `${accountModeLabel()} ${String(direction).toUpperCase()} click sent for $${safeAmount.toFixed(2)}`;
     state.lastPlacedAmount = executedAmount;
     post();
     closePOPopovers();
@@ -1172,8 +1190,8 @@
   function runBotTrade() {
     scan();
     if (!state.botRunning || state.botInTrade) return;
-    if (state.demoMode !== 'confirmed') {
-      stopBot(`blocked: demo mode not confirmed (${state.demoMode})`);
+    if (!canTradeCurrentAccount()) {
+      stopBot(`blocked: account mode not confirmed (${state.demoMode})`);
       return;
     }
     const payoutCheck = checkPayoutBeforeBotTrade();
@@ -1209,7 +1227,7 @@
     }
     const executedAmount = Number(state.lastPlacedAmount) || amount;
     state.lastDirection = direction;
-    state.botMode = state.settings.strategy === 'ai' ? 'demo-ai' : 'demo-martingale';
+    state.botMode = botModeName();
     state.botBalanceBeforeTrade = balanceBefore;
     state.botPendingAmount = executedAmount;
     state.lastTradeStatus = `bot placed ${direction.toUpperCase()} for $${executedAmount}; confirming open`;
@@ -1220,8 +1238,8 @@
 
   function startDemoMartingale() {
     scan();
-    if (state.demoMode !== 'confirmed') {
-      state.lastTradeStatus = `blocked: demo mode not confirmed (${state.demoMode})`;
+    if (!canTradeCurrentAccount()) {
+      state.lastTradeStatus = `blocked: account mode not confirmed (${state.demoMode})`;
       post();
       return false;
     }
@@ -1231,7 +1249,7 @@
       return true;
     }
     state.botRunning = true;
-    state.botMode = state.settings.strategy === 'ai' ? 'demo-ai' : 'demo-martingale';
+    state.botMode = botModeName();
     state.martingaleStep = 0;
     state.nextAmount = Math.max(1, Number(state.settings.startAmount) || 1);
     state.tradesCount = 0;
@@ -1239,7 +1257,7 @@
     state.botPayoutSwitchOpenAttempted = false;
     state.botTradesRemaining = Math.max(0, Math.min(100, Number(state.settings.maxProofTrades) || 0));
     state.lastTradeStatus = state.botTradesRemaining > 0
-      ? `bot started: ${state.settings.strategy}, max ${state.botTradesRemaining} demo trades`
+      ? `bot started: ${state.settings.strategy}, ${accountModeLabel()}, max ${state.botTradesRemaining} trades`
       : `bot started: ${state.settings.strategy}, running until stopped`;
     persistBotState('started');
     post();
@@ -1344,7 +1362,9 @@
     snapshot,
     setSettings,
     placeDemoTrade,
+    placeTrade: placeDemoTrade,
     startDemoMartingale,
+    startBot: startDemoMartingale,
     stopBot,
   };
 
@@ -1356,7 +1376,7 @@
   if (restoredBot) {
     window.setTimeout(() => {
       scan();
-      if (state.botRunning && state.demoMode === 'confirmed') runBotTrade();
+      if (state.botRunning && canTradeCurrentAccount()) runBotTrade();
     }, 2500);
   }
   post();

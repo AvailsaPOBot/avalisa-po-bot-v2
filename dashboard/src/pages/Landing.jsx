@@ -30,7 +30,7 @@ const deviceCards = [
 ];
 
 const signalSteps = [
-  ['Account mode', 'Demo confirmed'],
+  ['Account mode', 'Demo or Real confirmed'],
   ['Pair scan', 'Current or favorites'],
   ['Avalisa AI', 'Low / Mid / High'],
   ['Trade lock', 'No duplicate orders'],
@@ -137,7 +137,7 @@ function DeviceMockup() {
       <div className="phone-safety-card">
         <ShieldCheck size={18} />
         <span>Real/demo detection fixed</span>
-        <strong>Demo-first guard active</strong>
+        <strong>Real execution enabled</strong>
       </div>
     </motion.div>
   );
@@ -223,7 +223,7 @@ export default function Landing() {
             <ul className="phone-proof-list">
               <li><Check size={16} /> Responsive Phone Bot shell tested across common device sizes</li>
               <li><Check size={16} /> Real/demo account detection now uses the active PO account</li>
-              <li><Check size={16} /> Desktop Chrome extension remains the live-trading path today</li>
+              <li><Check size={16} /> Phone Bot can place Demo or Real trades after account mode is confirmed</li>
             </ul>
           </motion.div>
           <DeviceMockup />
@@ -255,7 +255,7 @@ export default function Landing() {
             <h2>Avalisa AI stays visible before every action.</h2>
             <p>
               Pair scan, payout checks, intensity, trade lock, amount, and account mode are
-              surfaced in the bot panel so users can verify the workflow before they move past demo.
+              surfaced in the bot panel before Demo or Real execution.
             </p>
             <div className="phone-feature-list">
               <div><Bot size={20} /><span><strong>AI Pair Scan</strong> Current pair or favorites scan.</span></div>
@@ -271,8 +271,8 @@ export default function Landing() {
         <div className="lux-shell phone-section__head">
           <h2>Start with demo. Upgrade when the workflow fits.</h2>
           <p>
-            Existing desktop users can continue with the Chrome extension. New mobile-first users
-            should begin with demo and join the Phone Bot rollout from their Avalisa account.
+            Existing desktop users can continue with the Chrome extension. Mobile-first users
+            should test demo first, then use Real mode only with responsible risk controls.
           </p>
         </div>
         <div className="lux-shell phone-pricing-grid">
@@ -306,17 +306,17 @@ export default function Landing() {
       <section className="phone-section" id="faq">
         <div className="lux-shell phone-faq">
           <div>
-            <h2>Ready for public traffic, with one clear boundary.</h2>
+            <h2>Ready for public traffic on any device.</h2>
             <p>
-              The website can promote the Phone Bot beta now. Real-money mobile execution remains
-              guarded until the Board intentionally approves that release path.
+              The Phone Bot now supports confirmed Demo and Real account modes. Unknown account
+              mode still stays locked so the bot does not trade when PO state cannot be read.
             </p>
           </div>
           <div className="phone-faq__items">
             <article>
               <MonitorSmartphone size={21} />
               <strong>Can the website work on PC and Mac?</strong>
-              <span>Yes. The Avalisa website and dashboard are browser responsive, and desktop live trading uses the Chrome extension.</span>
+              <span>Yes. The Avalisa website and dashboard are browser responsive, and the Chrome extension remains available for desktop users.</span>
             </article>
             <article>
               <Smartphone size={21} />

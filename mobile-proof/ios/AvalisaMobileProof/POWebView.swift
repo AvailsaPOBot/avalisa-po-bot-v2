@@ -47,12 +47,12 @@ struct POWebView: UIViewRepresentable {
         case .setPairScan(let enabled):
             webView.evaluateJavaScript("window.AvalisaProof && window.AvalisaProof.setSettings && window.AvalisaProof.setSettings({ pairScanEnabled: \(enabled ? "true" : "false") });")
         case .startBot:
-            webView.evaluateJavaScript("window.AvalisaProof && window.AvalisaProof.startDemoMartingale && window.AvalisaProof.startDemoMartingale();")
+            webView.evaluateJavaScript("window.AvalisaProof && window.AvalisaProof.startBot && window.AvalisaProof.startBot();")
         case .stopBot:
             webView.evaluateJavaScript("window.AvalisaProof && window.AvalisaProof.stopBot && window.AvalisaProof.stopBot('stopped by user');")
         case .demoTrade(let direction):
             let escaped = direction.replacingOccurrences(of: "'", with: "\\'")
-            webView.evaluateJavaScript("window.AvalisaProof && window.AvalisaProof.placeDemoTrade('\(escaped)', 1);")
+            webView.evaluateJavaScript("window.AvalisaProof && window.AvalisaProof.placeTrade('\(escaped)', 1);")
         }
     }
 

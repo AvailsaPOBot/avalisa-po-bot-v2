@@ -24,7 +24,7 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Avalisa Mobile Proof")
                     .font(.headline)
-                Text("PO mobile web, local demo guard, no backend writes")
+                Text("PO mobile web, account-aware execution, no backend writes")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -40,14 +40,30 @@ struct ContentView: View {
     }
 
     private var statusBadge: some View {
-        Text(model.demoMode == "confirmed" ? "DEMO MODE CONFIRMED" : model.demoMode.uppercased())
+        Text(accountStatusText)
             .font(.caption2.weight(.bold))
             .padding(.horizontal, 8)
             .padding(.vertical, 5)
-            .background(model.demoMode == "confirmed" ? Color.green.opacity(0.92) : Color.orange.opacity(0.92))
+            .background(accountStatusColor)
             .foregroundStyle(.white)
             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-            .accessibilityLabel("Demo mode status")
+            .accessibilityLabel("Account mode status")
+    }
+
+    private var accountCanTrade: Bool {
+        model.demoMode == "confirmed" || model.demoMode == "real"
+    }
+
+    private var accountStatusText: String {
+        if model.demoMode == "confirmed" { return "DEMO MODE CONFIRMED" }
+        if model.demoMode == "real" { return "REAL ACCOUNT ACTIVE" }
+        return model.demoMode.uppercased()
+    }
+
+    private var accountStatusColor: Color {
+        if model.demoMode == "confirmed" { return Color.green.opacity(0.92) }
+        if model.demoMode == "real" { return Color.red.opacity(0.92) }
+        return Color.orange.opacity(0.92)
     }
 
     private var controlPanel: some View {
@@ -76,7 +92,7 @@ struct ContentView: View {
                 Text(model.guidance)
                     .font(.caption.weight(.semibold))
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .foregroundStyle(model.demoMode == "real-blocked" ? .red : .secondary)
+                    .foregroundStyle(model.demoMode == "real" ? .red : .secondary)
             }
             .padding(12)
         }
@@ -131,7 +147,7 @@ struct ContentView: View {
             model.command = .startBot
         }
         .buttonStyle(.borderedProminent)
-        .disabled(model.demoMode != "confirmed" || model.botRunning)
+        .disabled(!accountCanTrade || model.botRunning)
     }
 
     private var stopButton: some View {
@@ -147,7 +163,7 @@ struct ContentView: View {
             model.command = .demoTrade(direction: "call")
         }
         .buttonStyle(.bordered)
-        .disabled(model.demoMode != "confirmed")
+        .disabled(!accountCanTrade)
     }
 
     private var putButton: some View {
@@ -155,7 +171,7 @@ struct ContentView: View {
             model.command = .demoTrade(direction: "put")
         }
         .buttonStyle(.bordered)
-        .disabled(model.demoMode != "confirmed")
+        .disabled(!accountCanTrade)
     }
 
     private func metric(_ label: String, _ value: String) -> some View {

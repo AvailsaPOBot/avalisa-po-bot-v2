@@ -28,8 +28,8 @@ final class ProofModel: ObservableObject {
     @Published var martingaleStep = 0
     @Published var nextAmount = 1.0
     @Published var botTradesRemaining = 0
-    @Published var lastTradeStatus = "Read-only until demo mode is confirmed."
-    @Published var guidance = "Log in to PO, switch to demo balance, then tap Scan."
+    @Published var lastTradeStatus = "Read-only until account mode is confirmed."
+    @Published var guidance = "Log in to PO, confirm Demo or Real account mode, then tap Scan."
 
     @MainActor
     func apply(status: ProofStatus) {

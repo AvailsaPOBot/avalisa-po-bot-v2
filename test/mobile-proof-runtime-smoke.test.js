@@ -4,7 +4,7 @@ const path = require('path');
 const { JSDOM } = require('../dashboard/node_modules/jsdom');
 
 const root = path.resolve(__dirname, '..');
-const dom = new JSDOM('<!doctype html><html><head></head><body><div>QT Real USD 100.00</div></body></html>', {
+const dom = new JSDOM('<!doctype html><html><head></head><body><div>QT Real USD 100.00</div><input type="number" value="1"><button>CALL</button></body></html>', {
   url: 'https://m.po.trade/en/cabinet/demo-quick-high-low/?source=pwa',
   runScripts: 'outside-only',
 });
@@ -26,33 +26,51 @@ assert.equal(proof.version, '1.02-local-proof');
 let snapshot = JSON.parse(proof.snapshot());
 proof.scan();
 snapshot = JSON.parse(proof.snapshot());
-assert.equal(snapshot.demoMode, 'real-blocked');
-assert.equal(proof.startDemoMartingale(), false);
+assert.equal(snapshot.demoMode, 'real');
+assert.equal(proof.placeTrade('call', 1), true);
 snapshot = JSON.parse(proof.snapshot());
-assert.match(snapshot.lastTradeStatus, /demo mode not confirmed/);
+assert.match(snapshot.lastTradeStatus, /real CALL click sent/);
+
+dom.window.history.pushState({}, '', '/en/cabinet?source=pwa');
+dom.window.document.body.innerHTML = '<div>Payout +92%</div><button>CALL</button>';
+proof.scan();
+snapshot = JSON.parse(proof.snapshot());
+assert.equal(snapshot.demoMode, 'unknown');
+assert.equal(proof.placeTrade('call', 1), false);
+snapshot = JSON.parse(proof.snapshot());
+assert.match(snapshot.lastTradeStatus, /account mode not confirmed/);
 
 dom.window.history.pushState({}, '', '/en/cabinet/quick-high-low/?source=pwa');
 dom.window.document.body.innerHTML = `
   <div>QT Real USD 44.50</div>
   <div class="js-balance-demo">$10000.00</div>
   <div class="js-balance-real-USD">$44.50</div>
+  <input type="number" value="1">
+  <button>CALL</button>
 `;
 proof.scan();
 snapshot = JSON.parse(proof.snapshot());
-assert.equal(snapshot.demoMode, 'real-blocked');
+assert.equal(snapshot.demoMode, 'real');
 assert.equal(snapshot.balance, '$44.50');
-assert.equal(proof.startDemoMartingale(), false);
+assert.equal(proof.placeTrade('call', 1), true);
+snapshot = JSON.parse(proof.snapshot());
+assert.match(snapshot.lastTradeStatus, /real CALL click sent/);
 
 dom.window.history.pushState({}, '', '/en/cabinet/demo-quick-high-low/?source=pwa');
 dom.window.document.body.innerHTML = `
   <div>QT Demo USD 10000.00</div>
   <div class="js-balance-demo">$10000.00</div>
   <div class="js-balance-real-USD">$44.50</div>
+  <input type="number" value="1">
+  <button>CALL</button>
 `;
 proof.scan();
 snapshot = JSON.parse(proof.snapshot());
 assert.equal(snapshot.demoMode, 'confirmed');
 assert.equal(snapshot.balance, '$10000.00');
+assert.equal(proof.placeTrade('call', 1), true);
+snapshot = JSON.parse(proof.snapshot());
+assert.match(snapshot.lastTradeStatus, /demo CALL click sent/);
 
 const settingsStatus = proof.setSettings({
   settings: {
