@@ -864,7 +864,8 @@
 .lux-page,
 .lux-auth-page,
 .lux-support-page,
-.lux-pricing-page {
+.lux-pricing-page,
+.lux-privacy-page {
   min-height: 100vh;
   color: var(--lux-text);
   background:
@@ -2418,7 +2419,7 @@
   z-index: 2;
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
   object-position: center center;
   filter: saturate(1.04) contrast(1.03);
 }
@@ -2478,24 +2479,30 @@
   }
 
   .lux-auth-visual {
-    min-height: 32rem;
+    min-height: 0;
+    aspect-ratio: 4 / 5;
   }
 
   .lux-auth-visual img {
-    width: 62%;
-    object-position: center;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center bottom;
   }
 
   .lux-auth-visual--login img,
   .lux-auth-visual--register img {
-    right: 1rem;
-    width: 58%;
-    object-position: right bottom;
+    right: auto;
+    width: 100%;
+    object-position: center bottom;
   }
 }
 
 .lux-price-hero,
-.lux-support-shell {
+.lux-support-shell,
+.lux-privacy-hero {
   display: grid;
   grid-template-columns: 1fr;
   gap: 2rem;
@@ -2506,7 +2513,8 @@
 }
 
 .lux-price-hero h1,
-.lux-support-copy h1 {
+.lux-support-copy h1,
+.lux-privacy-hero h1 {
   margin: 0.6rem 0 0;
   font-family: var(--font-display);
   font-size: clamp(3.2rem, 7vw, 6.4rem);
@@ -2514,15 +2522,147 @@
   line-height: 0.92;
 }
 
+.lux-price-hero h1 {
+  font-size: clamp(3rem, 6vw, 5rem);
+}
+
 .lux-price-hero p,
-.lux-support-copy > p {
+.lux-support-copy > p,
+.lux-privacy-hero p {
   max-width: 36rem;
   color: rgba(243, 238, 230, 0.68);
   line-height: 1.65;
 }
 
+.lux-privacy-hero {
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.42fr);
+  padding-bottom: clamp(1.5rem, 4vw, 3rem);
+}
+
+.lux-privacy-updated {
+  margin: 0.8rem 0 1rem;
+  color: var(--lux-gold) !important;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.lux-privacy-hero aside {
+  display: grid;
+  align-content: center;
+  gap: 0.7rem;
+  border: 1px solid rgba(216, 162, 74, 0.3);
+  border-radius: 0.7rem;
+  min-height: 15rem;
+  padding: clamp(1.2rem, 3vw, 1.8rem);
+  background:
+    radial-gradient(circle at 76% 8%, rgba(216, 162, 74, 0.17), transparent 12rem),
+    linear-gradient(180deg, rgba(14, 18, 22, 0.88), rgba(6, 8, 10, 0.94));
+  box-shadow: 0 28px 82px rgba(0, 0, 0, 0.34);
+}
+
+.lux-privacy-hero aside svg {
+  color: var(--lux-gold);
+}
+
+.lux-privacy-hero aside strong {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 3vw, 2.2rem);
+  line-height: 1;
+}
+
+.lux-privacy-hero aside span {
+  color: var(--lux-muted);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.lux-privacy-content {
+  display: grid;
+  gap: 1rem;
+  padding-bottom: clamp(3rem, 6vw, 5rem);
+}
+
+.lux-privacy-card {
+  border: 1px solid var(--lux-line);
+  border-radius: 0.6rem;
+  padding: clamp(1rem, 2.4vw, 1.45rem);
+  background:
+    radial-gradient(circle at 92% 0%, rgba(216, 162, 74, 0.08), transparent 14rem),
+    linear-gradient(180deg, rgba(14, 18, 22, 0.9), rgba(7, 9, 11, 0.92));
+}
+
+.lux-privacy-card h2 {
+  margin: 0 0 0.9rem;
+  color: var(--lux-text);
+  font-family: var(--font-display);
+  font-size: clamp(1.2rem, 2.2vw, 1.7rem);
+  font-weight: 600;
+}
+
+.lux-privacy-card__body {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.lux-privacy-card h3 {
+  margin: 0 0 0.2rem;
+  color: var(--lux-gold);
+  font-size: 0.86rem;
+}
+
+.lux-privacy-card p {
+  margin: 0;
+  color: rgba(243, 238, 230, 0.68);
+  font-size: 0.92rem;
+  line-height: 1.65;
+}
+
+.lux-privacy-email {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--lux-gold);
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.lux-privacy-risk {
+  border: 1px solid rgba(241, 200, 120, 0.34);
+  border-radius: 0.6rem;
+  padding: 1rem;
+  background: rgba(216, 162, 74, 0.1);
+  color: rgba(243, 238, 230, 0.78);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.lux-privacy-risk strong {
+  color: var(--lux-gold);
+}
+
 .lux-pricing-grid--page {
-  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(18rem, 0.9fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(16rem, 0.82fr);
+  width: min(100% - 2rem, 1320px);
+}
+
+.lux-pricing-page .lux-price {
+  padding: 1.1rem;
+}
+
+.lux-pricing-page .lux-price h3 {
+  font-size: clamp(2rem, 3vw, 2.45rem);
+}
+
+.lux-pricing-page .lux-price ul {
+  font-size: 0.88rem;
+}
+
+.lux-pricing-page .lux-price li {
+  padding: 0.45rem 0.58rem;
 }
 
 .lux-pricing-benefits,
@@ -2637,6 +2777,7 @@
   height: 3rem;
   border-radius: 999px;
   object-fit: cover;
+  object-position: 50% 18%;
 }
 
 .lux-support-chat header div {
@@ -2718,6 +2859,7 @@
 @media (max-width: 920px) {
   .lux-price-hero,
   .lux-support-shell,
+  .lux-privacy-hero,
   .lux-pricing-grid--page,
   .lux-topic-grid {
     grid-template-columns: 1fr;
@@ -2849,10 +2991,17 @@
 
   .floating-chat-button {
     right: 0.9rem;
-    bottom: 0.9rem;
+    top: 54vh;
+    bottom: auto;
     min-width: 3rem;
     width: 3rem;
     height: 3rem;
+    animation: none;
+    transform: translateY(-50%);
+  }
+
+  .floating-chat-button:hover {
+    transform: translateY(-50%) scale(1.02);
   }
 
   .floating-chat-button span {

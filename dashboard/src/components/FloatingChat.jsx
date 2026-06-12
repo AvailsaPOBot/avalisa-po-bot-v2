@@ -40,7 +40,7 @@ export default function FloatingChat() {
       {open && (
         <section className="floating-chat" aria-label="Talk to Avalisa">
           <header>
-            <img src="/images/landing/avalisa-blonde-support.png" alt="" />
+            <img src="/images/landing/avalisa-blonde-pricing.png" alt="" />
             <div>
               <strong>Talk to Avalisa</strong>
               <span>AI support assistant</span>

@@ -786,7 +786,7 @@ export default function Dashboard() {
                   onChange={e => setAdminPlan(e.target.value)}
                 >
                   <option value="lifetime">Pro ($119, unlimited)</option>
-                  <option value="basic">Basic ($69, Martingale)</option>
+                  <option value="basic">Basic ($69, Martingale + 10 AI)</option>
                 </select>
               </div>
               <button

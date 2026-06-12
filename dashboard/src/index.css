@@ -393,6 +393,7 @@ html {
   height: 2.5rem;
   border-radius: 999px;
   object-fit: cover;
+  object-position: 50% 18%;
 }
 
 .floating-chat header strong,

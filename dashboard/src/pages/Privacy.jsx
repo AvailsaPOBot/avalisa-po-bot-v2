@@ -1,3 +1,6 @@
+import { Mail, ShieldCheck } from 'lucide-react';
+import '../styles/luxury.css';
+
 export default function Privacy() {
   const sections = [
     {
@@ -138,53 +141,55 @@ export default function Privacy() {
   ];
 
   return (
-    <div className="min-h-screen py-16 px-4">
-      <div className="max-w-3xl mx-auto">
-
-        {/* Header */}
-        <div className="mb-12">
-          <h1 className="text-4xl font-extrabold text-white mb-3">Privacy Policy</h1>
-          <p className="text-gray-500 text-sm">Last updated: April 2026</p>
-          <p className="text-gray-400 text-sm mt-4 leading-relaxed">
+    <main className="lux-privacy-page">
+      <section className="lux-privacy-hero lux-shell">
+        <div>
+          <p className="lux-kicker">Privacy</p>
+          <h1>Privacy Policy</h1>
+          <p className="lux-privacy-updated">Last updated: April 2026</p>
+          <p>
             This Privacy Policy explains how Avalisa Bot ("we", "us", "our") collects, uses, and protects
             your information when you use our Chrome extension and dashboard. By using Avalisa Bot, you agree
             to the practices described in this policy.
           </p>
         </div>
+        <aside>
+          <ShieldCheck size={34} />
+          <strong>No Pocket Option password storage.</strong>
+          <span>Avalisa uses backend account access and plan checks, but does not collect Pocket Option credentials.</span>
+        </aside>
+      </section>
 
-        {/* Sections */}
-        <div className="flex flex-col gap-6">
+      <section className="lux-privacy-content lux-shell">
           {sections.map(section => (
-            <div key={section.title} className="card">
-              <h2 className="text-lg font-bold text-white mb-4">{section.title}</h2>
-              <div className="flex flex-col gap-4">
+            <article key={section.title} className="lux-privacy-card">
+              <h2>{section.title}</h2>
+              <div className="lux-privacy-card__body">
                 {section.content.map((item, i) => (
                   <div key={i}>
                     {item.subtitle && (
-                      <h3 className="text-sm font-semibold text-brand-400 mb-1">{item.subtitle}</h3>
+                      <h3>{item.subtitle}</h3>
                     )}
-                    <p className="text-gray-400 text-sm leading-relaxed">{item.text}</p>
+                    <p>{item.text}</p>
                   </div>
                 ))}
                 {section.contact && (
                   <a
                     href="mailto:AvalisaPOBot@gmail.com"
-                    className="text-brand-400 text-sm font-semibold hover:underline"
+                    className="lux-privacy-email"
                   >
+                    <Mail size={15} />
                     AvalisaPOBot@gmail.com
                   </a>
                 )}
               </div>
-            </div>
+            </article>
           ))}
-        </div>
 
-        {/* Risk Disclaimer */}
-        <div className="mt-8 bg-yellow-900/20 border border-yellow-700/40 rounded-xl p-5 text-sm text-yellow-200">
-          <strong>⚠️ Risk Disclaimer:</strong> Binary options trading carries significant financial risk. This tool does not guarantee profits. Trade responsibly.
-        </div>
-
-      </div>
-    </div>
+        <aside className="lux-privacy-risk">
+          <strong>Risk Disclaimer:</strong> Binary options trading carries significant financial risk. This tool does not guarantee profits. Trade responsibly.
+        </aside>
+      </section>
+    </main>
   );
 }
