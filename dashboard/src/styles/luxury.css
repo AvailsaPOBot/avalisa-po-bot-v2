@@ -2864,6 +2864,10 @@
   .lux-topic-grid {
     grid-template-columns: 1fr;
   }
+
+  .lux-privacy-hero aside {
+    min-height: 11.5rem;
+  }
 }
 
 .lux-footer .lux-shell {

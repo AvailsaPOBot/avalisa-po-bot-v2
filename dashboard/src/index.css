@@ -326,7 +326,7 @@ html {
   display: none;
 }
 
-@media (max-width: 920px) {
+@media (max-width: 1100px) {
   .site-nav__links,
   .site-nav__actions {
     display: none;
