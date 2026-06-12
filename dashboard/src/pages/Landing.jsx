@@ -222,6 +222,7 @@ export default function Landing() {
             </div>
             <ul className="phone-proof-list">
               <li><Check size={16} /> Responsive Phone Bot shell tested across common device sizes</li>
+              <li><Check size={16} /> Same Avalisa login, paid plan, and free-tier access as the extension</li>
               <li><Check size={16} /> Real/demo account detection now uses the active PO account</li>
               <li><Check size={16} /> Phone Bot can place Demo or Real trades after account mode is confirmed</li>
             </ul>
@@ -235,7 +236,8 @@ export default function Landing() {
           <h2>One Avalisa workflow, sized for every device.</h2>
           <p>
             The Phone Bot beta is designed for the way traders actually open Pocket Option:
-            on a phone first, then tablet or desktop when they want a larger view.
+            on a phone first, then tablet or desktop when they want a larger view. Access is
+            checked through the Avalisa backend before the bot starts.
           </p>
         </div>
         <div className="lux-shell device-card-grid">
@@ -317,6 +319,11 @@ export default function Landing() {
               <MonitorSmartphone size={21} />
               <strong>Can the website work on PC and Mac?</strong>
               <span>Yes. The Avalisa website and dashboard are browser responsive, and the Chrome extension remains available for desktop users.</span>
+            </article>
+            <article>
+              <Lock size={21} />
+              <strong>Do paid plans work in the Phone Bot?</strong>
+              <span>Yes. Users log in with the same Avalisa account. Paid plans and free-tier limits are checked before the bot can run.</span>
             </article>
             <article>
               <Smartphone size={21} />

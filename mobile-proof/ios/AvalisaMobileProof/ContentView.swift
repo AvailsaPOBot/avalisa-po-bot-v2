@@ -2,6 +2,8 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var model = ProofModel()
+    @State private var email = ""
+    @State private var password = ""
 
     var body: some View {
         GeometryReader { proxy in
@@ -24,7 +26,7 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Avalisa Mobile Proof")
                     .font(.headline)
-                Text("PO mobile web, account-aware execution, no backend writes")
+                Text("PO mobile web with Avalisa backend access")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -51,7 +53,7 @@ struct ContentView: View {
     }
 
     private var accountCanTrade: Bool {
-        model.demoMode == "confirmed" || model.demoMode == "real"
+        (model.demoMode == "confirmed" || model.demoMode == "real") && model.licenseAllowed
     }
 
     private var accountStatusText: String {
@@ -69,6 +71,7 @@ struct ContentView: View {
     private var controlPanel: some View {
         ScrollView(.vertical) {
             VStack(spacing: 10) {
+                authPanel
                 topControlRow
                 tradeControlRow
 
@@ -97,6 +100,62 @@ struct ContentView: View {
             .padding(12)
         }
         .background(.bar)
+    }
+
+    private var authPanel: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(model.userEmail.isEmpty ? "Avalisa account" : model.userEmail)
+                        .font(.caption.weight(.semibold))
+                    Text(licenseSummary)
+                        .font(.caption2)
+                        .foregroundStyle(model.licenseAllowed ? .secondary : .red)
+                }
+                Spacer()
+                if !model.userEmail.isEmpty {
+                    Button("Logout") {
+                        model.command = .logout
+                    }
+                    .buttonStyle(.bordered)
+                    .font(.caption)
+                }
+            }
+            if model.userEmail.isEmpty {
+                TextField("Email", text: $email)
+                    .textContentType(.emailAddress)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .textFieldStyle(.roundedBorder)
+                SecureField("Password", text: $password)
+                    .textContentType(.password)
+                    .textFieldStyle(.roundedBorder)
+                Button("Login") {
+                    model.command = .login(email: email.trimmingCharacters(in: .whitespacesAndNewlines), password: password)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(email.isEmpty || password.isEmpty)
+            }
+        }
+        .padding(10)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private var licenseSummary: String {
+        if ["logging_in", "checking_license", "checking_free_tier", "restoring"].contains(model.authStatus) {
+            return "Checking backend access..."
+        }
+        if !model.licenseAllowed {
+            return model.licenseReason.isEmpty ? "Backend access not confirmed" : model.licenseReason
+        }
+        if let remaining = model.tradesRemaining, let limit = model.tradesLimit {
+            return "\(model.licensePlan.uppercased()) plan · \(remaining)/\(limit) trades left"
+        }
+        if let used = model.aiTradesUsed, let allowance = model.aiTradesAllowance {
+            return "\(model.licensePlan.uppercased()) plan · AI \(used)/\(allowance)"
+        }
+        return "\(model.licensePlan.uppercased()) plan · active"
     }
 
     private var topControlRow: some View {
