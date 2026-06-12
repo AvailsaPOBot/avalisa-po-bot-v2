@@ -55,7 +55,9 @@ const allowedOrigins = [
   'https://avalisabot.vercel.app',
   'https://pocketoption.com',
   'https://po.trade',
+  'https://m.po.trade',
   'https://po.cash',
+  'https://m.po.cash',
 ].filter(Boolean).map(o => o.replace(/\/$/, '')); // exact-match; strip any trailing slash
 
 app.use(cors({

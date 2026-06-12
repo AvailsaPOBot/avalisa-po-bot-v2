@@ -67,7 +67,7 @@ export default function Login() {
         </form>
 
         <aside className="lux-auth-visual lux-auth-visual--login">
-          <img className="lux-auth-visual__scene" src="/images/landing/generated/avalisa-auth-scene-gemini.png" alt="Avalisa assistant dashboard scene" />
+          <img className="lux-auth-visual__scene" src="/images/landing/webapp-redesign/hero-product-composite.png" alt="Avalisa PO Bot dashboard and mobile access" />
         </aside>
       </section>
     </main>

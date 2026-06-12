@@ -8,7 +8,7 @@ const VALID_TABS = ['settings', 'history', 'bots', 'admin'];
 
 const STRATEGIES = [
   { id: 'martingale', label: 'Martingale', plans: ['free', 'basic', 'lifetime'], desc: 'Double on loss to recover' },
-  { id: 'ai', label: 'Avalisa AI', plans: ['basic', 'lifetime'], desc: 'AI-style pair scanning with plan-based allowance' },
+  { id: 'ai', label: 'Avalisa AI', plans: ['lifetime'], desc: 'Local rule engine with AI-style pair scanning (Pro)' },
 ];
 
 const TIMEFRAMES = ['S30', 'M1', 'M3', 'M5', 'M30', 'H1'];
@@ -58,7 +58,6 @@ export default function Dashboard() {
   const [adminLoading, setAdminLoading] = useState(false);
   const [adminResult, setAdminResult] = useState(null);
   const [adminUsers, setAdminUsers] = useState([]);
-  const [userSearch, setUserSearch] = useState('');
   const [allowanceEdit, setAllowanceEdit] = useState({}); // { [userId]: stringValue }
   const [allowanceSavingId, setAllowanceSavingId] = useState(null);
 
@@ -92,11 +91,10 @@ export default function Dashboard() {
   const [tokenUsage, setTokenUsage] = useState(null);
   const [tokenResetting, setTokenResetting] = useState(false);
 
-  const loadAdminUsers = useCallback(async (search = '') => {
+  const loadAdminUsers = useCallback(async () => {
     if (!isAdmin) return;
     try {
-      const q = search.trim() ? `?search=${encodeURIComponent(search.trim())}` : '';
-      const res = await api.get(`/api/admin/users${q}`);
+      const res = await api.get('/api/admin/users');
       setAdminUsers(res.data.users || []);
     } catch (err) {
       console.error('Failed to load admin users:', err);
@@ -787,8 +785,8 @@ export default function Dashboard() {
                   value={adminPlan}
                   onChange={e => setAdminPlan(e.target.value)}
                 >
-                  <option value="lifetime">Pro (current modes unlocked)</option>
-                  <option value="basic">Basic (Martingale + 10 AI trades)</option>
+                  <option value="lifetime">Pro ($119, unlimited)</option>
+                  <option value="basic">Basic ($69, Martingale + 10 AI)</option>
                 </select>
               </div>
               <button
@@ -812,37 +810,11 @@ export default function Dashboard() {
 
           {/* Users List */}
           <div className="card overflow-x-auto">
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-              <h2 className="text-lg font-semibold text-white">
-                {userSearch.trim() ? `Search Results (${adminUsers.length})` : `Recent Users (${adminUsers.length})`}
-              </h2>
-              <form
-                onSubmit={e => { e.preventDefault(); loadAdminUsers(userSearch); }}
-                className="flex items-center gap-2"
-              >
-                <input
-                  type="text"
-                  value={userSearch}
-                  onChange={e => setUserSearch(e.target.value)}
-                  placeholder="Search email or PO UID…"
-                  className="input text-sm py-1 w-56"
-                />
-                <button type="submit" className="btn-outline text-sm py-1 px-3">Search</button>
-                {userSearch.trim() && (
-                  <button
-                    type="button"
-                    onClick={() => { setUserSearch(''); loadAdminUsers(''); }}
-                    className="text-sm text-gray-400 hover:text-gray-200"
-                  >
-                    Clear
-                  </button>
-                )}
-              </form>
-            </div>
+            <h2 className="text-lg font-semibold text-white mb-4">
+              Recent Users ({adminUsers.length})
+            </h2>
             {adminUsers.length === 0 ? (
-              <p className="text-gray-400 text-sm text-center py-4">
-                {userSearch.trim() ? 'No users match your search.' : 'No users yet.'}
-              </p>
+              <p className="text-gray-400 text-sm text-center py-4">No users yet.</p>
             ) : (
               <table className="w-full text-sm">
                 <thead>

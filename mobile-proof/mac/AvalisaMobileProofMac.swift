@@ -13,7 +13,9 @@ private extension NSColor {
 }
 
 final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKNavigationDelegate {
-    private let mobileContentSize = NSSize(width: 390, height: 900)
+    private let initialContentSize = NSSize(width: 430, height: 900)
+    private let minContentSize = NSSize(width: 360, height: 640)
+    private let maxContentSize = NSSize(width: 1280, height: 1200)
     private let panelColor = NSColor(hex: 0x1A1A2E)
     private let panelBorderColor = NSColor(hex: 0x2D2D5B)
     private let fieldColor = NSColor(hex: 0x0F0F23)
@@ -33,7 +35,10 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
     private var settingsExpanded = false
     private var panelHeightConstraint: NSLayoutConstraint!
     private weak var panelScrollView: NSScrollView?
-    private var authLoggedIn = true
+    private var authLoggedIn = false
+    private var authEmail = "Free tier"
+    private var authPlan = "FREE"
+    private var authSummary = "Checking backend access..."
     private var authSection: NSStackView!
     private var callButton: NSButton!
     private var putButton: NSButton!
@@ -59,7 +64,7 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
     private var values: [String: NSTextField] = [:]
     private var sleeves: [ClosureSleeve] = []
     private var statusTimer: Timer?
-    private var stableDemoConfirmed = false
+    private var stableAccountCanTrade = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildWindow()
@@ -93,7 +98,7 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
 
         let content = NSStackView()
         content.orientation = .vertical
-        content.alignment = .centerX
+        content.alignment = .width
         content.spacing = 0
         content.translatesAutoresizingMaskIntoConstraints = false
         content.wantsLayer = true
@@ -103,12 +108,13 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
 
         let controlRows = NSStackView()
         controlRows.orientation = .vertical
+        controlRows.alignment = .width
         controlRows.spacing = 0
         controlRows.edgeInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
 
         startBotButton = button("▶ Start", style: .green) { [weak self] in
             self?.sendSettings()
-            self?.eval("window.AvalisaProof && window.AvalisaProof.startDemoMartingale();")
+            self?.eval("window.AvalisaProof && window.AvalisaProof.startBot();")
         }
         stopBotButton = button("■ Stop", style: .red) { [weak self] in self?.eval("window.AvalisaProof && window.AvalisaProof.stopBot('stopped by user');") }
         startBotButton.font = .boldSystemFont(ofSize: 15)
@@ -118,8 +124,8 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
         settingsToggleButton = chevronButton("⌄") { [weak self] in
             self?.toggleSettingsDrawer()
         }
-        callButton = button("$1 CALL", style: .outline) { [weak self] in self?.eval("window.AvalisaProof && window.AvalisaProof.placeDemoTrade('call', 1);") }
-        putButton = button("$1 PUT", style: .outline) { [weak self] in self?.eval("window.AvalisaProof && window.AvalisaProof.placeDemoTrade('put', 1);") }
+        callButton = button("$1 CALL", style: .outline) { [weak self] in self?.eval("window.AvalisaProof && window.AvalisaProof.placeTrade('call', 1);") }
+        putButton = button("$1 PUT", style: .outline) { [weak self] in self?.eval("window.AvalisaProof && window.AvalisaProof.placeTrade('put', 1);") }
         callButton.isEnabled = false
         putButton.isEnabled = false
 
@@ -138,14 +144,13 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
         compactControls.distribution = .fillEqually
         compactControls.addArrangedSubview(startBotButton)
         compactControls.addArrangedSubview(stopBotButton)
-        compactControls.widthAnchor.constraint(equalToConstant: 320).isActive = true
         let compactControlsSection = extensionSection([
             compactControls
         ], bottomBorder: true)
 
         let rows = [
             row("Page", key: "pageState"),
-            row("Demo", key: "demoMode"),
+            row("Account", key: "demoMode"),
             row("Pair", key: "activePair"),
             row("Pair mode", key: "pairMode"),
             row("Bot", key: "botMode"),
@@ -175,6 +180,7 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
         tradeCounter.textColor = NSColor(hex: 0x64748B)
         let statusPanel = NSStackView()
         statusPanel.orientation = .vertical
+        statusPanel.alignment = .width
         statusPanel.spacing = 10
         statusPanel.addArrangedSubview(compactHeader)
 
@@ -186,6 +192,7 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
 
         let expandedDrawer = NSStackView()
         expandedDrawer.orientation = .vertical
+        expandedDrawer.alignment = .width
         expandedDrawer.spacing = 6
         expandedDrawer.addArrangedSubview(controlRows)
         expandedDrawer.addArrangedSubview(compactControlsSection)
@@ -203,21 +210,18 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
         content.addArrangedSubview(webView)
         content.addArrangedSubview(panelBox(containing: scrollPanel(containing: statusPanel)))
 
-        window = NSWindow(contentRect: NSRect(origin: NSPoint(x: 80, y: 80), size: mobileContentSize), styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
+        window = NSWindow(contentRect: NSRect(origin: NSPoint(x: 80, y: 80), size: initialContentSize), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         window.title = "Avalisa Mobile Proof"
-        window.contentMinSize = mobileContentSize
-        window.contentMaxSize = mobileContentSize
+        window.contentMinSize = minContentSize
+        window.contentMaxSize = maxContentSize
         window.contentView = content
         window.center()
-        window.setContentSize(mobileContentSize)
+        window.setContentSize(initialContentSize)
         window.makeKeyAndOrderFront(nil)
         window.orderFrontRegardless()
 
         NSLayoutConstraint.activate([
-            content.widthAnchor.constraint(equalToConstant: mobileContentSize.width),
-            header.widthAnchor.constraint(equalToConstant: mobileContentSize.width),
-            webView.widthAnchor.constraint(equalToConstant: mobileContentSize.width),
-            webView.heightAnchor.constraint(greaterThanOrEqualToConstant: 520),
+            webView.heightAnchor.constraint(greaterThanOrEqualToConstant: 420),
             header.heightAnchor.constraint(equalToConstant: 34),
         ])
     }
@@ -358,14 +362,14 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
         icon.widthAnchor.constraint(equalToConstant: 26).isActive = true
         icon.heightAnchor.constraint(equalToConstant: 26).isActive = true
 
-        let email = NSTextField(labelWithString: "oil4121@gmail.com")
+        let email = NSTextField(labelWithString: authEmail)
         email.font = .systemFont(ofSize: 14)
         email.textColor = mutedTextColor
         email.lineBreakMode = .byTruncatingMiddle
-        email.toolTip = email.stringValue
+        email.toolTip = authSummary
         email.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
-        let badge = NSButton(title: "PRO", target: nil, action: nil)
+        let badge = NSButton(title: authPlan.uppercased(), target: nil, action: nil)
         badge.isBordered = false
         badge.font = .boldSystemFont(ofSize: 12)
         badge.contentTintColor = NSColor(hex: 0x15120A)
@@ -377,8 +381,7 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
         badge.heightAnchor.constraint(equalToConstant: 24).isActive = true
 
         let logout = button("Logout", style: .red) { [weak self] in
-            self?.authLoggedIn = false
-            self?.rebuildAuthSection()
+            self?.eval("window.AvalisaProof && window.AvalisaProof.logout && window.AvalisaProof.logout();")
         }
         logout.font = .boldSystemFont(ofSize: 14)
         logout.layer?.cornerRadius = 9
@@ -417,8 +420,7 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
         actions.spacing = 8
         actions.distribution = .fillEqually
         actions.addArrangedSubview(button("Login", style: .green) { [weak self] in
-            self?.authLoggedIn = true
-            self?.rebuildAuthSection()
+            self?.loginToAvalisa()
         })
         actions.addArrangedSubview(button("Sign up", style: .outline) { [weak self] in
             self?.openAvalisaWebsite()
@@ -442,6 +444,21 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
             $0.removeFromSuperview()
         }
         authSection.addArrangedSubview(authView())
+    }
+
+    private func loginToAvalisa() {
+        let email = jsString(loginIdField?.stringValue.trimmingCharacters(in: .whitespacesAndNewlines) ?? "")
+        let password = jsString(loginPasswordField?.stringValue ?? "")
+        eval("window.AvalisaProof && window.AvalisaProof.login && window.AvalisaProof.login(\(email), \(password));")
+    }
+
+    private func jsString(_ value: String) -> String {
+        if let data = try? JSONSerialization.data(withJSONObject: [value]),
+           let encoded = String(data: data, encoding: .utf8),
+           encoded.count >= 2 {
+            return String(encoded.dropFirst().dropLast())
+        }
+        return "''"
     }
 
     private func aiPill() -> NSStackView {
@@ -599,6 +616,7 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
 
         let rows = NSStackView()
         rows.orientation = .vertical
+        rows.alignment = .width
         rows.spacing = 0
         rows.edgeInsets = NSEdgeInsets(top: 4, left: 0, bottom: 4, right: 0)
         rows.wantsLayer = true
@@ -686,7 +704,7 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
     private func payoutCombinedRow() -> NSStackView {
         let row = NSStackView()
         row.orientation = .vertical
-        row.alignment = .leading
+        row.alignment = .width
         row.spacing = 4
         row.edgeInsets = NSEdgeInsets(top: 8, left: 12, bottom: 5, right: 12)
         row.wantsLayer = true
@@ -721,7 +739,6 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
         payoutEnabledSwitch.widthAnchor.constraint(equalToConstant: 28).isActive = true
         payoutMinField.widthAnchor.constraint(equalToConstant: 96).isActive = true
         topControls.widthAnchor.constraint(equalToConstant: 160).isActive = true
-        top.widthAnchor.constraint(equalToConstant: 334).isActive = true
 
         let bottom = NSStackView()
         bottom.orientation = .horizontal
@@ -730,7 +747,6 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
         bottom.addArrangedSubview(NSView())
         bottom.addArrangedSubview(payoutActionPopup)
         payoutActionPopup.widthAnchor.constraint(equalToConstant: 160).isActive = true
-        bottom.widthAnchor.constraint(equalToConstant: 334).isActive = true
 
         row.addArrangedSubview(top)
         row.addArrangedSubview(bottom)
@@ -783,6 +799,7 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
     private func extensionSection(_ views: [NSView], bottomBorder: Bool) -> NSStackView {
         let section = NSStackView()
         section.orientation = .vertical
+        section.alignment = .width
         section.spacing = 8
         section.edgeInsets = NSEdgeInsets(top: 0, left: 0, bottom: bottomBorder ? 12 : 0, right: 0)
         views.forEach { section.addArrangedSubview($0) }
@@ -802,7 +819,6 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
         box.layer?.backgroundColor = panelColor.cgColor
         box.layer?.borderColor = panelBorderColor.cgColor
         box.layer?.borderWidth = 1
-        box.widthAnchor.constraint(equalToConstant: mobileContentSize.width).isActive = true
         box.contentView?.addSubview(view)
         view.translatesAutoresizingMaskIntoConstraints = false
         if let contentView = box.contentView {
@@ -931,21 +947,33 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
     }
 
     private func applyStatus(_ body: [String: Any]) {
+        let emailFromRuntime = "\(body["userEmail"] ?? "")"
+        let planFromRuntime = "\(body["licensePlan"] ?? "free")"
+        let licenseAllowed = ((body["licenseAllowed"] as? Bool) == true)
+        let licenseReason = "\(body["licenseReason"] ?? "")"
+        let nextLoggedIn = !emailFromRuntime.isEmpty
+        if authLoggedIn != nextLoggedIn || authEmail != (nextLoggedIn ? emailFromRuntime : "Free tier") || authPlan.lowercased() != planFromRuntime.lowercased() {
+            authLoggedIn = nextLoggedIn
+            authEmail = nextLoggedIn ? emailFromRuntime : "Free tier"
+            authPlan = planFromRuntime.uppercased()
+            rebuildAuthSection()
+        }
+        authSummary = licenseAllowed ? "\(authPlan) access active" : (licenseReason.isEmpty ? "Backend access not confirmed" : licenseReason)
         values["pageState"]?.stringValue = "\(body["pageState"] ?? "-")"
         let demoMode = "\(body["demoMode"] ?? "-")"
         values["demoMode"]?.stringValue = demoMode
         let lowerDemoMode = demoMode.lowercased()
-        if lowerDemoMode == "confirmed" || lowerDemoMode.contains("demo") {
-            stableDemoConfirmed = true
-        } else if lowerDemoMode.contains("real") || lowerDemoMode.contains("blocked") || lowerDemoMode.contains("denied") {
-            stableDemoConfirmed = false
+        if lowerDemoMode == "confirmed" || lowerDemoMode.contains("demo") || lowerDemoMode == "real" {
+            stableAccountCanTrade = true
+        } else if lowerDemoMode.contains("blocked") || lowerDemoMode.contains("denied") || lowerDemoMode == "unknown" {
+            stableAccountCanTrade = false
         }
-        let isDemoConfirmed = stableDemoConfirmed
+        let canTradeAccount = stableAccountCanTrade && licenseAllowed
         let botRunning = ((body["botRunning"] as? Bool) == true)
-        setEnabled(startBotButton, isDemoConfirmed && !botRunning)
+        setEnabled(startBotButton, canTradeAccount && !botRunning)
         setEnabled(stopBotButton, botRunning)
-        setEnabled(callButton, isDemoConfirmed && !botRunning)
-        setEnabled(putButton, isDemoConfirmed && !botRunning)
+        setEnabled(callButton, canTradeAccount && !botRunning)
+        setEnabled(putButton, canTradeAccount && !botRunning)
         values["activePair"]?.stringValue = "\(body["activePair"] ?? "-")"
         let pairScanEnabled = ((body["pairScanEnabled"] as? Bool) == true)
         values["pairMode"]?.stringValue = pairScanEnabled ? "auto scan" : "visible only"
@@ -965,14 +993,20 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
         values["buttons"]?.stringValue = "\(call) / \(put)"
         if botRunning {
             setStatusText("Status: Running", color: NSColor(hex: 0x34D399))
-        } else if isDemoConfirmed {
+        } else if canTradeAccount {
             setStatusText("Status: Ready", color: purpleColor)
         } else {
             setStatusText("Status: Stopped", color: purpleColor)
         }
         tradeCounter.stringValue = "Trades this session: \(body["tradesCount"] ?? 0)"
-        tradeAllowance.isHidden = strategyPopup?.titleOfSelectedItem != "Avalisa AI"
-        tradeAllowance.stringValue = "Trade allowance: ∞ (Pro)"
+        tradeAllowance.isHidden = false
+        if let remaining = body["tradesRemaining"] as? Int, let limit = body["tradesLimit"] as? Int {
+            tradeAllowance.stringValue = "Plan: \(authPlan) · \(remaining)/\(limit) trades left"
+        } else if let used = body["aiTradesUsed"] as? Int, let allowance = body["aiTradesAllowance"] as? Int {
+            tradeAllowance.stringValue = "Plan: \(authPlan) · AI \(used)/\(allowance)"
+        } else {
+            tradeAllowance.stringValue = "Plan: \(authPlan) · \(licenseAllowed ? "active" : "locked")"
+        }
     }
 
     private func setEnabled(_ button: NSButton?, _ enabled: Bool) {

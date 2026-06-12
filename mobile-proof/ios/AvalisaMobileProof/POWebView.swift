@@ -46,13 +46,19 @@ struct POWebView: UIViewRepresentable {
             webView.evaluateJavaScript("window.AvalisaProof && window.AvalisaProof.scan && window.AvalisaProof.scan();")
         case .setPairScan(let enabled):
             webView.evaluateJavaScript("window.AvalisaProof && window.AvalisaProof.setSettings && window.AvalisaProof.setSettings({ pairScanEnabled: \(enabled ? "true" : "false") });")
+        case .login(let email, let password):
+            let escapedEmail = email.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "'", with: "\\'")
+            let escapedPassword = password.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "'", with: "\\'")
+            webView.evaluateJavaScript("window.AvalisaProof && window.AvalisaProof.login && window.AvalisaProof.login('\(escapedEmail)', '\(escapedPassword)');")
+        case .logout:
+            webView.evaluateJavaScript("window.AvalisaProof && window.AvalisaProof.logout && window.AvalisaProof.logout();")
         case .startBot:
-            webView.evaluateJavaScript("window.AvalisaProof && window.AvalisaProof.startDemoMartingale && window.AvalisaProof.startDemoMartingale();")
+            webView.evaluateJavaScript("window.AvalisaProof && window.AvalisaProof.startBot && window.AvalisaProof.startBot();")
         case .stopBot:
             webView.evaluateJavaScript("window.AvalisaProof && window.AvalisaProof.stopBot && window.AvalisaProof.stopBot('stopped by user');")
         case .demoTrade(let direction):
             let escaped = direction.replacingOccurrences(of: "'", with: "\\'")
-            webView.evaluateJavaScript("window.AvalisaProof && window.AvalisaProof.placeDemoTrade('\(escaped)', 1);")
+            webView.evaluateJavaScript("window.AvalisaProof && window.AvalisaProof.placeTrade('\(escaped)', 1);")
         }
     }
 

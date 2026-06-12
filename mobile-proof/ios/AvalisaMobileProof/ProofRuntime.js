@@ -3,6 +3,10 @@
 
   const MAX_CANDLES = 50;
   const BOT_STORAGE_KEY = 'avalisa.mobileProof.botState.v1';
+  const AUTH_STORAGE_KEY = 'avalisa.webappBot.auth.v1';
+  const DEVICE_STORAGE_KEY = 'avalisa.webappBot.deviceFingerprint.v1';
+  const API_BASE = 'https://avalisa-backend.onrender.com';
+  const API_TIMEOUT_MS = 15000;
   const REQUIRED_CANDLES_BY_INTENSITY = { low: 12, mid: 20, high: 30 };
   const TF_TO_SECONDS = { S30: 30, M1: 60, M3: 180, M5: 300 };
   const SECONDS_TO_TF = { 30: 'S30', 60: 'M1', 180: 'M3', 300: 'M5' };
@@ -29,6 +33,19 @@
   };
   const state = {
     version: '1.02-local-proof',
+    jwt: null,
+    userId: null,
+    userEmail: null,
+    authStatus: 'logged_out',
+    licenseInfo: null,
+    licenseAllowed: false,
+    licensePlan: 'free',
+    licenseReason: null,
+    tradesRemaining: null,
+    tradesLimit: null,
+    aiTradesUsed: null,
+    aiTradesAllowance: null,
+    deviceFingerprint: null,
     pageState: 'loading',
     demoMode: 'unknown',
     activePair: '-',
@@ -51,6 +68,7 @@
     botTradesRemaining: 0,
     botBaselineBalance: null,
     botBalanceBeforeTrade: null,
+    botPendingDirection: null,
     botPendingAmount: null,
     botTradeStartTs: null,
     botInTrade: false,
@@ -64,8 +82,8 @@
     lastAmountDebug: 'amount: idle',
     lastOrderDebug: 'order template: none',
     aiSkipStreak: 0,
-    lastTradeStatus: 'Read-only until demo mode is confirmed.',
-    guidance: 'Log in to PO, switch to demo balance, then tap Scan.',
+    lastTradeStatus: 'Read-only until account mode is confirmed.',
+    guidance: 'Log in to PO, confirm Demo or Real account mode, then tap Scan.',
   };
   let botTimer = null;
   let interimTimer = null;
@@ -119,9 +137,231 @@
     return false;
   }
 
+  function getDeviceFingerprint() {
+    if (state.deviceFingerprint) return state.deviceFingerprint;
+    let saved = '';
+    try { saved = window.localStorage.getItem(DEVICE_STORAGE_KEY) || ''; } catch (_) {}
+    if (!saved) {
+      const randomPart = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      saved = `webapp-${randomPart}`;
+      try { window.localStorage.setItem(DEVICE_STORAGE_KEY, saved); } catch (_) {}
+    }
+    state.deviceFingerprint = saved;
+    return saved;
+  }
+
+  function persistAuth() {
+    try {
+      window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
+        jwt: state.jwt,
+        userId: state.userId,
+        userEmail: state.userEmail,
+        savedAt: Date.now(),
+      }));
+    } catch (_) {}
+  }
+
+  function clearAuth() {
+    state.jwt = null;
+    state.userId = null;
+    state.userEmail = null;
+    state.authStatus = 'logged_out';
+    state.licenseInfo = null;
+    state.licenseAllowed = false;
+    state.licensePlan = 'free';
+    state.licenseReason = null;
+    state.tradesRemaining = null;
+    state.tradesLimit = null;
+    state.aiTradesUsed = null;
+    state.aiTradesAllowance = null;
+    try { window.localStorage.removeItem(AUTH_STORAGE_KEY); } catch (_) {}
+  }
+
+  function restoreAuth() {
+    let saved = null;
+    try { saved = JSON.parse(window.localStorage.getItem(AUTH_STORAGE_KEY) || 'null'); } catch (_) {}
+    if (!saved?.jwt) return false;
+    state.jwt = saved.jwt;
+    state.userId = saved.userId || null;
+    state.userEmail = saved.userEmail || null;
+    state.authStatus = 'restoring';
+    return true;
+  }
+
+  async function fetchWithTimeout(url, options = {}) {
+    const controller = new AbortController();
+    const tid = window.setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+    try {
+      return await fetch(url, { ...options, signal: controller.signal });
+    } finally {
+      window.clearTimeout(tid);
+    }
+  }
+
+  async function apiRequest(path, options = {}) {
+    const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+    if (state.jwt) headers.Authorization = `Bearer ${state.jwt}`;
+    const response = await fetchWithTimeout(`${API_BASE}${path}`, { ...options, headers });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const error = new Error(data.error || `HTTP ${response.status}`);
+      error.status = response.status;
+      error.data = data;
+      throw error;
+    }
+    return data;
+  }
+
+  function applyLicenseInfo(license) {
+    state.licenseInfo = license || null;
+    state.licenseAllowed = !!license?.allowed;
+    state.licensePlan = license?.plan || 'free';
+    state.licenseReason = license?.reason || null;
+    state.tradesRemaining = license?.tradesRemaining ?? null;
+    state.tradesLimit = license?.tradesLimit ?? null;
+    state.aiTradesUsed = license?.aiTradesUsed ?? null;
+    state.aiTradesAllowance = license?.aiTradesAllowance ?? null;
+    if (state.jwt && state.authStatus !== 'error') state.authStatus = 'logged_in';
+    if (!state.jwt && state.authStatus !== 'error') state.authStatus = 'free_tier';
+    return license;
+  }
+
+  async function checkLicense() {
+    state.authStatus = state.jwt ? 'checking_license' : 'checking_free_tier';
+    post();
+    try {
+      const license = await apiRequest('/api/license/check', {
+        method: 'POST',
+        body: JSON.stringify({ deviceFingerprint: getDeviceFingerprint() }),
+      });
+      return applyLicenseInfo(license);
+    } catch (error) {
+      state.authStatus = 'error';
+      state.licenseAllowed = false;
+      state.licenseReason = error.message || 'License check failed';
+      post();
+      return { allowed: false, reason: state.licenseReason, _networkError: true };
+    }
+  }
+
+  function aiAllowanceBlock(license) {
+    if (state.settings.strategy !== 'ai') return null;
+    if (license?.plan === 'free') return 'Avalisa AI requires Basic or Pro.';
+    if (state.demoMode === 'real' && Number.isFinite(license?.aiTradesAllowance)) {
+      const used = Number(license.aiTradesUsed || 0);
+      if (used >= Number(license.aiTradesAllowance)) return 'AI trade allowance exhausted.';
+    }
+    return null;
+  }
+
+  async function ensureTradeAccess() {
+    const license = await checkLicense();
+    if (!license.allowed) {
+      state.lastTradeStatus = `blocked: ${license.reason || 'trade limit reached'}`;
+      post();
+      return false;
+    }
+    const aiBlock = aiAllowanceBlock(license);
+    if (aiBlock) {
+      state.lastTradeStatus = `blocked: ${aiBlock}`;
+      post();
+      return false;
+    }
+    return true;
+  }
+
+  async function incrementTradeUsage() {
+    try {
+      await apiRequest('/api/license/increment', {
+        method: 'POST',
+        body: JSON.stringify({ deviceFingerprint: getDeviceFingerprint() }),
+      });
+      await checkLicense();
+    } catch (error) {
+      state.lastTradeStatus = `trade counted locally; backend increment failed: ${error.message || error}`;
+      post();
+    }
+  }
+
+  async function logTradeResult({ direction, amount, result, balanceBefore, balanceAfter }) {
+    if (!state.jwt) return;
+    try {
+      await apiRequest('/api/trades/log', {
+        method: 'POST',
+        body: JSON.stringify({
+          pair: state.activePair || 'UNKNOWN',
+          direction,
+          amount,
+          result,
+          balanceBefore,
+          balanceAfter,
+          isDemo: state.demoMode !== 'real',
+          strategy: state.settings.strategy || 'martingale',
+          timeframe: state.duration || state.settings.timeframe || 'S30',
+          signalSnapshot: state.settings.strategy === 'ai'
+            ? { source: 'webapp-bot', lastSignal: state.lastSignal }
+            : null,
+        }),
+      });
+    } catch (error) {
+      state.lastTradeStatus = `trade resolved; backend log failed: ${error.message || error}`;
+      post();
+    }
+  }
+
+  async function login(email, password) {
+    if (!email || !password) {
+      state.authStatus = 'error';
+      state.lastTradeStatus = 'login failed: email and password are required';
+      post();
+      return statusPayload();
+    }
+    state.authStatus = 'logging_in';
+    post();
+    try {
+      const data = await apiRequest('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+      state.jwt = data.token;
+      state.userId = data.user?.id || null;
+      state.userEmail = data.user?.email || email;
+      state.authStatus = 'logged_in';
+      persistAuth();
+      await checkLicense();
+      state.lastTradeStatus = `logged in as ${state.userEmail}`;
+      post();
+      return statusPayload();
+    } catch (error) {
+      clearAuth();
+      state.authStatus = 'error';
+      state.lastTradeStatus = `login failed: ${error.message || error}`;
+      post();
+      return statusPayload();
+    }
+  }
+
+  async function logout() {
+    clearAuth();
+    await checkLicense();
+    state.lastTradeStatus = 'logged out; using free tier if available';
+    post();
+    return statusPayload();
+  }
+
   function statusPayload() {
     return {
       pageState: state.pageState,
+      authStatus: state.authStatus,
+      userId: state.userId,
+      userEmail: state.userEmail,
+      licenseAllowed: state.licenseAllowed,
+      licensePlan: state.licensePlan,
+      licenseReason: state.licenseReason,
+      tradesRemaining: state.tradesRemaining,
+      tradesLimit: state.tradesLimit,
+      aiTradesUsed: state.aiTradesUsed,
+      aiTradesAllowance: state.aiTradesAllowance,
       demoMode: state.demoMode,
       activePair: state.activePair || '-',
       duration: state.duration || '-',
@@ -201,7 +441,7 @@
         viewport.name = 'viewport';
         document.head?.appendChild(viewport);
       }
-      viewport.content = 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover';
+      viewport.content = 'width=device-width, initial-scale=1, viewport-fit=cover';
     } catch (_) {}
   }
 
@@ -241,7 +481,24 @@
     return state.duration;
   }
 
+  function canTradeCurrentAccount() {
+    return state.demoMode === 'confirmed' || state.demoMode === 'real';
+  }
+
+  function accountModeLabel() {
+    if (state.demoMode === 'real') return 'real';
+    if (state.demoMode === 'confirmed') return 'demo';
+    return state.demoMode || 'unknown';
+  }
+
+  function botModeName() {
+    const account = accountModeLabel();
+    const strategy = state.settings.strategy === 'ai' ? 'ai' : 'martingale';
+    return `${account}-${strategy}`;
+  }
+
   function inferBalanceAndMode() {
+    const bodyText = text(document.body);
     const demoSelectors = [
       '.js-balance-demo',
       '[class*="balance-demo"]',
@@ -257,17 +514,27 @@
     ];
     const demoEl = demoSelectors.map(s => document.querySelector(s)).find(visible);
     const realEl = realSelectors.map(s => document.querySelector(s)).find(visible);
-    const accountModeText = text(document.body).match(/\bQT\s+(?:Real|Demo)\b/i)?.[0] || '';
+    const accountModeText = bodyText.match(/\bQT\s+(?:Real|Demo)\b/i)?.[0] || '';
 
-    let balanceText = text(demoEl) || text(realEl);
+    const pathSaysDemo = /\bdemo\b/i.test(location.pathname);
+    const pathSaysReal = /\/cabinet\/quick-high-low\b/i.test(location.pathname) && !pathSaysDemo;
+    const labelSaysReal = /\bQT\s+Real\b/i.test(accountModeText);
+    const labelSaysDemo = /\bQT\s+Demo\b|\bPractice\b/i.test(accountModeText);
+    const realDetected = pathSaysReal || labelSaysReal || (!pathSaysDemo && !labelSaysDemo && !!realEl);
+    const demoConfirmed = !realDetected && (pathSaysDemo || labelSaysDemo || !!demoEl);
+
+    // PO may keep demo-balance DOM populated while a real account is active.
+    // Pick the balance from the active mode first so real sessions never read
+    // stale demo balance and resolve every real trade as unchanged/tie.
+    let balanceText = realDetected
+      ? (text(realEl) || activeAccountBalanceText(bodyText) || text(demoEl))
+      : (text(demoEl) || activeAccountBalanceText(bodyText) || text(realEl));
     if (!balanceText) {
-      const match = text(document.body).match(/\$\s?\d+(?:[.,]\d{1,2})?/);
+      const match = bodyText.match(/\$\s?\d+(?:[.,]\d{1,2})?/);
       balanceText = match ? match[0] : '-';
     }
 
-    const demoConfirmed = !!demoEl;
-    const realDetected = !!realEl || /\bQT\s+Real\b/i.test(accountModeText);
-    state.demoMode = demoConfirmed && !realDetected ? 'confirmed' : (realDetected ? 'real-blocked' : 'unknown');
+    state.demoMode = realDetected ? 'real' : (demoConfirmed ? 'confirmed' : 'unknown');
     state.balance = balanceText || '-';
 
     // Mobile PO: account selector shows e.g. "QT Real USD 0" or "QT Demo USD 10000"
@@ -282,21 +549,28 @@
       const acctText = acctSelectors.reduce((found, s) => found || text(document.querySelector(s)), '')
         || text(document.body).match(/QT\s+(?:Real|Demo)[^)]{0,30}/i)?.[0]
         || '';
-      if (/\bReal\b/i.test(acctText)) state.demoMode = 'real-blocked';
+      if (/\bReal\b/i.test(acctText)) state.demoMode = 'real';
       else if (/\bDemo\b|Practice/i.test(acctText)) state.demoMode = 'confirmed';
     }
 
-    if (state.demoMode === 'real-blocked') {
-      state.guidance = 'PO is in Real mode. Switch QT Real to Demo before bot buttons unlock.';
+    if (state.demoMode === 'real') {
+      state.guidance = state.pairScanEnabled
+        ? 'Real account confirmed. Auto pair scan is on; Start Bot can place real-money trades.'
+        : 'Real account confirmed. Single visible pair mode is on; Start Bot can place real-money trades.';
     } else if (state.demoMode === 'confirmed') {
       state.guidance = state.pairScanEnabled
-        ? 'Demo confirmed. Auto pair scan is on; Start Bot runs capped demo-only proof trades.'
-        : 'Demo confirmed. Single visible pair mode is on; Start Bot runs capped demo-only proof trades.';
+        ? 'Demo confirmed. Auto pair scan is on; Start Bot can place demo trades.'
+        : 'Demo confirmed. Single visible pair mode is on; Start Bot can place demo trades.';
     } else {
       state.guidance = state.pageState === 'login'
-        ? 'Log in to PO, switch to demo balance, then tap Scan.'
-        : 'Demo mode is not confirmed yet. Open the PO account selector and choose Demo.';
+        ? 'Log in to PO, confirm Demo or Real account mode, then tap Scan.'
+        : 'Account mode is not confirmed yet. Open the PO account selector and choose Demo or Real.';
     }
+  }
+
+  function activeAccountBalanceText(bodyText) {
+    const match = String(bodyText || '').match(/\bQT\s+(?:Real|Demo|Practice)\s+[A-Z]{3}\s+(\d+(?:[.,]\d{1,2})?)/i);
+    return match ? match[1] : '';
   }
 
   function inferPayout() {
@@ -426,7 +700,7 @@
         state.botPayoutSwitchOpenAttempted = true;
         state.lastTradeStatus = `opening pair selector to auto-switch from ${current}% below minimum ${minPct}%`;
         post();
-        botTimer = window.setTimeout(runBotTrade, 900);
+        botTimer = window.setTimeout(scheduleRunBotTrade, 900);
         return { proceed: false, deferred: true };
       }
       return { proceed: false, reason: `payout ${current}% below minimum ${minPct}%; no favorite available to auto-switch` };
@@ -440,7 +714,7 @@
       state.botPayoutSwitchOpenAttempted = false;
       state.lastTradeStatus = `switching to ${best.name} (${best.payout}%) before trade`;
       post();
-      botTimer = window.setTimeout(runBotTrade, 1800);
+      botTimer = window.setTimeout(scheduleRunBotTrade, 1800);
       return { proceed: false, deferred: true };
     } catch (_) {
       return { proceed: false, reason: `could not switch to ${best.name}` };
@@ -969,8 +1243,8 @@
       post();
       return false;
     }
-    if (state.demoMode !== 'confirmed') {
-      state.lastTradeStatus = `blocked: demo mode not confirmed (${state.demoMode})`;
+    if (!canTradeCurrentAccount()) {
+      state.lastTradeStatus = `blocked: account mode not confirmed (${state.demoMode})`;
       post();
       return false;
     }
@@ -978,14 +1252,14 @@
     const maxAmount = options.allowProofMartingale ? maxAllowedProofAmount() : 1;
     if (!Number.isFinite(safeAmount) || safeAmount < 1 || safeAmount > maxAmount) {
       state.lastTradeStatus = options.allowProofMartingale
-        ? `blocked: proof martingale amount must be $1-$${maxAmount}`
-        : 'blocked: proof app only allows $1 demo trades';
+        ? `blocked: martingale amount must be $1-$${maxAmount}`
+        : 'blocked: manual proof buttons only allow $1 trades';
       post();
       return false;
     }
 
     if (options.allowProofMartingale && options.botInternal && safeAmount > 1 && sendDirectDemoTrade(direction, safeAmount)) {
-      state.lastTradeStatus = `demo direct ${String(direction).toUpperCase()} sent for $${safeAmount.toFixed(2)}`;
+      state.lastTradeStatus = `${accountModeLabel()} direct ${String(direction).toUpperCase()} sent for $${safeAmount.toFixed(2)}`;
       state.lastPlacedAmount = safeAmount;
       post();
       window.setTimeout(scan, 1500);
@@ -1012,8 +1286,8 @@
       }
     }
     scan();
-    if (state.demoMode !== 'confirmed') {
-      state.lastTradeStatus = `blocked: demo mode changed before click (${state.demoMode})`;
+    if (!canTradeCurrentAccount()) {
+      state.lastTradeStatus = `blocked: account mode changed before click (${state.demoMode})`;
       post();
       return false;
     }
@@ -1023,7 +1297,7 @@
       post();
       return false;
     }
-    state.lastTradeStatus = `demo ${String(direction).toUpperCase()} click sent for $${safeAmount.toFixed(2)}`;
+    state.lastTradeStatus = `${accountModeLabel()} ${String(direction).toUpperCase()} click sent for $${safeAmount.toFixed(2)}`;
     state.lastPlacedAmount = executedAmount;
     post();
     closePOPopovers();
@@ -1040,6 +1314,7 @@
     state.tradeLock = false;
     state.botTradesRemaining = 0;
     state.botBalanceBeforeTrade = null;
+    state.botPendingDirection = null;
     state.botPendingAmount = null;
     state.botTradeStartTs = null;
     state.botPayoutSwitchOpenAttempted = false;
@@ -1110,7 +1385,9 @@
       state.botBaselineBalance = balanceNow;
       state.botTradeStartTs = Date.now();
       state.tradesCount += 1;
+      state.botPendingDirection = state.lastDirection;
       state.lastTradeStatus = `trade open confirmed for $${amount}; waiting result`;
+      incrementTradeUsage();
       persistBotState('open');
       post();
       scheduleBotResultCheck(balanceBeforeTrade, amount);
@@ -1141,6 +1418,13 @@
       }
       if (!state.botRunning) return;
       const result = classifyResult(amountBeforeTrade, state.botBaselineBalance, balanceAfter, amount, Date.now() - resolveStartTs);
+      logTradeResult({
+        direction: state.botPendingDirection || state.lastDirection || 'unknown',
+        amount,
+        result,
+        balanceBefore: amountBeforeTrade,
+        balanceAfter,
+      });
       applyMartingale(result);
       state.lastTradeStatus = `bot result ${result.toUpperCase()}; next $${state.nextAmount}`;
       persistBotState('resolved');
@@ -1149,15 +1433,19 @@
         stopBot('stopped: proof trade limit reached');
         return;
       }
-      botTimer = window.setTimeout(runBotTrade, Math.max(0, Number(state.settings.delaySeconds) || 0) * 1000);
+      botTimer = window.setTimeout(scheduleRunBotTrade, Math.max(0, Number(state.settings.delaySeconds) || 0) * 1000);
     }, waitMs);
   }
 
-  function runBotTrade() {
+  async function runBotTrade() {
     scan();
     if (!state.botRunning || state.botInTrade) return;
-    if (state.demoMode !== 'confirmed') {
-      stopBot(`blocked: demo mode not confirmed (${state.demoMode})`);
+    if (!canTradeCurrentAccount()) {
+      stopBot(`blocked: account mode not confirmed (${state.demoMode})`);
+      return;
+    }
+    if (!(await ensureTradeAccess())) {
+      stopBot(`blocked: ${state.licenseReason || 'license check failed'}`);
       return;
     }
     const payoutCheck = checkPayoutBeforeBotTrade();
@@ -1177,13 +1465,14 @@
       }
       state.lastTradeStatus = `${state.lastSignal || 'AI SKIP'}; retrying (${state.aiSkipStreak})`;
       post();
-      botTimer = window.setTimeout(runBotTrade, 5000);
+      botTimer = window.setTimeout(scheduleRunBotTrade, 5000);
       return;
     }
     state.aiSkipStreak = 0;
     state.botInTrade = true;
     state.tradeLock = true;
     state.botBaselineBalance = null;
+    state.botPendingDirection = direction;
     persistBotState('placing');
     const clicked = placeDemoTrade(direction, amount, { allowProofMartingale: true, botInternal: true });
     if (!clicked) {
@@ -1193,7 +1482,7 @@
     }
     const executedAmount = Number(state.lastPlacedAmount) || amount;
     state.lastDirection = direction;
-    state.botMode = state.settings.strategy === 'ai' ? 'demo-ai' : 'demo-martingale';
+    state.botMode = botModeName();
     state.botBalanceBeforeTrade = balanceBefore;
     state.botPendingAmount = executedAmount;
     state.lastTradeStatus = `bot placed ${direction.toUpperCase()} for $${executedAmount}; confirming open`;
@@ -1202,10 +1491,10 @@
     waitForTradeOpen(balanceBefore, executedAmount);
   }
 
-  function startDemoMartingale() {
+  async function startDemoMartingale() {
     scan();
-    if (state.demoMode !== 'confirmed') {
-      state.lastTradeStatus = `blocked: demo mode not confirmed (${state.demoMode})`;
+    if (!canTradeCurrentAccount()) {
+      state.lastTradeStatus = `blocked: account mode not confirmed (${state.demoMode})`;
       post();
       return false;
     }
@@ -1214,8 +1503,11 @@
       post();
       return true;
     }
+    if (!(await ensureTradeAccess())) {
+      return false;
+    }
     state.botRunning = true;
-    state.botMode = state.settings.strategy === 'ai' ? 'demo-ai' : 'demo-martingale';
+    state.botMode = botModeName();
     state.martingaleStep = 0;
     state.nextAmount = Math.max(1, Number(state.settings.startAmount) || 1);
     state.tradesCount = 0;
@@ -1223,12 +1515,25 @@
     state.botPayoutSwitchOpenAttempted = false;
     state.botTradesRemaining = Math.max(0, Math.min(100, Number(state.settings.maxProofTrades) || 0));
     state.lastTradeStatus = state.botTradesRemaining > 0
-      ? `bot started: ${state.settings.strategy}, max ${state.botTradesRemaining} demo trades`
+      ? `bot started: ${state.settings.strategy}, ${accountModeLabel()}, max ${state.botTradesRemaining} trades`
       : `bot started: ${state.settings.strategy}, running until stopped`;
     persistBotState('started');
     post();
-    runBotTrade();
+    await runBotTrade();
     return true;
+  }
+
+  function scheduleRunBotTrade() {
+    runBotTrade().catch(error => {
+      stopBot(`stopped: ${error.message || error}`);
+    });
+  }
+
+  async function placeTrade(direction, amount) {
+    if (!(await ensureTradeAccess())) return false;
+    const placed = placeDemoTrade(direction, amount);
+    if (placed) incrementTradeUsage();
+    return placed;
   }
 
   function setSettings(options) {
@@ -1327,20 +1632,27 @@
     scan,
     snapshot,
     setSettings,
-    placeDemoTrade,
+    placeDemoTrade: placeTrade,
+    placeTrade,
     startDemoMartingale,
+    startBot: startDemoMartingale,
+    login,
+    logout,
+    checkLicense,
     stopBot,
   };
 
   document.addEventListener('DOMContentLoaded', scan);
   window.addEventListener('load', scan);
   enforceMobileViewport();
+  restoreAuth();
+  checkLicense();
   const restoredBot = restoreBotState();
   window.setInterval(scan, 3000);
   if (restoredBot) {
     window.setTimeout(() => {
       scan();
-      if (state.botRunning && state.demoMode === 'confirmed') runBotTrade();
+      if (state.botRunning && canTradeCurrentAccount()) scheduleRunBotTrade();
     }, 2500);
   }
   post();

@@ -53,7 +53,7 @@ export default function Support() {
 
         <section className="lux-support-chat">
           <header>
-            <img src="/images/landing/avalisa-blonde-support.png" alt="" />
+            <img src="/images/landing/avalisa-blonde-pricing.png" alt="" />
             <div><strong>AI Support Chat</strong><span>Powered by Avalisa</span></div>
             <em>Online</em>
           </header>

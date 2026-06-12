@@ -13,10 +13,859 @@
   --lux-red: #d6554b;
 }
 
+.phone-launch-page {
+  --phone-bg: #f7f8fb;
+  --phone-ink: #111827;
+  --phone-muted: #64748b;
+  --phone-navy: #0b1220;
+  --phone-navy-2: #151c2f;
+  --phone-gold: #c7923b;
+  --phone-line: rgba(17, 24, 39, 0.12);
+  color: var(--phone-ink);
+  background:
+    linear-gradient(180deg, #ffffff 0%, #f4f6fb 47%, #111827 47%, #0b1220 100%);
+}
+
+.phone-hero {
+  position: relative;
+  min-height: calc(100vh - 4.2rem);
+  padding: clamp(3rem, 5.4vw, 5.6rem) 0 clamp(2rem, 4vw, 3rem);
+  overflow: hidden;
+}
+
+.phone-hero::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  height: 24%;
+  background: var(--phone-navy);
+  z-index: 0;
+}
+
+.phone-hero__grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(19rem, 0.72fr) minmax(28rem, 1.28fr);
+  gap: clamp(1.5rem, 4vw, 4.4rem);
+  align-items: center;
+}
+
+.phone-hero__copy h1,
+.phone-section h2 {
+  margin: 0;
+  color: var(--phone-ink);
+  font-family: var(--font-display);
+  font-size: clamp(3.8rem, 7.8vw, 8.6rem);
+  font-weight: 500;
+  line-height: 0.88;
+  letter-spacing: 0;
+}
+
+.phone-hero__copy p {
+  max-width: 37rem;
+  margin: 1.35rem 0 0;
+  color: #475569;
+  font-size: clamp(1rem, 1.25vw, 1.18rem);
+  line-height: 1.7;
+}
+
+.phone-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  margin-top: 1.6rem;
+}
+
+.phone-proof-list {
+  display: grid;
+  gap: 0.72rem;
+  margin: 1.3rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.phone-proof-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.62rem;
+  color: #334155;
+  font-size: 0.95rem;
+}
+
+.phone-proof-list svg,
+.phone-feature-list svg,
+.phone-faq__items svg {
+  color: var(--phone-gold);
+}
+
+.phone-launch-stage {
+  position: relative;
+  min-height: clamp(36rem, 46vw, 44rem);
+}
+
+.phone-launch-stage__girl {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  width: min(44%, 30rem);
+  height: min(86%, 39rem);
+  object-fit: cover;
+  object-position: 58% 30%;
+  border-radius: 0.8rem;
+  box-shadow: 0 34px 74px rgba(15, 23, 42, 0.24);
+}
+
+.device-board {
+  position: absolute;
+  inset: 0 clamp(5rem, 11vw, 9.5rem) 2.4rem 0;
+  border: 1px solid var(--phone-line);
+  border-radius: 1rem;
+  background:
+    radial-gradient(circle at 10% 14%, rgba(199, 146, 59, 0.2), transparent 17rem),
+    linear-gradient(145deg, #ffffff, #eef2f7);
+  box-shadow: 0 38px 96px rgba(15, 23, 42, 0.16);
+}
+
+.device-laptop {
+  position: absolute;
+  left: 7%;
+  right: 12%;
+  top: 12%;
+  bottom: 15%;
+  overflow: hidden;
+  border: 1px solid rgba(15, 23, 42, 0.16);
+  border-radius: 0.72rem;
+  background: #edf2f7;
+  box-shadow: 0 28px 72px rgba(15, 23, 42, 0.2);
+}
+
+.device-topbar {
+  display: flex;
+  height: 2.15rem;
+  align-items: center;
+  gap: 0.36rem;
+  padding: 0 0.7rem;
+  background: #101827;
+  color: white;
+}
+
+.device-topbar span {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: #ef4444;
+}
+
+.device-topbar span:nth-child(2) {
+  background: #f59e0b;
+}
+
+.device-topbar span:nth-child(3) {
+  background: #22c55e;
+}
+
+.device-topbar strong {
+  margin-left: auto;
+  font-size: 0.72rem;
+}
+
+.po-login-card {
+  display: grid;
+  width: min(70%, 24rem);
+  margin: 4.2rem auto 0;
+  place-items: center;
+  border-radius: 0.72rem;
+  padding: 2rem;
+  background: white;
+  box-shadow: 0 22px 55px rgba(15, 23, 42, 0.12);
+}
+
+.po-login-card img {
+  width: 6rem;
+}
+
+.po-login-card h3 {
+  margin: 0.8rem 0 1rem;
+  color: #111827;
+  font-size: 1.65rem;
+}
+
+.po-login-card div {
+  width: 100%;
+  height: 1px;
+  margin: 0.55rem 0;
+  background: #cbd5e1;
+}
+
+.po-login-card button,
+.phone-screen button,
+.signal-console button,
+.affiliate-band a {
+  border: 0;
+  border-radius: 0.45rem;
+  background: linear-gradient(90deg, #0ea5e9, #1d4ed8);
+  color: white;
+  font-weight: 800;
+}
+
+.po-login-card button {
+  width: 78%;
+  margin-top: 1rem;
+  padding: 0.8rem;
+}
+
+.device-phone {
+  position: absolute;
+  z-index: 4;
+  width: 9.2rem;
+  height: 18.8rem;
+  overflow: hidden;
+  border: 0.42rem solid #111827;
+  border-radius: 1.4rem;
+  background: #0f172a;
+  box-shadow: 0 28px 64px rgba(15, 23, 42, 0.3);
+}
+
+.device-phone--left {
+  left: 0.9rem;
+  bottom: 3.2rem;
+}
+
+.device-phone--right {
+  right: 0.4rem;
+  top: 5rem;
+}
+
+.phone-screen {
+  display: grid;
+  gap: 0.7rem;
+  height: 100%;
+  padding: 1rem 0.72rem;
+  background: #f8fafc;
+  color: #111827;
+}
+
+.phone-screen strong {
+  font-size: 0.95rem;
+}
+
+.phone-screen span,
+.phone-screen label {
+  color: #64748b;
+  font-size: 0.72rem;
+}
+
+.phone-screen--dark {
+  background: #101827;
+  color: white;
+}
+
+.phone-screen--dark label {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.42rem;
+  padding: 0.6rem;
+}
+
+.mini-chart {
+  min-height: 5rem;
+  border-radius: 0.55rem;
+  background:
+    linear-gradient(rgba(14, 165, 233, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(14, 165, 233, 0.12) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(34, 197, 94, 0.24), rgba(37, 99, 235, 0.2));
+  background-size: 18px 18px, 18px 18px, auto;
+}
+
+.phone-safety-card {
+  position: absolute;
+  left: 7%;
+  bottom: 0;
+  z-index: 6;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.1rem 0.6rem;
+  align-items: center;
+  border: 1px solid rgba(199, 146, 59, 0.28);
+  border-radius: 0.72rem;
+  padding: 0.86rem 1rem;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 18px 46px rgba(15, 23, 42, 0.14);
+}
+
+.phone-safety-card svg {
+  grid-row: span 2;
+  color: #16a34a;
+}
+
+.phone-safety-card span {
+  color: #64748b;
+  font-size: 0.72rem;
+}
+
+.phone-safety-card strong {
+  color: #111827;
+  font-size: 0.9rem;
+}
+
+.phone-section {
+  scroll-margin-top: 5rem;
+  padding: clamp(3.2rem, 6vw, 6rem) 0;
+  background: #0b1220;
+  color: white;
+}
+
+.phone-section:nth-of-type(2) {
+  background: #111827;
+}
+
+.phone-section__head {
+  display: grid;
+  grid-template-columns: minmax(0, 0.78fr) minmax(18rem, 0.42fr);
+  gap: 2rem;
+  align-items: end;
+  margin-bottom: 1.2rem;
+}
+
+.phone-section h2 {
+  color: white;
+  font-size: clamp(2.4rem, 5vw, 4.9rem);
+}
+
+.phone-section p {
+  margin: 0;
+  color: rgba(226, 232, 240, 0.72);
+  line-height: 1.7;
+}
+
+.device-card-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.device-card-grid article,
+.phone-pricing-grid article,
+.phone-faq__items article,
+.signal-console,
+.affiliate-band {
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 0.72rem;
+  background: rgba(255, 255, 255, 0.045);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.2);
+}
+
+.device-card-grid article {
+  display: grid;
+  gap: 0.46rem;
+  min-height: 10.5rem;
+  align-content: end;
+  padding: 1.2rem;
+}
+
+.device-card-grid svg {
+  color: var(--phone-gold);
+}
+
+.device-card-grid strong {
+  font-size: 1.2rem;
+}
+
+.device-card-grid span {
+  color: rgba(226, 232, 240, 0.58);
+}
+
+.phone-section--split {
+  background: #f8fafc;
+  color: #111827;
+}
+
+.phone-section--split h2 {
+  color: #111827;
+}
+
+.phone-section--split p {
+  color: #475569;
+}
+
+.phone-split {
+  display: grid;
+  grid-template-columns: minmax(21rem, 0.78fr) minmax(28rem, 1.22fr);
+  gap: clamp(1.4rem, 4vw, 4rem);
+  align-items: center;
+}
+
+.phone-feature-list {
+  display: grid;
+  gap: 0.8rem;
+  margin-top: 1.4rem;
+}
+
+.phone-feature-list div {
+  display: flex;
+  gap: 0.8rem;
+  align-items: center;
+  border: 1px solid var(--phone-line);
+  border-radius: 0.62rem;
+  padding: 0.9rem;
+  background: white;
+}
+
+.phone-feature-list strong,
+.phone-feature-list span {
+  display: block;
+}
+
+.phone-feature-list span {
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.phone-feature-list strong {
+  color: #111827;
+}
+
+.signal-console {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 14rem;
+  min-height: 25rem;
+  overflow: hidden;
+  background: #0f172a;
+}
+
+.signal-console__main {
+  display: grid;
+  align-content: space-between;
+  padding: 1rem;
+}
+
+.signal-console__header {
+  display: flex;
+  gap: 1rem;
+  align-items: start;
+  justify-content: space-between;
+}
+
+.signal-console__header span,
+.signal-console__checks span {
+  color: #94a3b8;
+  font-size: 0.75rem;
+}
+
+.signal-console__header strong {
+  display: block;
+  margin-top: 0.24rem;
+  color: white;
+  font-size: 1.4rem;
+}
+
+.signal-console button {
+  min-height: 2.35rem;
+  padding: 0 0.9rem;
+}
+
+.signal-bars {
+  display: flex;
+  height: 14rem;
+  align-items: end;
+  gap: 0.65rem;
+  padding-top: 2rem;
+}
+
+.signal-bars i {
+  flex: 1;
+  border-radius: 999px 999px 0 0;
+  background: linear-gradient(180deg, #22c55e, #15803d);
+  box-shadow: 0 0 24px rgba(34, 197, 94, 0.18);
+}
+
+.signal-bars i.is-red {
+  background: linear-gradient(180deg, #f87171, #b91c1c);
+}
+
+.signal-console__checks {
+  display: grid;
+  gap: 0.55rem;
+  align-content: center;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 1rem;
+}
+
+.signal-console__checks button {
+  display: grid;
+  gap: 0.2rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.045);
+  text-align: left;
+}
+
+.signal-console__checks button.is-active {
+  border-color: rgba(199, 146, 59, 0.6);
+  background: rgba(199, 146, 59, 0.12);
+}
+
+.signal-console__checks strong {
+  color: white;
+  font-size: 0.85rem;
+}
+
+.phone-pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.phone-pricing-grid article {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 27rem;
+  padding: 1.3rem;
+  cursor: pointer;
+}
+
+.phone-pricing-grid article.is-selected {
+  border-color: rgba(199, 146, 59, 0.72);
+  background: rgba(199, 146, 59, 0.08);
+}
+
+.phone-pricing-grid b {
+  position: absolute;
+  top: -0.72rem;
+  right: 1rem;
+  border-radius: 0.3rem;
+  padding: 0.3rem 0.58rem;
+  background: var(--phone-gold);
+  color: #111827;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+}
+
+.phone-pricing-grid > article > span {
+  color: var(--phone-gold);
+  font-weight: 900;
+}
+
+.phone-pricing-grid h3 {
+  margin: 0.75rem 0 0.3rem;
+  color: white;
+  font-family: var(--font-display);
+  font-size: 3rem;
+  font-weight: 500;
+}
+
+.phone-pricing-grid small {
+  margin-left: 0.5rem;
+  color: rgba(226, 232, 240, 0.55);
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+}
+
+.phone-pricing-grid ul {
+  display: grid;
+  gap: 0.55rem;
+  margin: 1rem 0 1.3rem;
+  padding: 0;
+  list-style: none;
+}
+
+.phone-pricing-grid li {
+  display: flex;
+  gap: 0.52rem;
+  align-items: center;
+  color: rgba(226, 232, 240, 0.78);
+}
+
+.phone-pricing-grid li svg {
+  color: #22c55e;
+}
+
+.phone-pricing-grid article > a {
+  display: inline-flex;
+  width: 100%;
+  min-height: 2.55rem;
+  align-items: center;
+  justify-content: center;
+  margin-top: auto;
+  border-radius: 0.45rem;
+  background: linear-gradient(180deg, #e7bb63, #b6782b);
+  color: #111827;
+  font-weight: 900;
+}
+
+.affiliate-band {
+  display: flex;
+  gap: 1.2rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1rem;
+  padding: 1rem;
+}
+
+.affiliate-band div {
+  display: flex;
+  gap: 0.7rem;
+  align-items: center;
+  color: rgba(226, 232, 240, 0.72);
+}
+
+.affiliate-band strong {
+  color: white;
+}
+
+.affiliate-band a {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.8rem 1rem;
+}
+
+.phone-faq {
+  display: grid;
+  grid-template-columns: minmax(20rem, 0.75fr) minmax(28rem, 1.25fr);
+  gap: 2rem;
+}
+
+.phone-faq__items {
+  display: grid;
+  gap: 1rem;
+}
+
+.phone-faq__items article {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.35rem 0.8rem;
+  padding: 1rem;
+}
+
+.phone-faq__items svg {
+  grid-row: span 2;
+}
+
+.phone-faq__items span {
+  color: rgba(226, 232, 240, 0.68);
+}
+
+.phone-footer {
+  background: #080d18;
+  color: rgba(226, 232, 240, 0.68);
+  padding: 2rem 0;
+}
+
+.phone-footer .lux-shell {
+  display: flex;
+  gap: 1.4rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.phone-footer img {
+  width: 7rem;
+}
+
+.phone-footer nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.phone-footer a {
+  color: rgba(226, 232, 240, 0.78);
+}
+
+.phone-footer p {
+  max-width: 21rem;
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+@media (max-width: 1080px) {
+  .phone-hero__grid,
+  .phone-split,
+  .phone-faq,
+  .phone-section__head {
+    grid-template-columns: 1fr;
+  }
+
+  .phone-launch-stage {
+    min-height: 42rem;
+  }
+
+  .device-board {
+    inset-right: 2rem;
+  }
+
+  .device-card-grid,
+  .phone-pricing-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .signal-console {
+    grid-template-columns: 1fr;
+  }
+
+  .signal-console__checks {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-left: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+}
+
+@media (max-width: 680px) {
+  .phone-hero {
+    min-height: auto;
+  }
+
+  .phone-hero__copy h1 {
+    font-size: clamp(3.35rem, 17vw, 4.8rem);
+  }
+
+  .phone-hero__actions,
+  .affiliate-band,
+  .phone-footer .lux-shell {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .phone-launch-stage {
+    min-height: 36rem;
+  }
+
+  .phone-launch-stage__girl {
+    display: none;
+  }
+
+  .device-board {
+    inset: 1rem 0 0;
+  }
+
+  .device-laptop {
+    left: 4%;
+    right: 4%;
+    top: 5%;
+    bottom: 16%;
+  }
+
+  .po-login-card {
+    width: 82%;
+    margin-top: 3rem;
+    padding: 1.4rem;
+  }
+
+  .device-phone {
+    width: 7.4rem;
+    height: 14.8rem;
+  }
+
+  .device-phone--left {
+    left: 0.8rem;
+    bottom: 1.6rem;
+  }
+
+  .device-phone--right {
+    right: 0.8rem;
+    top: 10.5rem;
+  }
+
+  .phone-safety-card {
+    left: 1rem;
+    right: 1rem;
+    bottom: -0.2rem;
+  }
+
+  .device-card-grid,
+  .phone-pricing-grid,
+  .signal-console__checks {
+    grid-template-columns: 1fr;
+  }
+
+  .phone-section {
+    padding: 3rem 0;
+  }
+
+.phone-footer nav {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+}
+
+.lux-page.phone-launch-page {
+  color: #f8fafc;
+  background:
+    radial-gradient(circle at 73% 4%, rgba(199, 146, 59, 0.26), transparent 24rem),
+    radial-gradient(circle at 18% 20%, rgba(37, 99, 235, 0.16), transparent 26rem),
+    linear-gradient(180deg, #05070b 0%, #0b1220 46%, #f8fafc 46%, #ffffff 66%, #0b1220 66%, #070b13 100%);
+}
+
+.phone-launch-page .phone-hero__copy h1 {
+  color: #f8fafc;
+  text-shadow: 0 18px 54px rgba(0, 0, 0, 0.42);
+}
+
+.phone-launch-page .phone-hero__copy p,
+.phone-launch-page .phone-proof-list li {
+  color: rgba(226, 232, 240, 0.82);
+}
+
+.phone-launch-page .phone-proof-list svg {
+  color: #f1c878;
+}
+
+.phone-launch-page .phone-hero::after {
+  background: linear-gradient(180deg, transparent, rgba(248, 250, 252, 0.96));
+}
+
+.phone-launch-page .phone-section:nth-of-type(2) {
+  background: #f8fafc;
+  color: #111827;
+}
+
+.phone-launch-page .phone-section:nth-of-type(2) h2 {
+  color: #111827;
+}
+
+.phone-launch-page .phone-section:nth-of-type(2) p {
+  color: #475569;
+}
+
+.phone-launch-page .phone-section:nth-of-type(2) .device-card-grid article {
+  border-color: rgba(17, 24, 39, 0.1);
+  background: #ffffff;
+  box-shadow: 0 20px 56px rgba(15, 23, 42, 0.08);
+}
+
+.phone-launch-page .phone-section:nth-of-type(2) .device-card-grid strong {
+  color: #111827;
+}
+
+.phone-launch-page .phone-section:nth-of-type(2) .device-card-grid span {
+  color: #64748b;
+}
+
+@media (max-width: 760px) {
+  .lux-page.phone-launch-page {
+    background:
+      radial-gradient(circle at 82% 8%, rgba(199, 146, 59, 0.24), transparent 16rem),
+      linear-gradient(180deg, #05070b 0%, #0b1220 55%, #f8fafc 55%, #ffffff 74%, #0b1220 74%, #070b13 100%);
+  }
+
+  .phone-launch-page .phone-hero {
+    padding-top: 2.1rem;
+  }
+
+  .phone-launch-page .phone-hero__copy h1 {
+    font-size: clamp(3.3rem, 16vw, 4.7rem);
+    line-height: 0.9;
+  }
+}
+
 .lux-page,
 .lux-auth-page,
 .lux-support-page,
-.lux-pricing-page {
+.lux-pricing-page,
+.lux-privacy-page {
   min-height: 100vh;
   color: var(--lux-text);
   background:
@@ -1570,7 +2419,7 @@
   z-index: 2;
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
   object-position: center center;
   filter: saturate(1.04) contrast(1.03);
 }
@@ -1630,24 +2479,30 @@
   }
 
   .lux-auth-visual {
-    min-height: 32rem;
+    min-height: 0;
+    aspect-ratio: 4 / 5;
   }
 
   .lux-auth-visual img {
-    width: 62%;
-    object-position: center;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center bottom;
   }
 
   .lux-auth-visual--login img,
   .lux-auth-visual--register img {
-    right: 1rem;
-    width: 58%;
-    object-position: right bottom;
+    right: auto;
+    width: 100%;
+    object-position: center bottom;
   }
 }
 
 .lux-price-hero,
-.lux-support-shell {
+.lux-support-shell,
+.lux-privacy-hero {
   display: grid;
   grid-template-columns: 1fr;
   gap: 2rem;
@@ -1658,7 +2513,8 @@
 }
 
 .lux-price-hero h1,
-.lux-support-copy h1 {
+.lux-support-copy h1,
+.lux-privacy-hero h1 {
   margin: 0.6rem 0 0;
   font-family: var(--font-display);
   font-size: clamp(3.2rem, 7vw, 6.4rem);
@@ -1666,15 +2522,147 @@
   line-height: 0.92;
 }
 
+.lux-price-hero h1 {
+  font-size: clamp(3rem, 6vw, 5rem);
+}
+
 .lux-price-hero p,
-.lux-support-copy > p {
+.lux-support-copy > p,
+.lux-privacy-hero p {
   max-width: 36rem;
   color: rgba(243, 238, 230, 0.68);
   line-height: 1.65;
 }
 
+.lux-privacy-hero {
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.42fr);
+  padding-bottom: clamp(1.5rem, 4vw, 3rem);
+}
+
+.lux-privacy-updated {
+  margin: 0.8rem 0 1rem;
+  color: var(--lux-gold) !important;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.lux-privacy-hero aside {
+  display: grid;
+  align-content: center;
+  gap: 0.7rem;
+  border: 1px solid rgba(216, 162, 74, 0.3);
+  border-radius: 0.7rem;
+  min-height: 15rem;
+  padding: clamp(1.2rem, 3vw, 1.8rem);
+  background:
+    radial-gradient(circle at 76% 8%, rgba(216, 162, 74, 0.17), transparent 12rem),
+    linear-gradient(180deg, rgba(14, 18, 22, 0.88), rgba(6, 8, 10, 0.94));
+  box-shadow: 0 28px 82px rgba(0, 0, 0, 0.34);
+}
+
+.lux-privacy-hero aside svg {
+  color: var(--lux-gold);
+}
+
+.lux-privacy-hero aside strong {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 3vw, 2.2rem);
+  line-height: 1;
+}
+
+.lux-privacy-hero aside span {
+  color: var(--lux-muted);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.lux-privacy-content {
+  display: grid;
+  gap: 1rem;
+  padding-bottom: clamp(3rem, 6vw, 5rem);
+}
+
+.lux-privacy-card {
+  border: 1px solid var(--lux-line);
+  border-radius: 0.6rem;
+  padding: clamp(1rem, 2.4vw, 1.45rem);
+  background:
+    radial-gradient(circle at 92% 0%, rgba(216, 162, 74, 0.08), transparent 14rem),
+    linear-gradient(180deg, rgba(14, 18, 22, 0.9), rgba(7, 9, 11, 0.92));
+}
+
+.lux-privacy-card h2 {
+  margin: 0 0 0.9rem;
+  color: var(--lux-text);
+  font-family: var(--font-display);
+  font-size: clamp(1.2rem, 2.2vw, 1.7rem);
+  font-weight: 600;
+}
+
+.lux-privacy-card__body {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.lux-privacy-card h3 {
+  margin: 0 0 0.2rem;
+  color: var(--lux-gold);
+  font-size: 0.86rem;
+}
+
+.lux-privacy-card p {
+  margin: 0;
+  color: rgba(243, 238, 230, 0.68);
+  font-size: 0.92rem;
+  line-height: 1.65;
+}
+
+.lux-privacy-email {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--lux-gold);
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.lux-privacy-risk {
+  border: 1px solid rgba(241, 200, 120, 0.34);
+  border-radius: 0.6rem;
+  padding: 1rem;
+  background: rgba(216, 162, 74, 0.1);
+  color: rgba(243, 238, 230, 0.78);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.lux-privacy-risk strong {
+  color: var(--lux-gold);
+}
+
 .lux-pricing-grid--page {
-  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(18rem, 0.9fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(16rem, 0.82fr);
+  width: min(100% - 2rem, 1320px);
+}
+
+.lux-pricing-page .lux-price {
+  padding: 1.1rem;
+}
+
+.lux-pricing-page .lux-price h3 {
+  font-size: clamp(2rem, 3vw, 2.45rem);
+}
+
+.lux-pricing-page .lux-price ul {
+  font-size: 0.88rem;
+}
+
+.lux-pricing-page .lux-price li {
+  padding: 0.45rem 0.58rem;
 }
 
 .lux-pricing-benefits,
@@ -1789,6 +2777,7 @@
   height: 3rem;
   border-radius: 999px;
   object-fit: cover;
+  object-position: 50% 18%;
 }
 
 .lux-support-chat header div {
@@ -1870,9 +2859,14 @@
 @media (max-width: 920px) {
   .lux-price-hero,
   .lux-support-shell,
+  .lux-privacy-hero,
   .lux-pricing-grid--page,
   .lux-topic-grid {
     grid-template-columns: 1fr;
+  }
+
+  .lux-privacy-hero aside {
+    min-height: 11.5rem;
   }
 }
 
@@ -2001,10 +2995,17 @@
 
   .floating-chat-button {
     right: 0.9rem;
-    bottom: 0.9rem;
+    top: 54vh;
+    bottom: auto;
     min-width: 3rem;
     width: 3rem;
     height: 3rem;
+    animation: none;
+    transform: translateY(-50%);
+  }
+
+  .floating-chat-button:hover {
+    transform: translateY(-50%) scale(1.02);
   }
 
   .floating-chat-button span {
@@ -2145,5 +3146,649 @@
   .lux-step-grid,
   .lux-system-grid {
     gap: 0.75rem;
+  }
+}
+
+/* Avalisa established product landing */
+.avalisa-site {
+  --av-bg: #06101d;
+  --av-bg-2: #020711;
+  --av-ink: #111827;
+  --av-muted: #667085;
+  --av-cream: #f7f3eb;
+  --av-paper: #fbfaf7;
+  --av-gold: #d8a24a;
+  --av-gold-2: #f4cb78;
+  --av-line: rgba(216, 162, 74, 0.28);
+  --av-white-line: rgba(255, 255, 255, 0.12);
+  background: var(--av-bg-2);
+  color: #f8f4ec;
+  overflow-x: hidden;
+}
+
+.avalisa-shell {
+  width: min(calc(100% - 3rem), 1240px);
+  margin-inline: auto;
+}
+
+.avalisa-site h1,
+.avalisa-site h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 520;
+  line-height: 0.95;
+  letter-spacing: 0;
+}
+
+.avalisa-site p {
+  margin: 0;
+  line-height: 1.72;
+}
+
+.avalisa-hero {
+  position: relative;
+  overflow: hidden;
+  min-height: calc(100vh - 4.2rem);
+  border-bottom: 1px solid var(--av-line);
+  background:
+    radial-gradient(circle at 86% 12%, rgba(216, 162, 74, 0.16), transparent 24rem),
+    radial-gradient(circle at 36% 20%, rgba(42, 108, 170, 0.14), transparent 28rem),
+    linear-gradient(180deg, #06101d 0%, #020711 100%);
+}
+
+.avalisa-hero::before {
+  content: 'A';
+  position: absolute;
+  top: 4.2rem;
+  left: 50%;
+  color: rgba(216, 162, 74, 0.055);
+  font-family: var(--font-display);
+  font-size: min(42vw, 34rem);
+  line-height: 0.8;
+  transform: translateX(-16%);
+  pointer-events: none;
+}
+
+.avalisa-hero__grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(20rem, 0.74fr) minmax(33rem, 1.26fr);
+  gap: clamp(1.8rem, 4vw, 4.5rem);
+  align-items: center;
+  padding: clamp(4.4rem, 7vw, 7rem) 0 clamp(2.3rem, 5vw, 4.5rem);
+}
+
+.avalisa-hero__copy h1 {
+  max-width: 43rem;
+  color: #fff8ee;
+  font-size: clamp(4.3rem, 8.6vw, 8.2rem);
+}
+
+.avalisa-hero__copy h1 span,
+.avalisa-site h2 span {
+  display: block;
+  color: var(--av-gold-2);
+}
+
+.avalisa-hero__copy h1 .avalisa-title-mobile {
+  display: none;
+}
+
+.avalisa-hero__copy p {
+  max-width: 37rem;
+  margin-top: 1.25rem;
+  color: rgba(248, 244, 236, 0.76);
+  font-size: clamp(1.02rem, 1.35vw, 1.22rem);
+}
+
+.avalisa-hero__actions,
+.avalisa-inline-actions,
+.avalisa-final__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  align-items: center;
+}
+
+.avalisa-hero__actions {
+  margin-top: 1.8rem;
+}
+
+.avalisa-button {
+  display: inline-flex;
+  min-height: 3.1rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  border-radius: 0.55rem;
+  padding: 0.82rem 1.12rem;
+  font-size: 0.94rem;
+  font-weight: 800;
+  line-height: 1;
+  text-decoration: none;
+  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+.avalisa-button:hover {
+  transform: translateY(-1px);
+}
+
+.avalisa-button--gold,
+.avalisa-button--pricing {
+  border: 1px solid rgba(255, 218, 154, 0.75);
+  background: linear-gradient(180deg, #f5d486, #d89d3c);
+  color: #11120d;
+  box-shadow: 0 18px 46px rgba(216, 162, 74, 0.22);
+}
+
+.avalisa-button--outline {
+  border: 1px solid rgba(216, 162, 74, 0.58);
+  background: rgba(2, 7, 17, 0.42);
+  color: #fff8ee;
+}
+
+.avalisa-button--dark {
+  border: 1px solid #111827;
+  background: #07111f;
+  color: #fff8ee;
+}
+
+.avalisa-hero__visual {
+  position: relative;
+  min-height: clamp(31rem, 45vw, 43rem);
+  margin: 0;
+}
+
+.avalisa-hero__copy,
+.avalisa-hero__visual,
+.avalisa-device-band__grid > *,
+.avalisa-ai-section__grid > *,
+.avalisa-safety__grid > * {
+  min-width: 0;
+}
+
+.avalisa-hero__visual img {
+  position: absolute;
+  inset: 0 auto 0 50%;
+  width: min(70rem, 72vw);
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 0.35rem;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 30px 70px rgba(0, 0, 0, 0.35));
+}
+
+.avalisa-proof-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.2rem;
+  margin-top: clamp(2rem, 4vw, 3.4rem);
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--av-white-line);
+}
+
+.avalisa-proof-strip a {
+  display: grid;
+  gap: 0.45rem;
+  align-content: start;
+  min-height: 8.5rem;
+  padding: 0 0.9rem;
+  border-right: 1px solid rgba(255, 255, 255, 0.09);
+  color: rgba(248, 244, 236, 0.64);
+  text-decoration: none;
+}
+
+.avalisa-proof-strip a:last-child {
+  border-right: 0;
+}
+
+.avalisa-proof-strip svg,
+.avalisa-device-link svg,
+.avalisa-pricing aside svg,
+.avalisa-ai-section li svg,
+.avalisa-rule-list svg {
+  color: var(--av-gold-2);
+}
+
+.avalisa-proof-strip strong {
+  color: #fff8ee;
+  font-size: 0.92rem;
+}
+
+.avalisa-proof-strip span {
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.avalisa-device-band,
+.avalisa-ai-section,
+.avalisa-pricing {
+  background:
+    radial-gradient(circle at 78% 22%, rgba(216, 162, 74, 0.1), transparent 18rem),
+    var(--av-paper);
+  color: var(--av-ink);
+}
+
+.avalisa-device-band {
+  padding: clamp(4rem, 7vw, 7rem) 0;
+}
+
+.avalisa-device-band__grid,
+.avalisa-ai-section__grid,
+.avalisa-safety__grid,
+.avalisa-final__grid {
+  display: grid;
+  grid-template-columns: minmax(19rem, 0.72fr) minmax(28rem, 1.28fr);
+  gap: clamp(2rem, 5vw, 5rem);
+  align-items: center;
+}
+
+.avalisa-device-band h2,
+.avalisa-ai-section h2,
+.avalisa-pricing h2 {
+  color: var(--av-ink);
+  font-size: clamp(2.8rem, 5.8vw, 5.6rem);
+}
+
+.avalisa-device-band h2 span,
+.avalisa-ai-section h2 span,
+.avalisa-pricing h2 span {
+  display: block;
+  color: #b47a28;
+}
+
+.avalisa-device-band p,
+.avalisa-ai-section p,
+.avalisa-pricing__head p,
+.avalisa-pricing article p,
+.avalisa-pricing aside p {
+  color: var(--av-muted);
+}
+
+.avalisa-device-band__grid p {
+  max-width: 34rem;
+  margin: 1rem 0 1.5rem;
+}
+
+.avalisa-device-band figure,
+.avalisa-ai-section figure,
+.avalisa-safety figure {
+  margin: 0;
+}
+
+.avalisa-device-band figure {
+  display: grid;
+  min-height: 22rem;
+  place-items: center;
+}
+
+.avalisa-device-band figure img {
+  width: min(100%, 43rem);
+  border-radius: 0.6rem;
+  box-shadow: 0 28px 70px rgba(17, 24, 39, 0.16);
+}
+
+.avalisa-device-links {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 2.2rem;
+}
+
+.avalisa-device-link {
+  display: grid;
+  gap: 0.28rem;
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  border-radius: 0.72rem;
+  padding: 1rem;
+  background: #fff;
+  color: var(--av-ink);
+  text-decoration: none;
+  box-shadow: 0 14px 42px rgba(17, 24, 39, 0.06);
+}
+
+.avalisa-device-link span {
+  color: var(--av-muted);
+  font-size: 0.84rem;
+}
+
+.avalisa-safety,
+.avalisa-final {
+  border-block: 1px solid var(--av-line);
+  background:
+    radial-gradient(circle at 18% 50%, rgba(216, 162, 74, 0.13), transparent 21rem),
+    linear-gradient(180deg, #07111f, #020711);
+  color: #fff8ee;
+}
+
+.avalisa-safety {
+  padding: clamp(4rem, 7vw, 6.6rem) 0;
+}
+
+.avalisa-safety__grid {
+  grid-template-columns: minmax(22rem, 0.85fr) minmax(27rem, 1.15fr);
+}
+
+.avalisa-safety h2,
+.avalisa-final h2 {
+  color: #fff8ee;
+  font-size: clamp(2.8rem, 5.7vw, 5.3rem);
+}
+
+.avalisa-safety h2 span,
+.avalisa-final h2 span {
+  color: var(--av-gold-2);
+}
+
+.avalisa-safety p,
+.avalisa-final p {
+  max-width: 43rem;
+  margin-top: 0.95rem;
+  color: rgba(248, 244, 236, 0.72);
+}
+
+.avalisa-safety figure {
+  display: grid;
+  min-height: 18rem;
+  place-items: center;
+}
+
+.avalisa-safety figure img {
+  width: min(100%, 28rem);
+  border-radius: 0.6rem;
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.2);
+}
+
+.avalisa-rule-list {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 1.45rem;
+}
+
+.avalisa-rule-list article {
+  display: grid;
+  grid-template-columns: auto 0.78fr 1.22fr;
+  gap: 0.75rem;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  padding-bottom: 0.85rem;
+}
+
+.avalisa-rule-list strong {
+  color: #fff8ee;
+}
+
+.avalisa-rule-list span {
+  color: rgba(248, 244, 236, 0.62);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.avalisa-ai-section {
+  padding: clamp(4rem, 7vw, 7rem) 0;
+}
+
+.avalisa-ai-section__grid {
+  grid-template-columns: minmax(20rem, 0.74fr) minmax(30rem, 1.26fr);
+}
+
+.avalisa-ai-section p {
+  max-width: 36rem;
+  margin-top: 1rem;
+}
+
+.avalisa-ai-section ul,
+.avalisa-pricing article ul {
+  display: grid;
+  gap: 0.65rem;
+  margin: 1.35rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.avalisa-ai-section li,
+.avalisa-pricing li {
+  display: flex;
+  gap: 0.55rem;
+  align-items: center;
+  color: #3f4652;
+}
+
+.avalisa-inline-actions {
+  margin-top: 1.45rem;
+}
+
+.avalisa-text-link {
+  color: #8a5b1d;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.avalisa-ai-section figure {
+  overflow: hidden;
+  height: clamp(26rem, 44vw, 38rem);
+  border-radius: 0.8rem;
+  background: #060b15;
+  box-shadow: 0 26px 80px rgba(17, 24, 39, 0.2);
+}
+
+.avalisa-ai-section figure img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 35%;
+}
+
+.avalisa-pricing {
+  padding: clamp(4rem, 7vw, 6.5rem) 0;
+}
+
+.avalisa-pricing__head {
+  display: grid;
+  grid-template-columns: minmax(0, 0.7fr) minmax(20rem, 0.4fr);
+  gap: 2rem;
+  align-items: end;
+  margin-bottom: 1.5rem;
+}
+
+.avalisa-pricing__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.avalisa-pricing article,
+.avalisa-pricing aside {
+  display: grid;
+  align-content: start;
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  border-radius: 0.78rem;
+  padding: 1.25rem;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 18px 52px rgba(17, 24, 39, 0.07);
+}
+
+.avalisa-pricing article.is-featured {
+  border-color: rgba(216, 162, 74, 0.6);
+  background: #fff;
+}
+
+.avalisa-pricing article b {
+  width: fit-content;
+  margin-bottom: 0.8rem;
+  border-radius: 999px;
+  padding: 0.32rem 0.55rem;
+  background: #f0c36c;
+  color: #12140f;
+  font-size: 0.7rem;
+}
+
+.avalisa-pricing article > span {
+  color: #6b7280;
+  font-weight: 800;
+}
+
+.avalisa-pricing h3 {
+  margin: 0.35rem 0 0.7rem;
+  color: var(--av-ink);
+  font-size: 2rem;
+}
+
+.avalisa-pricing h3 small {
+  margin-left: 0.35rem;
+  color: var(--av-muted);
+  font-size: 0.84rem;
+  font-weight: 500;
+}
+
+.avalisa-pricing .avalisa-button {
+  width: 100%;
+  margin-top: 1.2rem;
+}
+
+.avalisa-pricing aside {
+  border-color: rgba(216, 162, 74, 0.5);
+  background:
+    linear-gradient(180deg, rgba(216, 162, 74, 0.12), rgba(255, 255, 255, 0.86)),
+    #fff;
+}
+
+.avalisa-pricing aside strong {
+  margin-top: 0.8rem;
+  color: var(--av-ink);
+  font-size: 1.25rem;
+}
+
+.avalisa-pricing aside p {
+  margin: 0.6rem 0 1rem;
+}
+
+.avalisa-final {
+  padding: clamp(2.8rem, 5vw, 4.5rem) 0;
+}
+
+.avalisa-final__grid {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.avalisa-final h2 {
+  font-size: clamp(2.3rem, 4.4vw, 4.4rem);
+}
+
+.avalisa-final__actions {
+  justify-content: flex-end;
+}
+
+@media (max-width: 1040px) {
+  .avalisa-hero__grid,
+  .avalisa-device-band__grid,
+  .avalisa-ai-section__grid,
+  .avalisa-safety__grid,
+  .avalisa-final__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .avalisa-hero__visual {
+    min-height: 35rem;
+  }
+
+  .avalisa-proof-strip,
+  .avalisa-device-links,
+  .avalisa-pricing__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .avalisa-pricing__head {
+    grid-template-columns: 1fr;
+  }
+
+  .avalisa-final__actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 680px) {
+  .avalisa-shell {
+    width: calc(100% - 1.25rem);
+  }
+
+  .avalisa-hero {
+    min-height: auto;
+  }
+
+  .avalisa-hero__grid {
+    padding-top: 3.2rem;
+  }
+
+  .avalisa-hero__copy h1 {
+    font-size: clamp(2.55rem, 11vw, 3.35rem);
+    line-height: 1;
+  }
+
+  .avalisa-hero__copy h1 .avalisa-title-desktop {
+    display: none;
+  }
+
+  .avalisa-hero__copy h1 .avalisa-title-mobile {
+    display: block;
+  }
+
+  .avalisa-hero__copy p {
+    max-width: min(100%, 21rem);
+    font-size: 0.92rem;
+    line-height: 1.62;
+  }
+
+  .avalisa-hero__visual {
+    min-height: 22rem;
+  }
+
+  .avalisa-hero__visual img {
+    width: min(45rem, 118vw);
+    object-position: 48% center;
+  }
+
+  .avalisa-proof-strip,
+  .avalisa-device-links,
+  .avalisa-pricing__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .avalisa-proof-strip a {
+    min-height: auto;
+    border-right: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+    padding: 0 0 0.95rem;
+  }
+
+  .avalisa-device-band h2,
+  .avalisa-ai-section h2,
+  .avalisa-pricing h2,
+  .avalisa-safety h2,
+  .avalisa-final h2 {
+    font-size: clamp(2.35rem, 11vw, 3.5rem);
+  }
+
+  .avalisa-rule-list article {
+    grid-template-columns: auto 1fr;
+  }
+
+  .avalisa-rule-list span {
+    grid-column: 2;
+  }
+
+  .avalisa-device-band figure {
+    min-height: auto;
+  }
+
+  .avalisa-ai-section figure {
+    height: 29rem;
+  }
+
+  .avalisa-final__actions,
+  .avalisa-button {
+    width: 100%;
   }
 }
