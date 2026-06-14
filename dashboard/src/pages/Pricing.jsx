@@ -32,10 +32,10 @@ export default function Pricing() {
       name: 'Demo',
       price: '10',
       period: 'trades',
-      description: 'Existing users can test the workflow before upgrading.',
-      cta: 'Open Pocket Option',
-      href: affiliateLink,
-      external: true,
+      description: 'Create an Avalisa account and test the workflow before upgrading or going live.',
+      cta: 'Create Free Account',
+      href: '/register',
+      external: false,
       features: ['10 Martingale trades', 'Webapp Bot access', 'Dashboard access', 'All supported timeframes', 'Basic trade history'],
     },
     {
@@ -94,6 +94,11 @@ export default function Pricing() {
         })}
         <aside className="lux-price-guide lux-price-guide--page">
           <img src="/images/landing/avalisa-blonde-pricing.png" alt="Avalisa pricing guide" />
+          <div>
+            <strong>Want Pro through Pocket Option?</strong>
+            <p>Register through Avalisa, then submit your PO UID in the dashboard to request Pro access.</p>
+            <a href={affiliateLink} target="_blank" rel="noreferrer">Open Pocket Option</a>
+          </div>
         </aside>
       </section>
 

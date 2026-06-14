@@ -2649,6 +2649,52 @@
   width: min(100% - 2rem, 1320px);
 }
 
+.lux-price-guide--page {
+  display: grid;
+  align-content: end;
+  gap: 0.9rem;
+  padding: 1rem;
+}
+
+.lux-price-guide--page img {
+  width: 100%;
+  align-self: end;
+}
+
+.lux-price-guide--page div {
+  display: grid;
+  gap: 0.58rem;
+  border: 1px solid rgba(216, 162, 74, 0.28);
+  border-radius: 0.55rem;
+  padding: 0.85rem;
+  background: rgba(8, 11, 14, 0.82);
+}
+
+.lux-price-guide--page strong {
+  color: var(--lux-gold);
+  font-size: 0.92rem;
+}
+
+.lux-price-guide--page p {
+  margin: 0;
+  color: var(--lux-muted);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.lux-price-guide--page a {
+  display: inline-flex;
+  justify-content: center;
+  border: 1px solid rgba(216, 162, 74, 0.46);
+  border-radius: 0.48rem;
+  padding: 0.72rem 0.9rem;
+  color: var(--lux-bg);
+  background: linear-gradient(135deg, var(--lux-gold), #f6d48d);
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
 .lux-pricing-page .lux-price {
   padding: 1.1rem;
 }
