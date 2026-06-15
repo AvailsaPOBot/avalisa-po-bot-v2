@@ -126,6 +126,16 @@ export default function Landing() {
                 Install Extension <Puzzle size={17} />
               </SmartLink>
             </div>
+            <div className="avalisa-hero__affiliate">
+              <Gift size={20} />
+              <p>
+                Want Pro free? Register Pocket Option through Avalisa, then submit your PO UID in the dashboard.
+                Start in demo first; trading involves risk and profits are never guaranteed.
+              </p>
+              <SmartLink href={AFFILIATE_URL} external className="avalisa-text-link">
+                Open PO signup <ArrowRight size={15} />
+              </SmartLink>
+            </div>
             <div className="avalisa-proof-strip">
               {proofItems.map(({ icon: Icon, title, text }) => (
                 <a href={title === 'Chrome Extension' ? CHROME_EXTENSION_URL : title === 'Backend Plan Access' ? '/login' : '#webapp'} target={title === 'Chrome Extension' ? '_blank' : undefined} rel={title === 'Chrome Extension' ? 'noreferrer' : undefined} key={title}>
