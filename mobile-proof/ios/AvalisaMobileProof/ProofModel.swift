@@ -33,6 +33,7 @@ final class ProofModel: ObservableObject {
     @Published var hasAmountInput = false
     @Published var hasCallButton = false
     @Published var hasPutButton = false
+    @Published var layoutHealth = "waiting for PO mobile page"
     @Published var pairScanEnabled = false
     @Published var botRunning = false
     @Published var botMode = "stopped"
@@ -63,6 +64,7 @@ final class ProofModel: ObservableObject {
         hasAmountInput = status.hasAmountInput ?? hasAmountInput
         hasCallButton = status.hasCallButton ?? hasCallButton
         hasPutButton = status.hasPutButton ?? hasPutButton
+        layoutHealth = status.layoutHealth ?? layoutHealth
         pairScanEnabled = status.pairScanEnabled ?? pairScanEnabled
         botRunning = status.botRunning ?? botRunning
         botMode = status.botMode ?? botMode
@@ -94,6 +96,7 @@ struct ProofStatus: Decodable {
     let hasAmountInput: Bool?
     let hasCallButton: Bool?
     let hasPutButton: Bool?
+    let layoutHealth: String?
     let pairScanEnabled: Bool?
     let botRunning: Bool?
     let botMode: String?

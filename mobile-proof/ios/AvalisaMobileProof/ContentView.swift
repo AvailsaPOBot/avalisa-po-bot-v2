@@ -87,6 +87,7 @@ struct ContentView: View {
                     metric("Payout", model.payout)
                     metric("Amount field", model.hasAmountInput ? "found" : "missing")
                     metric("Buttons", "\(model.hasCallButton ? "CALL" : "-") / \(model.hasPutButton ? "PUT" : "-")")
+                    metric("Layout", model.layoutHealth)
                 }
                 Text(model.lastTradeStatus)
                     .font(.caption)

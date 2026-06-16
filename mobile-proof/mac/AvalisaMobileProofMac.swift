@@ -161,6 +161,7 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
             row("Payout", key: "payout"),
             row("Amount", key: "hasAmountInput"),
             row("Buttons", key: "buttons"),
+            row("Layout", key: "layoutHealth"),
         ]
         rows.forEach { rowViews in
             _ = statusGrid.addRow(with: rowViews)
@@ -991,6 +992,7 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
         let call = ((body["hasCallButton"] as? Bool) == true) ? "CALL" : "-"
         let put = ((body["hasPutButton"] as? Bool) == true) ? "PUT" : "-"
         values["buttons"]?.stringValue = "\(call) / \(put)"
+        values["layoutHealth"]?.stringValue = "\(body["layoutHealth"] ?? "-")"
         if botRunning {
             setStatusText("Status: Running", color: NSColor(hex: 0x34D399))
         } else if canTradeAccount {
