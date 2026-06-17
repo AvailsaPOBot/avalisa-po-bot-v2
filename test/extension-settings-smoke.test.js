@@ -118,7 +118,7 @@ const testPromise = dom.window.eval(`${extensionBundle}
   const realBlock = getAiAllowanceBlock({ allowed: true, plan: 'basic', aiTradesAllowance: 10, aiTradesUsed: 10 });
   assert.equal(realBlock.reason, 'AI trade allowance exhausted');
 
-  document.body.innerHTML = '<div id="avalisa-overlay"></div><div class="js-balance-demo">$10000.00</div>';
+  document.body.innerHTML = '<div id="avalisa-overlay"></div><div class="balance__label">Demo</div><div class="js-balance-demo">$10000.00</div>';
   const demoBlock = getAiAllowanceBlock({ allowed: true, plan: 'basic', aiTradesAllowance: 10, aiTradesUsed: 10 });
   assert.equal(demoBlock, null);
 
@@ -146,6 +146,19 @@ const testPromise = dom.window.eval(`${extensionBundle}
   document.body.innerHTML = '<div class="block--bet-amount"><div class="value__val"><input value="8"></div></div>';
   assert.equal(setTradeAmount(16), true);
   assert.equal(document.querySelector('.block--bet-amount input').value, '16.00');
+
+  document.body.innerHTML = '<div class="asset-select"><span class="asset__name">EUR/USD OTC</span></div><div class="block--bet-amount"><div class="value__val"><input value="8"></div></div><button class="btn btn-call">CALL</button><button class="btn btn-put">PUT</button>';
+  const healthyLayout = assessPOLayoutHealth();
+  assert.equal(healthyLayout.ok, true);
+  assert.equal(healthyLayout.message, 'PO layout ready');
+  assert.equal(healthyLayout.controls.amountSelector, '.block--bet-amount .value__val input');
+  assert.equal(healthyLayout.controls.hasCallButton, true);
+  assert.equal(healthyLayout.controls.hasPutButton, true);
+
+  document.body.innerHTML = '<div class="asset-select"><span class="asset__name">EUR/USD OTC</span></div><div class="block--bet-amount"><div class="value__val"><input value="8"></div></div><button class="btn btn-call">CALL</button>';
+  const missingPutLayout = assessPOLayoutHealth();
+  assert.equal(missingPutLayout.ok, false);
+  assert.match(missingPutLayout.message, /missing PUT button/);
 
   document.body.innerHTML = '';
   injectOverlay();

@@ -50,7 +50,7 @@ async function getBalance() {
   return null;
 }
 
-function setTradeAmount(amount) {
+function getTradeAmountInput() {
   const selectors = [
     '.block--bet-amount .value__val input',
     '.value__val input',
@@ -59,16 +59,18 @@ function setTradeAmount(amount) {
     'input[name="amount"]',
   ];
 
-  let input = null;
-  let matchedSelector = null;
   for (const sel of selectors) {
     const el = document.querySelector(sel);
     if (el && !el.closest('#avalisa-overlay') && !el.closest('#avalisa-panel')) {
-      input = el;
-      matchedSelector = sel;
-      break;
+      return { input: el, selector: sel };
     }
   }
+
+  return { input: null, selector: null, selectors };
+}
+
+function setTradeAmount(amount) {
+  const { input, selector: matchedSelector, selectors } = getTradeAmountInput();
 
   if (!input) {
     console.warn('[Avalisa] setTradeAmount: no input found. Tried:', selectors);
@@ -280,8 +282,36 @@ function resolveTradeButton(action, selectors) {
   return null;
 }
 
-function clickCall() {
-  const selectors = [
+function assessPOLayoutHealth() {
+  const issues = [];
+  const amount = getTradeAmountInput();
+  const callButton = resolveTradeButton('call', getCallButtonSelectors());
+  const putButton = resolveTradeButton('put', getPutButtonSelectors());
+  const durationSeconds = getDurationSecondsFromDom();
+  const currentPair = getCurrentPair();
+
+  if (!amount.input) issues.push('amount input');
+  if (!callButton) issues.push('CALL button');
+  if (!putButton) issues.push('PUT button');
+  if (!currentPair || currentPair === 'UNKNOWN') issues.push('active pair');
+
+  return {
+    ok: issues.length === 0,
+    message: issues.length === 0 ? 'PO layout ready' : `PO layout changed: missing ${issues.join(', ')}`,
+    issues,
+    controls: {
+      amountSelector: amount.selector,
+      hasCallButton: Boolean(callButton),
+      hasPutButton: Boolean(putButton),
+      durationSeconds,
+      currentPair,
+      mode: isDemoMode() ? 'demo' : 'real',
+    },
+  };
+}
+
+function getCallButtonSelectors() {
+  return [
     'a.btn.btn-call',
     'button.btn.btn-call',
     '.trade-action--call',
@@ -293,14 +323,10 @@ function clickCall() {
     'button[data-direction="call"]',
     'a[data-direction="call"]',
   ];
-  const btn = resolveTradeButton('call', selectors);
-  if (btn) { btn.click(); return true; }
-  console.warn('[Avalisa] clickCall: no call button found. Tried:', selectors);
-  return false;
 }
 
-function clickPut() {
-  const selectors = [
+function getPutButtonSelectors() {
+  return [
     'a.btn.btn-put',
     'button.btn.btn-put',
     '.trade-action--put',
@@ -312,6 +338,18 @@ function clickPut() {
     'button[data-direction="put"]',
     'a[data-direction="put"]',
   ];
+}
+
+function clickCall() {
+  const selectors = getCallButtonSelectors();
+  const btn = resolveTradeButton('call', selectors);
+  if (btn) { btn.click(); return true; }
+  console.warn('[Avalisa] clickCall: no call button found. Tried:', selectors);
+  return false;
+}
+
+function clickPut() {
+  const selectors = getPutButtonSelectors();
   const btn = resolveTradeButton('put', selectors);
   if (btn) { btn.click(); return true; }
   console.warn('[Avalisa] clickPut: no put button found. Tried:', selectors);

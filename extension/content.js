@@ -1160,6 +1160,13 @@ async function startBot() {
     return;
   }
 
+  const layoutHealth = assessPOLayoutHealth();
+  if (!layoutHealth.ok) {
+    console.warn('[Avalisa] PO layout health check failed before start:', layoutHealth);
+    updateStatus('error', layoutHealth.message);
+    return;
+  }
+
   state.running = true;
   clearTradeLock();                  // clear any stale open-trade flag from last run
   state.currentAmount = parseFloat(state.settings.startAmount) || 1.0;
@@ -1610,6 +1617,7 @@ window.avDebug = function () {
     activePeriod: state.activePeriod,
     activeKey: `${state.activePair}:${state.activePeriod}`,
     po: {
+      layoutHealth: typeof assessPOLayoutHealth === 'function' ? assessPOLayoutHealth() : null,
       mode: isDemoMode() ? 'demo' : 'real',
       currentPair: getCurrentPair(),
       normalizedPair: normalizeAssetName(getCurrentPair()),
