@@ -2,6 +2,35 @@ const express = require('express');
 
 const router = express.Router();
 
+const HUMAN_FOLLOW_UP_REPLY = 'Thanks for telling us. This needs human review, so please email avalisapobot@gmail.com with your account email, Pocket Option ID if relevant, and a short description. A human from Avalisa will follow up.';
+
+const SENSITIVE_ESCALATION_PATTERNS = [
+  /\brefund(s|ed|ing)?\b/i,
+  /\bcharge\s?back(s)?\b/i,
+  /\bdelete\s+(my\s+)?account\b/i,
+  /\bclose\s+(my\s+)?account\b/i,
+  /\bremove\s+(my\s+)?(data|account)\b/i,
+  /\blegal\b/i,
+  /\blawyer\b/i,
+  /\bsue\b/i,
+  /\bscam(s|med|ming)?\b/i,
+  /\bfraud(s|ulent)?\b/i,
+  /\bfinancial\s+loss(es)?\b/i,
+  /\blost\s+(money|cash|funds|\$|usd|baht|thb)\b/i,
+  /\bmoney\s+back\b/i,
+];
+
+function getSensitiveSupportEscalation(messages) {
+  const text = messages
+    .filter((message) => message.role === 'user')
+    .map((message) => message.content)
+    .join('\n');
+
+  return SENSITIVE_ESCALATION_PATTERNS.some((pattern) => pattern.test(text))
+    ? HUMAN_FOLLOW_UP_REPLY
+    : null;
+}
+
 const SYSTEM_PROMPT = `You are Avalisa, the official AI support assistant for Avalisa PO Bot —
 a Chrome extension trading assistant for Pocket Option (pocketoption.com).
 You are friendly, concise, and helpful. Never make up information.
@@ -143,6 +172,15 @@ router.post('/chat', async (req, res) => {
   }
 
   const trimmedMessages = normalizeMessages(req.body.messages, userMessage);
+  const escalationReply = getSensitiveSupportEscalation(trimmedMessages);
+
+  if (escalationReply) {
+    return res.json({
+      reply: escalationReply,
+      provider: 'avalisa-escalation',
+      escalate: true,
+    });
+  }
 
   try {
     let reply;
@@ -205,5 +243,10 @@ router.post('/chat', async (req, res) => {
     res.status(500).json({ error: 'AI service unavailable. Please try again.' });
   }
 });
+
+router.__test = {
+  getSensitiveSupportEscalation,
+  HUMAN_FOLLOW_UP_REPLY,
+};
 
 module.exports = router;
