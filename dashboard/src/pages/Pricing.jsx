@@ -94,6 +94,11 @@ export default function Pricing() {
         })}
         <aside className="lux-price-guide lux-price-guide--page">
           <img src="/images/landing/avalisa-blonde-pricing.png" alt="Avalisa pricing guide" />
+          <div>
+            <strong>Want Pro through Pocket Option?</strong>
+            <p>Register through Avalisa, then submit your PO UID in the dashboard to request Pro access.</p>
+            <a href={affiliateLink} target="_blank" rel="noreferrer">Open Pocket Option</a>
+          </div>
         </aside>
       </section>
 

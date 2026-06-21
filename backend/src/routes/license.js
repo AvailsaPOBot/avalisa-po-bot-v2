@@ -1,7 +1,7 @@
 const express = require('express');
 const { authMiddleware, optionalAuthMiddleware } = require('../middleware/auth');
 const prisma = require('../lib/prisma');
-const { PLAN_IDS, getPlanEntitlements } = require('../lib/plans');
+const { PLAN_IDS, getPlanEntitlements, getAiTradesAllowanceForPlan } = require('../lib/plans');
 
 const router = express.Router();
 
@@ -37,7 +37,7 @@ router.post('/check', optionalAuthMiddleware, async (req, res) => {
           allowed: true,
           plan: PLAN_IDS.PRO,
           tradesRemaining: null,
-          aiTradesAllowance: license.aiTradesAllowance,
+          aiTradesAllowance: getAiTradesAllowanceForPlan(license.plan),
           aiTradesUsed: license.aiTradesUsed,
         });
       }
@@ -49,7 +49,7 @@ router.post('/check', optionalAuthMiddleware, async (req, res) => {
           tradesRemaining: null,
           tradesUsed: license.tradesUsed,
           tradesLimit: entitlements.tradesLimit,
-          aiTradesAllowance: license.aiTradesAllowance,
+          aiTradesAllowance: getAiTradesAllowanceForPlan(license.plan),
           aiTradesUsed: license.aiTradesUsed,
         });
       }
@@ -61,7 +61,7 @@ router.post('/check', optionalAuthMiddleware, async (req, res) => {
         tradesRemaining: remaining,
         tradesUsed: license.tradesUsed,
         tradesLimit: entitlements.tradesLimit,
-        aiTradesAllowance: license.aiTradesAllowance,
+        aiTradesAllowance: getAiTradesAllowanceForPlan(license.plan),
         aiTradesUsed: license.aiTradesUsed,
       });
     }

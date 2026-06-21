@@ -5,8 +5,8 @@ services:
     region: oregon
     plan: free
     rootDir: .
-    buildCommand: npm install && npx prisma migrate deploy && npx prisma generate
-    # migrate runs at build time; start is clean node process only
+    buildCommand: npm install && npx prisma generate
+    # DB migrations are Supabase SQL-only; Render must not run prisma migrate.
     startCommand: node src/index.js
     envVars:
       - key: NODE_ENV

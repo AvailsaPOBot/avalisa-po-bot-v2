@@ -2,6 +2,35 @@ const express = require('express');
 
 const router = express.Router();
 
+const HUMAN_FOLLOW_UP_REPLY = 'Thanks for telling us. This needs human review, so please email avalisapobot@gmail.com with your account email, Pocket Option ID if relevant, and a short description. A human from Avalisa will follow up.';
+
+const SENSITIVE_ESCALATION_PATTERNS = [
+  /\brefund(s|ed|ing)?\b/i,
+  /\bcharge\s?back(s)?\b/i,
+  /\bdelete\s+(my\s+)?account\b/i,
+  /\bclose\s+(my\s+)?account\b/i,
+  /\bremove\s+(my\s+)?(data|account)\b/i,
+  /\blegal\b/i,
+  /\blawyer\b/i,
+  /\bsue\b/i,
+  /\bscam(s|med|ming)?\b/i,
+  /\bfraud(s|ulent)?\b/i,
+  /\bfinancial\s+loss(es)?\b/i,
+  /\blost\s+(money|cash|funds|\$|usd|baht|thb)\b/i,
+  /\bmoney\s+back\b/i,
+];
+
+function getSensitiveSupportEscalation(messages) {
+  const text = messages
+    .filter((message) => message.role === 'user')
+    .map((message) => message.content)
+    .join('\n');
+
+  return SENSITIVE_ESCALATION_PATTERNS.some((pattern) => pattern.test(text))
+    ? HUMAN_FOLLOW_UP_REPLY
+    : null;
+}
+
 const SYSTEM_PROMPT = `You are Avalisa, the official AI support assistant for Avalisa PO Bot —
 a Chrome extension trading assistant for Pocket Option (pocketoption.com).
 You are friendly, concise, and helpful. Never make up information.
@@ -23,6 +52,8 @@ If the user asks about unrelated topics, politely say:
 
 Do not answer unrelated general knowledge, entertainment, coding, medical, legal, political, adult, or personal advice questions.
 Do not provide financial advice or guarantee profits.
+For refund, legal, account-deletion, chargeback, scam/fraud accusation, or financial-loss complaints, do not improvise.
+Give one short, polite reply that a human will follow up by email at avalisapobot@gmail.com.
 
 === PRODUCT INFO ===
 
@@ -66,17 +97,14 @@ with high payout % and stable market conditions.
 === PROFIT & EXPECTATIONS ===
 
 When users ask about winning or profit, always say:
-"The use of trading bots does not guarantee wins, but if you grasp its functioning
-under specific conditions, your chances of winning will be higher. Our bot uses the
-Martingale strategy. We advise avoiding trades shorter than 1 minute and choosing
-pairs with a payout percentage above 90%.
+"Avalisa does not guarantee wins or income. Trading results vary by market condition,
+pair, payout percentage, timeframe, settings, and account behavior.
 
-Start with a small demo balance, run the bot until it doubles, then withdraw the original
-amount and repeat. While there is risk of account volatility, repeating this cycle 10 times is a good
-way to test optimal settings under different market conditions.
+Please test in demo first until you understand the bot behavior and only use real
+money if you accept the risk. Avoid trades shorter than 1 minute, prefer pairs with
+payout above 90%, start small, and stop if the market is unstable.
 
-We recommend testing on a demo account first before using real money.
-Watch our videos for more tips: https://youtube.com/@avalisapobot"
+For setup help, send your question or screenshots to avalisapobot@gmail.com."
 
 === COMMON ISSUES ===
 
@@ -144,6 +172,15 @@ router.post('/chat', async (req, res) => {
   }
 
   const trimmedMessages = normalizeMessages(req.body.messages, userMessage);
+  const escalationReply = getSensitiveSupportEscalation(trimmedMessages);
+
+  if (escalationReply) {
+    return res.json({
+      reply: escalationReply,
+      provider: 'avalisa-escalation',
+      escalate: true,
+    });
+  }
 
   try {
     let reply;
@@ -206,5 +243,10 @@ router.post('/chat', async (req, res) => {
     res.status(500).json({ error: 'AI service unavailable. Please try again.' });
   }
 });
+
+router.__test = {
+  getSensitiveSupportEscalation,
+  HUMAN_FOLLOW_UP_REPLY,
+};
 
 module.exports = router;

@@ -50,7 +50,7 @@ async function getBalance() {
   return null;
 }
 
-function setTradeAmount(amount) {
+function getTradeAmountInput() {
   const selectors = [
     '.block--bet-amount .value__val input',
     '.value__val input',
@@ -59,16 +59,18 @@ function setTradeAmount(amount) {
     'input[name="amount"]',
   ];
 
-  let input = null;
-  let matchedSelector = null;
   for (const sel of selectors) {
     const el = document.querySelector(sel);
     if (el && !el.closest('#avalisa-overlay') && !el.closest('#avalisa-panel')) {
-      input = el;
-      matchedSelector = sel;
-      break;
+      return { input: el, selector: sel };
     }
   }
+
+  return { input: null, selector: null, selectors };
+}
+
+function setTradeAmount(amount) {
+  const { input, selector: matchedSelector, selectors } = getTradeAmountInput();
 
   if (!input) {
     console.warn('[Avalisa] setTradeAmount: no input found. Tried:', selectors);
@@ -81,7 +83,9 @@ function setTradeAmount(amount) {
   input.focus();
   input.select();
 
-  const typed = document.execCommand('insertText', false, valueStr);
+  const typed = typeof document.execCommand === 'function'
+    ? document.execCommand('insertText', false, valueStr)
+    : false;
 
   if (!typed) {
     const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
@@ -91,6 +95,27 @@ function setTradeAmount(amount) {
   }
 
   input.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+  const acceptedValue = parseFloat(String(input.value || '').replace(/[^0-9.]/g, ''));
+  if (!Number.isFinite(acceptedValue) || Math.abs(acceptedValue - amount) > 0.01) {
+    console.warn('[Avalisa] setTradeAmount: value did not stick. wanted:', valueStr, 'actual:', input.value);
+    input.focus();
+    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    nativeSetter.call(input, valueStr);
+    input.dispatchEvent(new InputEvent('input', {
+      bubbles: true,
+      inputType: 'insertReplacementText',
+      data: valueStr,
+    }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    input.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+  }
+
+  const finalValue = parseFloat(String(input.value || '').replace(/[^0-9.]/g, ''));
+  if (!Number.isFinite(finalValue) || Math.abs(finalValue - amount) > 0.01) {
+    console.warn('[Avalisa] setTradeAmount: PO rejected amount. wanted:', valueStr, 'actual:', input.value);
+    return false;
+  }
+
   return true;
 }
 
@@ -237,15 +262,97 @@ function closePOPopovers() {
   document.querySelector('.chart-container, .trading-chart, main, body')?.click();
 }
 
+function isUsableTradeButton(el) {
+  if (!(el instanceof Element)) return false;
+  if (el.closest('#avalisa-overlay') || el.closest('#avalisa-panel')) return false;
+  if (el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true') return false;
+
+  const style = window.getComputedStyle(el);
+  return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+}
+
+function resolveTradeButton(action, selectors) {
+  for (const sel of selectors) {
+    const btn = document.querySelector(sel);
+    if (isUsableTradeButton(btn)) {
+      console.log(`[Avalisa] ${action.toUpperCase()} button found with selector:`, sel);
+      return btn;
+    }
+  }
+  return null;
+}
+
+function assessPOLayoutHealth() {
+  const issues = [];
+  const amount = getTradeAmountInput();
+  const callButton = resolveTradeButton('call', getCallButtonSelectors());
+  const putButton = resolveTradeButton('put', getPutButtonSelectors());
+  const durationSeconds = getDurationSecondsFromDom();
+  const currentPair = getCurrentPair();
+
+  if (!amount.input) issues.push('amount input');
+  if (!callButton) issues.push('CALL button');
+  if (!putButton) issues.push('PUT button');
+  if (!currentPair || currentPair === 'UNKNOWN') issues.push('active pair');
+
+  return {
+    ok: issues.length === 0,
+    message: issues.length === 0 ? 'PO layout ready' : `PO layout changed: missing ${issues.join(', ')}`,
+    issues,
+    controls: {
+      amountSelector: amount.selector,
+      hasCallButton: Boolean(callButton),
+      hasPutButton: Boolean(putButton),
+      durationSeconds,
+      currentPair,
+      mode: isDemoMode() ? 'demo' : 'real',
+    },
+  };
+}
+
+function getCallButtonSelectors() {
+  return [
+    'a.btn.btn-call',
+    'button.btn.btn-call',
+    '.trade-action--call',
+    '.call-action',
+    '[data-test="btn-call"]',
+    '[data-action="call"]',
+    '[class*="btn-call"]',
+    '[class*="call-btn"]',
+    'button[data-direction="call"]',
+    'a[data-direction="call"]',
+  ];
+}
+
+function getPutButtonSelectors() {
+  return [
+    'a.btn.btn-put',
+    'button.btn.btn-put',
+    '.trade-action--put',
+    '.put-action',
+    '[data-test="btn-put"]',
+    '[data-action="put"]',
+    '[class*="btn-put"]',
+    '[class*="put-btn"]',
+    'button[data-direction="put"]',
+    'a[data-direction="put"]',
+  ];
+}
+
 function clickCall() {
-  const btn = document.querySelector('a.btn.btn-call');
+  const selectors = getCallButtonSelectors();
+  const btn = resolveTradeButton('call', selectors);
   if (btn) { btn.click(); return true; }
+  console.warn('[Avalisa] clickCall: no call button found. Tried:', selectors);
   return false;
 }
 
 function clickPut() {
-  const btn = document.querySelector('a.btn.btn-put');
+  const selectors = getPutButtonSelectors();
+  const btn = resolveTradeButton('put', selectors);
   if (btn) { btn.click(); return true; }
+  console.warn('[Avalisa] clickPut: no put button found. Tried:', selectors);
   return false;
 }
 
@@ -392,7 +499,9 @@ function clickFavoritePair(fav) {
 
 function getPayoutSettings() {
   const minPct = Number.isFinite(+state.payoutMinPercent) ? +state.payoutMinPercent : 90;
-  const action = ['stop', 'switch', 'keep'].includes(state.payoutAction) ? state.payoutAction : 'stop';
+  const action = state.payoutAction === 'keep'
+    ? 'off'
+    : (['off', 'stop', 'switch'].includes(state.payoutAction) ? state.payoutAction : 'switch');
   return { minPct, action };
 }
 
@@ -407,7 +516,7 @@ async function checkPayoutBeforeTrade(options = {}) {
   }
   console.log(`[Avalisa] Payout Monitor: current=${current}% threshold=${minPct}% action=${action}`);
 
-  if (action === 'keep' || current >= minPct) return { proceed: true };
+  if (action === 'off' || current >= minPct) return { proceed: true };
 
   if (action === 'stop') {
     return { proceed: false, halt: true, reason: `Payout ${current}% below ${minPct}% threshold` };
@@ -442,12 +551,29 @@ async function checkPayoutBeforeTrade(options = {}) {
 }
 
 function isDemoMode() {
+  // Detect the ACTIVE Pocket Option account.
+  //
+  // IMPORTANT: the demo-balance element (.js-balance-demo) is ALWAYS present in
+  // the DOM — even on a real account, it keeps holding the demo balance. Using
+  // its presence/value to decide (the old behaviour) made real accounts report
+  // as demo, so the bot read the demo balance, every real trade resolved as a
+  // "tie" (balance never moved), and Martingale never laddered on real accounts.
+  //
+  // Reliable signals instead:
+  //   1. URL — PO encodes the mode: demo => "/cabinet/demo-quick-high-low/...",
+  //      real => "/cabinet/quick-high-low/...".
+  //   2. The visible active-account label ("… Demo" vs "… Real").
+  if (/\bdemo\b/i.test(location.pathname)) return true;
+
   const labels = document.querySelectorAll('[class*="balance-info-block"] [class*="label"], [class*="balance__label"]');
   for (const el of labels) {
-    if (el.textContent.includes('Demo')) return true;
+    const t = el.textContent || '';
+    if (/\bdemo\b/i.test(t)) return true;
+    if (/\breal\b/i.test(t)) return false;
   }
-  const demoEl = document.querySelector('.js-balance-demo');
-  if (demoEl && parseFloat(demoEl.textContent.replace(/[^0-9.]/g, '')) > 0) return true;
+
+  // Couldn't resolve from URL or label → assume REAL. Never silently treat a
+  // real account as demo (that's the failure mode we're fixing).
   return false;
 }
 

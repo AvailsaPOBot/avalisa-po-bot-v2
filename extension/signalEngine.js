@@ -36,7 +36,7 @@
       pullbackRsiLow: 40, pullbackRsiHigh: 60,
       pullbackBbK: 0.6,
       rulesRequiredTrending: 3,
-      skipOTC: true,
+      skipOTC: false,
       requireCandleConfirm: true,
     },
     high: {

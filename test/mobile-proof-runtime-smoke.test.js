@@ -4,7 +4,7 @@ const path = require('path');
 const { JSDOM } = require('../dashboard/node_modules/jsdom');
 
 const root = path.resolve(__dirname, '..');
-const dom = new JSDOM('<!doctype html><html><head></head><body><div>QT Real USD 100.00</div><input type="number" value="1"><button>CALL</button></body></html>', {
+const dom = new JSDOM('<!doctype html><html><head></head><body><div>QT Real USD 100.00</div><input type="number" value="1"><button>CALL</button><button>PUT</button></body></html>', {
   url: 'https://m.po.trade/en/cabinet/demo-quick-high-low/?source=pwa',
   runScripts: 'outside-only',
 });
@@ -67,6 +67,7 @@ let snapshot = JSON.parse(proof.snapshot());
 proof.scan();
 snapshot = JSON.parse(proof.snapshot());
 assert.equal(snapshot.demoMode, 'real');
+assert.equal(snapshot.layoutHealth, 'mobile layout ready');
 assert.equal(await proof.placeTrade('call', 1), true);
 snapshot = JSON.parse(proof.snapshot());
 assert.match(snapshot.lastTradeStatus, /real CALL click sent/);
@@ -78,6 +79,7 @@ dom.window.document.body.innerHTML = '<div>Payout +92%</div><button>CALL</button
 proof.scan();
 snapshot = JSON.parse(proof.snapshot());
 assert.equal(snapshot.demoMode, 'unknown');
+assert.equal(snapshot.layoutHealth, 'account mode not confirmed (unknown)');
 assert.equal(await proof.placeTrade('call', 1), false);
 snapshot = JSON.parse(proof.snapshot());
 assert.match(snapshot.lastTradeStatus, /account mode not confirmed/);
@@ -94,6 +96,7 @@ proof.scan();
 snapshot = JSON.parse(proof.snapshot());
 assert.equal(snapshot.demoMode, 'real');
 assert.equal(snapshot.balance, '$44.50');
+assert.match(snapshot.layoutHealth, /missing PUT/);
 assert.equal(await proof.placeTrade('call', 1), true);
 snapshot = JSON.parse(proof.snapshot());
 assert.match(snapshot.lastTradeStatus, /real CALL click sent/);

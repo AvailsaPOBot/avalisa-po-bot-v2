@@ -57,6 +57,7 @@
     hasAmountInput: false,
     hasCallButton: false,
     hasPutButton: false,
+    layoutHealth: 'waiting for PO mobile page',
     wsSeen: false,
     historySeen: false,
     tickSeen: false,
@@ -371,6 +372,7 @@
       hasAmountInput: state.hasAmountInput,
       hasCallButton: state.hasCallButton,
       hasPutButton: state.hasPutButton,
+      layoutHealth: state.layoutHealth,
       pairScanEnabled: state.pairScanEnabled,
       botRunning: state.botRunning,
       botMode: state.botMode,
@@ -924,6 +926,24 @@
     return state.pageState !== 'login' && /\bPayout\b/i.test(text(document.body));
   }
 
+  function updateLayoutHealth() {
+    if (state.pageState === 'login') {
+      state.layoutHealth = 'PO login page; trade controls hidden';
+      return;
+    }
+    if (!canTradeCurrentAccount()) {
+      state.layoutHealth = `account mode not confirmed (${state.demoMode})`;
+      return;
+    }
+    const missing = [];
+    if (!state.hasAmountInput) missing.push('amount');
+    if (!state.hasCallButton) missing.push('CALL');
+    if (!state.hasPutButton) missing.push('PUT');
+    state.layoutHealth = missing.length
+      ? `mobile layout drift: missing ${missing.join(', ')}`
+      : 'mobile layout ready';
+  }
+
   function closePOPopovers() {
     const body = text(document.body);
     if (!/Invest real money|Good job|Real profit/i.test(body)) return;
@@ -1027,6 +1047,7 @@
       state.hasCallButton = false;
       state.hasPutButton = false;
       inferBalanceAndMode();
+      updateLayoutHealth();
       updateVisibleBotBadge();
       post();
       return statusPayload();
@@ -1038,6 +1059,7 @@
     state.hasAmountInput = inferAmountReady();
     state.hasCallButton = inferTradeButtonReady('call');
     state.hasPutButton = inferTradeButtonReady('put');
+    updateLayoutHealth();
     updateVisibleBotBadge();
     post();
     return statusPayload();

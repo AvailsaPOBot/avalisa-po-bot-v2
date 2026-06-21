@@ -9,6 +9,7 @@ const PLAN_ENTITLEMENTS = {
     label: 'Demo',
     priceCents: 0,
     tradesLimit: 10,
+    aiTradesAllowance: 0,
     maxStartAmount: null,
     strategies: ['martingale'],
     grantedByAffiliate: false,
@@ -17,14 +18,16 @@ const PLAN_ENTITLEMENTS = {
     label: 'Basic',
     priceCents: 6900,
     tradesLimit: null,
+    aiTradesAllowance: 10,
     maxStartAmount: null,
-    strategies: ['martingale'],
+    strategies: ['martingale', 'ai'],
     grantedByAffiliate: false,
   },
   [PLAN_IDS.PRO]: {
     label: 'Pro',
     priceCents: 11900,
     tradesLimit: null,
+    aiTradesAllowance: null,
     maxStartAmount: null,
     strategies: ['martingale', 'ai'],
     grantedByAffiliate: true,
@@ -43,6 +46,12 @@ function canUseStrategy(plan, strategy) {
   const entitlements = getPlanEntitlements(plan);
   if (!entitlements) return false;
   return entitlements.strategies.includes(strategy);
+}
+
+function getAiTradesAllowanceForPlan(plan) {
+  const entitlements = getPlanEntitlements(plan);
+  if (!entitlements) return 0;
+  return entitlements.aiTradesAllowance;
 }
 
 function getPaidPlanFromWhop({ planId = '', priceInCents = 0, planName = '' }) {
@@ -76,5 +85,6 @@ module.exports = {
   getPlanEntitlements,
   getTradeLimitForPlan,
   canUseStrategy,
+  getAiTradesAllowanceForPlan,
   getPaidPlanFromWhop,
 };

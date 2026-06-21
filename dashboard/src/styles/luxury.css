@@ -2649,6 +2649,52 @@
   width: min(100% - 2rem, 1320px);
 }
 
+.lux-price-guide--page {
+  display: grid;
+  align-content: end;
+  gap: 0.9rem;
+  padding: 1rem;
+}
+
+.lux-price-guide--page img {
+  width: 100%;
+  align-self: end;
+}
+
+.lux-price-guide--page div {
+  display: grid;
+  gap: 0.58rem;
+  border: 1px solid rgba(216, 162, 74, 0.28);
+  border-radius: 0.55rem;
+  padding: 0.85rem;
+  background: rgba(8, 11, 14, 0.82);
+}
+
+.lux-price-guide--page strong {
+  color: var(--lux-gold);
+  font-size: 0.92rem;
+}
+
+.lux-price-guide--page p {
+  margin: 0;
+  color: var(--lux-muted);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.lux-price-guide--page a {
+  display: inline-flex;
+  justify-content: center;
+  border: 1px solid rgba(216, 162, 74, 0.46);
+  border-radius: 0.48rem;
+  padding: 0.72rem 0.9rem;
+  color: var(--lux-bg);
+  background: linear-gradient(135deg, var(--lux-gold), #f6d48d);
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
 .lux-pricing-page .lux-price {
   padding: 1.1rem;
 }
@@ -3294,6 +3340,29 @@
   color: #fff8ee;
 }
 
+.avalisa-hero__affiliate {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.8rem;
+  align-items: center;
+  max-width: 41rem;
+  margin-top: 1rem;
+  border: 1px solid rgba(216, 162, 74, 0.32);
+  border-radius: 0.55rem;
+  padding: 0.9rem 1rem;
+  background: rgba(2, 7, 17, 0.46);
+  color: rgba(248, 244, 236, 0.8);
+}
+
+.avalisa-hero__affiliate svg {
+  color: var(--av-gold-2);
+}
+
+.avalisa-hero__affiliate p {
+  font-size: 0.84rem;
+  line-height: 1.48;
+}
+
 .avalisa-hero__visual {
   position: relative;
   min-height: clamp(31rem, 45vw, 43rem);
@@ -3739,6 +3808,15 @@
     max-width: min(100%, 21rem);
     font-size: 0.92rem;
     line-height: 1.62;
+  }
+
+  .avalisa-hero__affiliate {
+    grid-template-columns: auto 1fr;
+    align-items: start;
+  }
+
+  .avalisa-hero__affiliate .avalisa-text-link {
+    grid-column: 2;
   }
 
   .avalisa-hero__visual {

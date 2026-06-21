@@ -8,7 +8,7 @@ const VALID_TABS = ['settings', 'history', 'bots', 'admin'];
 
 const STRATEGIES = [
   { id: 'martingale', label: 'Martingale', plans: ['free', 'basic', 'lifetime'], desc: 'Double on loss to recover' },
-  { id: 'ai', label: 'Avalisa AI', plans: ['lifetime'], desc: 'Local rule engine with AI-style pair scanning (Pro)' },
+  { id: 'ai', label: 'Avalisa AI', plans: ['basic', 'lifetime'], desc: 'Basic includes 10 AI trades; Pro is unlimited.' },
 ];
 
 const TIMEFRAMES = ['S30', 'M1', 'M3', 'M5', 'M30', 'H1'];

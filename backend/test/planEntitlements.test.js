@@ -6,33 +6,38 @@ const {
   getPlanEntitlements,
   getPaidPlanFromWhop,
   canUseStrategy,
+  getAiTradesAllowanceForPlan,
 } = require('../src/lib/plans');
 
 test('demo users get 10 martingale trades with no start amount cap', () => {
   const entitlements = getPlanEntitlements(PLAN_IDS.DEMO);
 
   assert.equal(entitlements.tradesLimit, 10);
+  assert.equal(entitlements.aiTradesAllowance, 0);
   assert.equal(entitlements.maxStartAmount, null);
   assert.equal(canUseStrategy(PLAN_IDS.DEMO, 'martingale'), true);
   assert.equal(canUseStrategy(PLAN_IDS.DEMO, 'ai'), false);
 });
 
-test('basic users pay 69 dollars for martingale-only access', () => {
+test('basic users get unlimited martingale and 10 AI trades', () => {
   const entitlements = getPlanEntitlements(PLAN_IDS.BASIC);
 
   assert.equal(entitlements.priceCents, 6900);
   assert.equal(entitlements.tradesLimit, null);
+  assert.equal(entitlements.aiTradesAllowance, 10);
+  assert.equal(getAiTradesAllowanceForPlan(PLAN_IDS.BASIC), 10);
   assert.equal(entitlements.maxStartAmount, null);
   assert.equal(canUseStrategy(PLAN_IDS.BASIC, 'martingale'), true);
-  assert.equal(canUseStrategy(PLAN_IDS.BASIC, 'ai'), false);
+  assert.equal(canUseStrategy(PLAN_IDS.BASIC, 'ai'), true);
   assert.equal(canUseStrategy(PLAN_IDS.BASIC, 'anti-martingale'), false);
 });
 
-test('pro users and affiliate users get unlimited martingale and Avalisa AI', () => {
+test('pro users and affiliate users get everything unlocked for current modes', () => {
   const entitlements = getPlanEntitlements(PLAN_IDS.PRO);
 
   assert.equal(entitlements.priceCents, 11900);
   assert.equal(entitlements.tradesLimit, null);
+  assert.equal(entitlements.aiTradesAllowance, null);
   assert.equal(canUseStrategy(PLAN_IDS.PRO, 'martingale'), true);
   assert.equal(canUseStrategy(PLAN_IDS.PRO, 'ai'), true);
   assert.equal(entitlements.grantedByAffiliate, true);

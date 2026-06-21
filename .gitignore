@@ -88,6 +88,7 @@ avalisa-extension.zip
 .playwright-cli/
 output/
 avalisa-remotion/
+mobile-proof/mac/build/
 dashboard/dashboard/
 dashboard/design-spec/generated-assets/
 dashboard/design-spec/saved-designs/
