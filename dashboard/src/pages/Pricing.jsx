@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import '../styles/luxury.css';
@@ -8,6 +8,7 @@ const FALLBACK_AFFILIATE_LINK = 'https://u3.shortink.io/register?utm_campaign=36
 const API_BASE = process.env.REACT_APP_API_URL || 'https://avalisa-backend.onrender.com';
 
 export default function Pricing() {
+  const location = useLocation();
   const { user } = useAuth();
   const currentPlan = user?.license?.plan || null;
   const [affiliateLink, setAffiliateLink] = useState(FALLBACK_AFFILIATE_LINK);
@@ -18,6 +19,18 @@ export default function Pricing() {
       .then((data) => { if (data?.url) setAffiliateLink(data.url); })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!location.hash) return;
+
+    const targetId = location.hash.slice(1);
+    const target = document.getElementById(targetId);
+    if (!target) return;
+
+    window.requestAnimationFrame(() => {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }, [location.hash]);
 
   const email = user?.email || '';
   const appendEmail = (url) => {
@@ -76,7 +89,12 @@ export default function Pricing() {
         {plans.map((plan) => {
           const current = currentPlan === plan.id || (currentPlan === 'free' && plan.id === 'demo') || (currentPlan === 'lifetime' && plan.id === 'pro');
           return (
-            <article className={`lux-price ${plan.featured ? 'is-featured' : ''}`} id={plan.id} key={plan.id}>
+            <article
+              aria-current={current ? 'true' : undefined}
+              className={`lux-price ${plan.featured ? 'is-featured' : ''}`}
+              id={plan.id}
+              key={plan.id}
+            >
               {plan.featured && <b>MOST POPULAR</b>}
               <span>{plan.name}</span>
               <h3>{plan.price}<small>{plan.period}</small></h3>
