@@ -60,7 +60,7 @@ const runtime = fs.readFileSync(path.join(root, 'mobile-proof/ios/AvalisaMobileP
 dom.window.eval(`${runtime}\n//# sourceURL=ProofRuntime.js`);
 
 const proof = dom.window.AvalisaProof;
-assert.equal(proof.version, '1.03-webapp-readiness');
+assert.equal(proof.version, '1.3-webapp-readiness');
 
 (async () => {
 let snapshot = JSON.parse(proof.snapshot());

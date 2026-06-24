@@ -32,7 +32,7 @@
     mobileAmountFallback: 'stop',
   };
   const state = {
-    version: '1.03-webapp-readiness',
+    version: '1.3-webapp-readiness',
     jwt: null,
     userId: null,
     userEmail: null,
