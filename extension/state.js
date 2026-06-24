@@ -30,6 +30,7 @@ const state = {
   aiUnlimited: false,
   recentCloseEvents: [], // [{ ts, event, payload }]
   lastTradeResultDebug: null,
+  lastTradeCycleError: null,
   aiNoProgressCycles: 0,
   unconfirmedOrderFailures: 0,
   lastPairSwitchAt: 0,

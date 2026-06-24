@@ -168,6 +168,23 @@ const testPromise = dom.window.eval(`${extensionBundle}
   assert.equal(document.getElementById('av-stop-btn').disabled, false);
   assert.equal(document.getElementById('av-strategy').disabled, true);
 
+  const originalCheckLicense = checkLicense;
+  document.body.innerHTML = '';
+  injectOverlay();
+  state.settings = getDefaultSettings();
+  state.running = true;
+  state.stopRequested = false;
+  state.cycleGeneration = 200;
+  checkLicense = async () => { throw new Error('simulated PO drift'); };
+  await runTradeCycle(200);
+  assert.equal(state.running, false);
+  assert.equal(state.stopRequested, true);
+  assert.equal(state.tradeLock, false);
+  assert.equal(state.isTradeOpen, false);
+  assert.equal(state.lastTradeCycleError.message, 'simulated PO drift');
+  assert.match(document.getElementById('av-status').textContent, /stopped safely/);
+  checkLicense = originalCheckLicense;
+
   console.log('Extension settings smoke passed.');
 })().catch(err => {
   console.error(err);

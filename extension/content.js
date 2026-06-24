@@ -368,6 +368,26 @@ function stopAvalisaForDecision(message) {
   updateStatus('error', message);
 }
 
+function handleTradeCycleError(err, generation) {
+  const message = err?.message || String(err || 'unknown error');
+  console.error('[Avalisa] Trade cycle stopped safely after unexpected error:', err);
+  state.lastTradeCycleError = {
+    at: new Date().toISOString(),
+    generation,
+    phase: state.tradeLockPhase || null,
+    name: err?.name || 'Error',
+    message,
+  };
+
+  if (generation !== state.cycleGeneration) return;
+
+  state.running = false;
+  state.stopRequested = true;
+  clearTradeLock();
+  updateUI();
+  updateStatus('error', 'Avalisa stopped safely — Pocket Option changed or page error. Reload and try again.');
+}
+
 async function chooseAvalisaOpportunity(intensity, generation) {
   if (state.tradeLock || state.isTradeOpen) {
     return { source: 'current', action: 'SKIP', reason: state.tradeLockPhase || 'trade_open' };
@@ -472,6 +492,14 @@ function getNextDirection() {
 }
 
 async function runTradeCycle(generation) {
+  try {
+    await runTradeCycleUnsafe(generation);
+  } catch (err) {
+    handleTradeCycleError(err, generation);
+  }
+}
+
+async function runTradeCycleUnsafe(generation) {
   if (!isCycleActive(generation)) return;
 
   if (state.tradeLock || state.isTradeOpen) {
@@ -1640,6 +1668,7 @@ window.avDebug = function () {
     martingaleStep: state.martingaleStep,
     currentAmount: state.currentAmount,
     lastTradeResultDebug: state.lastTradeResultDebug,
+    lastTradeCycleError: state.lastTradeCycleError,
   };
   console.log('[Avalisa Debug]', JSON.stringify(out, null, 2));
   return out;
