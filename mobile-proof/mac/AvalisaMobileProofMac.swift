@@ -257,7 +257,7 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
             self?.openAvalisaWebsite()
         }
 
-        let version = NSTextField(labelWithString: "v.1.02")
+        let version = NSTextField(labelWithString: "v.1.03")
         version.font = .boldSystemFont(ofSize: 12)
         version.textColor = textColor
 

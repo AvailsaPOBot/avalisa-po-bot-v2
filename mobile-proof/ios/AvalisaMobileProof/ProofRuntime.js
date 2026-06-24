@@ -32,7 +32,7 @@
     mobileAmountFallback: 'stop',
   };
   const state = {
-    version: '1.02-local-proof',
+    version: '1.03-webapp-readiness',
     jwt: null,
     userId: null,
     userEmail: null,
@@ -386,6 +386,7 @@
       lastTradeStatus: state.lastTradeStatus,
       lastAmountDebug: state.lastAmountDebug,
       lastOrderDebug: state.lastOrderDebug,
+      webappReadiness: assessWebappReadiness(),
       guidance: state.guidance,
     };
   }
@@ -485,6 +486,44 @@
 
   function canTradeCurrentAccount() {
     return state.demoMode === 'confirmed' || state.demoMode === 'real';
+  }
+
+  function runtimeHostKind() {
+    try {
+      if (window.webkit?.messageHandlers?.avalisaProof) return 'wkwebview-proof-shell';
+    } catch (_) {}
+    return 'browser';
+  }
+
+  function assessWebappReadiness() {
+    const blockers = [];
+    const hostKind = runtimeHostKind();
+    const currentLayoutHealth = state.layoutHealth || 'not scanned';
+    const poSessionObserved = /(^|\.)po\.trade$/i.test(location.hostname) || /pocketoption/i.test(location.hostname);
+    const websocketObserved = !!(state.wsSeen || state.historySeen || state.tickSeen);
+    const layoutReady = currentLayoutHealth === 'mobile layout ready';
+    const accountReady = canTradeCurrentAccount();
+
+    if (hostKind === 'wkwebview-proof-shell') {
+      blockers.push('running in old WKWebView proof shell; final target is responsive HTML5 webapp/wrapper');
+    }
+    if (!poSessionObserved) blockers.push('Pocket Option mobile host not observed');
+    if (!accountReady) blockers.push(`account mode not confirmed (${state.demoMode})`);
+    if (!layoutReady) blockers.push(currentLayoutHealth);
+    if (!websocketObserved) blockers.push('PO WebSocket/tick stream not observed yet');
+    if (state.authStatus === 'error') blockers.push(state.licenseReason || 'Avalisa backend/license check failed');
+
+    return {
+      target: 'responsive-html5-webapp-bot',
+      hostKind,
+      poSessionObserved,
+      websocketObserved,
+      accountReady,
+      layoutReady,
+      tradeControlsReady: !!(state.hasAmountInput && state.hasCallButton && state.hasPutButton),
+      readyForLivePhoneTradeProof: blockers.length === 0,
+      blockers,
+    };
   }
 
   function accountModeLabel() {
@@ -1653,6 +1692,7 @@
     version: state.version,
     scan,
     snapshot,
+    assessWebappReadiness,
     setSettings,
     placeDemoTrade: placeTrade,
     placeTrade,

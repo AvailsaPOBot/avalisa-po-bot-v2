@@ -22,7 +22,7 @@ plutil -insert CFBundleExecutable -string AvalisaMobileProofMac "$APP_DIR/Conten
 plutil -insert CFBundleIdentifier -string com.avalisa.mobileproof.mac "$APP_DIR/Contents/Info.plist"
 plutil -insert CFBundleName -string "Avalisa Mobile Proof" "$APP_DIR/Contents/Info.plist"
 plutil -insert CFBundlePackageType -string APPL "$APP_DIR/Contents/Info.plist"
-plutil -insert CFBundleShortVersionString -string 1.02 "$APP_DIR/Contents/Info.plist"
-plutil -insert CFBundleVersion -string 101 "$APP_DIR/Contents/Info.plist"
+plutil -insert CFBundleShortVersionString -string 1.03 "$APP_DIR/Contents/Info.plist"
+plutil -insert CFBundleVersion -string 103 "$APP_DIR/Contents/Info.plist"
 
 open -n "$APP_DIR"

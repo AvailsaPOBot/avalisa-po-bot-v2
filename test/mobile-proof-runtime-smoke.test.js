@@ -60,7 +60,7 @@ const runtime = fs.readFileSync(path.join(root, 'mobile-proof/ios/AvalisaMobileP
 dom.window.eval(`${runtime}\n//# sourceURL=ProofRuntime.js`);
 
 const proof = dom.window.AvalisaProof;
-assert.equal(proof.version, '1.02-local-proof');
+assert.equal(proof.version, '1.03-webapp-readiness');
 
 (async () => {
 let snapshot = JSON.parse(proof.snapshot());
@@ -68,6 +68,16 @@ proof.scan();
 snapshot = JSON.parse(proof.snapshot());
 assert.equal(snapshot.demoMode, 'real');
 assert.equal(snapshot.layoutHealth, 'mobile layout ready');
+assert.equal(snapshot.webappReadiness.target, 'responsive-html5-webapp-bot');
+assert.equal(snapshot.webappReadiness.hostKind, 'wkwebview-proof-shell');
+assert.equal(snapshot.webappReadiness.poSessionObserved, true);
+assert.equal(snapshot.webappReadiness.accountReady, true);
+assert.equal(snapshot.webappReadiness.layoutReady, true);
+assert.equal(snapshot.webappReadiness.tradeControlsReady, true);
+assert.equal(snapshot.webappReadiness.readyForLivePhoneTradeProof, false);
+assert.ok(snapshot.webappReadiness.blockers.some(item => /old WKWebView proof shell/.test(item)));
+assert.ok(snapshot.webappReadiness.blockers.some(item => /WebSocket\/tick stream not observed/.test(item)));
+assert.deepEqual(proof.assessWebappReadiness(), snapshot.webappReadiness);
 assert.equal(await proof.placeTrade('call', 1), true);
 snapshot = JSON.parse(proof.snapshot());
 assert.match(snapshot.lastTradeStatus, /real CALL click sent/);
