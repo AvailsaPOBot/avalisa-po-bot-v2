@@ -13,6 +13,7 @@ const state = {
   martingaleStep: 0,
   tradesCount: 0,
   amountSetFailures: 0,
+  recoveryReloads: 0,
   lastDirection: null,
   licenseInfo: null,
   settings: null,

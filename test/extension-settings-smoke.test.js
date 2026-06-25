@@ -83,7 +83,7 @@ const testPromise = dom.window.eval(`${extensionBundle}
     injectOverlay();
 
   assert.equal(document.getElementById('av-strategy').value, 'martingale');
-  assert.equal(document.getElementById('av-build-badge').textContent, 'v2.4.4');
+  assert.equal(document.getElementById('av-build-badge').textContent, 'v2.4.5');
   assert.equal(document.getElementById('av-row-direction').style.display, 'flex');
   assert.equal(document.getElementById('av-row-timeframe').style.display, 'flex');
   assert.equal(document.getElementById('av-row-intensity').style.display, 'none');
@@ -195,6 +195,7 @@ const testPromise = dom.window.eval(`${extensionBundle}
   state.tradesCount = 33;
   state.lastDirection = 'put';
   state.amountSetFailures = 2;
+  state.recoveryReloads = 1;
   await persistRuntimeSession('amount_retry');
   assert.equal(__storageData.avalisaRuntimeSession.currentAmount, 6400);
   state.running = false;
@@ -203,6 +204,7 @@ const testPromise = dom.window.eval(`${extensionBundle}
   state.tradesCount = 0;
   state.lastDirection = null;
   state.amountSetFailures = 0;
+  state.recoveryReloads = 0;
   assert.equal(await restoreRuntimeSession(), true);
   assert.equal(state.running, true);
   assert.equal(state.currentAmount, 6400);
@@ -210,8 +212,28 @@ const testPromise = dom.window.eval(`${extensionBundle}
   assert.equal(state.tradesCount, 33);
   assert.equal(state.lastDirection, 'put');
   assert.equal(state.amountSetFailures, 2);
+  assert.equal(state.recoveryReloads, 1);
   stopBot();
   assert.equal(__storageData.avalisaRuntimeSession, undefined);
+
+  document.body.innerHTML = '<div>QT Demo</div><div>USD</div><div>$499.28</div><div>TOP UP</div>';
+  injectOverlay();
+  state.settings = getDefaultSettings();
+  state.running = true;
+  state.stopRequested = false;
+  state.cycleGeneration = 300;
+  state.currentAmount = 640;
+  state.amountSetFailures = 2;
+  state.recoveryReloads = 1;
+  await persistRuntimeSession('amount_retry');
+  await retryAfterAmountSetFailure(300, 640);
+  assert.equal(state.running, false);
+  assert.equal(state.stopRequested, true);
+  assert.equal(state.amountSetFailures, 0);
+  assert.equal(state.recoveryReloads, 0);
+  assert.equal(state.lastTradeCycleError.phase, 'amount_above_balance');
+  assert.equal(__storageData.avalisaRuntimeSession, undefined);
+  assert.match(document.getElementById('av-status').textContent, /above balance \\$499\\.28/);
 
   const originalCheckLicense = checkLicense;
   document.body.innerHTML = '';

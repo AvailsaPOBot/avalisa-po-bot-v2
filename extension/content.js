@@ -194,6 +194,7 @@ function persistRuntimeSession(phase = 'running') {
     lastDirection: state.lastDirection,
     settings: state.settings,
     amountSetFailures: state.amountSetFailures || 0,
+    recoveryReloads: state.recoveryReloads || 0,
   };
   return new Promise(resolve => chrome.storage.local.set({ [RUNTIME_SESSION_KEY]: payload }, () => resolve(true)));
 }
@@ -227,6 +228,7 @@ async function restoreRuntimeSession() {
   state.tradesCount = Math.max(0, Number(saved.tradesCount) || 0);
   state.lastDirection = saved.lastDirection || null;
   state.amountSetFailures = Math.max(0, Number(saved.amountSetFailures) || 0);
+  state.recoveryReloads = Math.max(0, Number(saved.recoveryReloads) || 0);
   clearTradeLock();
 
   updateUI();
@@ -513,6 +515,12 @@ function clearTradeLock() {
 }
 
 async function retryAfterAmountSetFailure(generation, safeAmount) {
+  const availableBalance = await getBalance().catch(() => null);
+  if (Number.isFinite(availableBalance) && availableBalance > 0 && safeAmount > availableBalance + 0.01) {
+    await pauseRecoveryAfterAmountSetFailure(generation, safeAmount, availableBalance);
+    return;
+  }
+
   state.amountSetFailures = (state.amountSetFailures || 0) + 1;
   state.lastTradeCycleError = {
     at: new Date().toISOString(),
@@ -525,6 +533,12 @@ async function retryAfterAmountSetFailure(generation, safeAmount) {
   closePOPopovers();
 
   if (state.amountSetFailures >= 3) {
+    if ((state.recoveryReloads || 0) >= 1) {
+      await pauseRecoveryAfterAmountSetFailure(generation, safeAmount, availableBalance);
+      return;
+    }
+    state.recoveryReloads = (state.recoveryReloads || 0) + 1;
+    await persistRuntimeSession('auto_reload_amount');
     updateStatus('running', `Amount control stuck — reloading PO, then continuing $${safeAmount.toFixed(2)} recovery`);
     setTimeout(() => window.location.reload(), 1500);
     return;
@@ -534,6 +548,31 @@ async function retryAfterAmountSetFailure(generation, safeAmount) {
   updateStatus('running', `Could not set $${safeAmount.toFixed(2)} — refreshing controls, retrying (${state.amountSetFailures}/3)`);
   await sleep(retryMs);
   if (isCycleActive(generation)) runTradeCycle(generation).catch(console.error);
+}
+
+async function pauseRecoveryAfterAmountSetFailure(generation, safeAmount, availableBalance = null) {
+  const hasBalance = Number.isFinite(availableBalance) && availableBalance > 0;
+  const balanceText = hasBalance ? ` above balance $${availableBalance.toFixed(2)}` : '';
+  state.lastTradeCycleError = {
+    at: new Date().toISOString(),
+    generation,
+    phase: hasBalance && safeAmount > availableBalance + 0.01 ? 'amount_above_balance' : 'amount_control_stuck',
+    name: 'RecoveryPaused',
+    message: `Could not safely set recovery amount ${safeAmount}${balanceText}`,
+  };
+  state.running = false;
+  state.stopRequested = true;
+  state.amountSetFailures = 0;
+  state.recoveryReloads = 0;
+  clearTradeLock();
+  await clearRuntimeSession();
+  updateUI();
+  updateStatus(
+    'error',
+    hasBalance && safeAmount > availableBalance + 0.01
+      ? `Recovery paused — $${safeAmount.toFixed(2)} is above balance $${availableBalance.toFixed(2)}. Top up or lower start amount.`
+      : `Recovery paused — PO would not accept $${safeAmount.toFixed(2)} after reload. Check amount, then Start again.`
+  );
 }
 
 async function recoverAfterUnconfirmedOrder() {
@@ -778,6 +817,7 @@ async function runTradeCycleUnsafe(generation) {
     return;
   }
   state.amountSetFailures = 0;
+  state.recoveryReloads = 0;
   await persistRuntimeSession('amount_set');
 
   // PO can accept a favorite/timeframe click visually before its trade controls
@@ -1291,6 +1331,7 @@ async function startBot() {
   state.aiNoProgressCycles = 0;
   state.unconfirmedOrderFailures = 0;
   state.amountSetFailures = 0;
+  state.recoveryReloads = 0;
 
   const gen = startGeneration;
   updateUI();
@@ -1308,6 +1349,7 @@ function stopBot() {
   state.aiNoProgressCycles = 0;
   state.unconfirmedOrderFailures = 0;
   state.amountSetFailures = 0;
+  state.recoveryReloads = 0;
   clearRuntimeSession().catch(() => {});
   updateUI();
   updateStatus('', 'Stopped');
@@ -1784,6 +1826,7 @@ function getAvalisaDebugSnapshot() {
     martingaleStep: state.martingaleStep,
     currentAmount: state.currentAmount,
     amountSetFailures: state.amountSetFailures,
+    recoveryReloads: state.recoveryReloads,
     lastTradeResultDebug: state.lastTradeResultDebug,
     lastTradeCycleError: state.lastTradeCycleError,
   };
