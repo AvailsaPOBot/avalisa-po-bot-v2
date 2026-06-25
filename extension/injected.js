@@ -87,9 +87,23 @@
   };
 
   window.addEventListener('message', function (event) {
-    if (event.source !== window || event.data?.type !== 'AVALISA_REQUEST_HISTORY') return;
-    window.avalisaRequestHistory(event.data.asset, event.data.period);
+    if (event.source !== window) return;
+    if (event.data?.type === 'AVALISA_REQUEST_HISTORY') {
+      window.avalisaRequestHistory(event.data.asset, event.data.period);
+    } else if (event.data?.type === 'AVALISA_DEBUG_RESPONSE') {
+      window.__AVALISA_DEBUG_SNAPSHOT__ = event.data.data;
+    }
   });
+
+  window.avDebug = function () {
+    window.postMessage({ type: 'AVALISA_DEBUG_REQUEST' }, '*');
+    const snapshot = window.__AVALISA_DEBUG_SNAPSHOT__ || {
+      ready: false,
+      message: 'Avalisa debug snapshot is not ready yet. Try again after the overlay loads.',
+    };
+    console.log('[Avalisa Debug]', snapshot);
+    return snapshot;
+  };
 
   // ── Fetch interceptor — capture PO AI HTTP calls ───────────────────────────
   const _fetch = window.fetch;

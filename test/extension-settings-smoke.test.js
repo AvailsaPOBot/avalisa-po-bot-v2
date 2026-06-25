@@ -78,6 +78,7 @@ const testPromise = dom.window.eval(`${extensionBundle}
     injectOverlay();
 
   assert.equal(document.getElementById('av-strategy').value, 'martingale');
+  assert.equal(document.getElementById('av-build-badge').textContent, 'v2.4.2');
   assert.equal(document.getElementById('av-row-direction').style.display, 'flex');
   assert.equal(document.getElementById('av-row-timeframe').style.display, 'flex');
   assert.equal(document.getElementById('av-row-intensity').style.display, 'none');
@@ -121,6 +122,10 @@ const testPromise = dom.window.eval(`${extensionBundle}
   document.body.innerHTML = '<div id="avalisa-overlay"></div><div class="balance__label">Demo</div><div class="js-balance-demo">$10000.00</div>';
   const demoBlock = getAiAllowanceBlock({ allowed: true, plan: 'basic', aiTradesAllowance: 10, aiTradesUsed: 10 });
   assert.equal(demoBlock, null);
+
+  document.body.innerHTML = '<div>QT Demo</div><div>USD</div><div>$50,000</div><div>TOP UP</div>';
+  assert.equal(isDemoMode(), true);
+  assert.equal(await getBalance(), 50000);
 
   state.settings = {
     ...getDefaultSettings(),

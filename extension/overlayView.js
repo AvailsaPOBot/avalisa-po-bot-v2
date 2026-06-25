@@ -5,12 +5,14 @@
 
 function getOverlayHTML() {
   const logoUrl = chrome.runtime.getURL('icons/avalisa-signature-logo-transparent.png');
+  const manifestVersion = chrome.runtime.getManifest().version;
   return `
     <div id="avalisa-panel">
       <div class="av-header">
         <span class="av-logo">
           <img src="${logoUrl}" alt="Avalisa PO Bot" class="av-logo-img" />
           <span>Avalisa PO Bot</span>
+          <span id="av-build-badge" class="av-build-badge" title="Loaded extension build">v${manifestVersion}</span>
         </span>
         <button id="av-close" class="av-icon-btn">✕</button>
       </div>
@@ -178,6 +180,10 @@ function getOverlayCSS() {
       font-size: 15px; font-weight: 700; color: #a78bfa;
     }
     .av-logo-img { height: 26px; width: 52px; object-fit: contain; display: block; flex-shrink: 0; }
+    .av-build-badge {
+      font-size: 10px; font-weight: 700; color: #15120a; background: #f4c95d;
+      border-radius: 999px; padding: 2px 6px; line-height: 1; letter-spacing: 0;
+    }
     .av-icon-btn { background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 14px; }
     .av-icon-btn:hover { color: #e2e8f0; }
     .av-section { margin-bottom: 12px; border-bottom: 1px solid #2d2d5b; padding-bottom: 12px; }

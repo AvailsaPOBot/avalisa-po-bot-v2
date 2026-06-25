@@ -1464,6 +1464,8 @@ window.addEventListener('message', (e) => {
   const t = e.data?.type;
   if (t === 'AVALISA_WS') {
     parseWsMessage(e.data.data);
+  } else if (t === 'AVALISA_DEBUG_REQUEST') {
+    emitAvalisaDebugSnapshot();
   } else if (t === 'AVALISA_WS_TICK') {
     // Binary Blob decoded: [[asset, timestamp, price], ...]
     try {
@@ -1631,11 +1633,17 @@ document.addEventListener('DOMContentLoaded', init);
 
 // ─── Debug helper — run window.avDebug() in PO devtools console ───────────────
 window.avDebug = function () {
+  const out = getAvalisaDebugSnapshot();
+  console.log('[Avalisa Debug]', JSON.stringify(out, null, 2));
+  return out;
+};
+
+function getAvalisaDebugSnapshot() {
   const buf = state.candleBuffer || {};
   const allKeys = Object.keys(buf);
   const durationSeconds = getDurationSecondsFromDom();
   const favoritePairs = getFavoritePairs();
-  const out = {
+  return {
     version: chrome.runtime.getManifest().version,
     modules: {
       poDom: typeof setTimeframe === 'function' && typeof getBalance === 'function',
@@ -1670,7 +1678,14 @@ window.avDebug = function () {
     lastTradeResultDebug: state.lastTradeResultDebug,
     lastTradeCycleError: state.lastTradeCycleError,
   };
-  console.log('[Avalisa Debug]', JSON.stringify(out, null, 2));
-  return out;
-};
+}
+
+function emitAvalisaDebugSnapshot() {
+  try {
+    window.postMessage({ type: 'AVALISA_DEBUG_RESPONSE', data: getAvalisaDebugSnapshot() }, '*');
+  } catch (_) {}
+}
+
+setInterval(emitAvalisaDebugSnapshot, 5000);
+setTimeout(emitAvalisaDebugSnapshot, 1500);
 console.log('[Avalisa] Debug helper ready — run window.avDebug() in PO console anytime');

@@ -44,9 +44,31 @@ async function getBalance() {
         }
       }
     }
+    const activeTextBalance = getActiveAccountBalanceFromText(demo);
+    if (activeTextBalance !== null) {
+      console.log(`[Avalisa] Balance found via active account text = ${activeTextBalance} (mode=${demo ? 'demo' : 'real'}, attempt=${attempt})`);
+      return activeTextBalance;
+    }
     if (attempt < 3) await sleep(300);
   }
   console.warn('[Avalisa] Balance not found after 3 attempts — mode:', demo ? 'demo' : 'real');
+  return null;
+}
+
+function getActiveAccountBalanceFromText(demo) {
+  const lines = getBodyTextLines();
+  const modePattern = demo ? /\bdemo\b/i : /\breal\b/i;
+  const amountPattern = /(?:\$|USD\s*)\s*([0-9][0-9,]*(?:\.[0-9]+)?)/i;
+
+  for (let i = 0; i < lines.length; i++) {
+    if (!modePattern.test(lines[i])) continue;
+    const windowText = lines.slice(i, i + 5).join(' ');
+    const match = windowText.match(amountPattern);
+    if (!match) continue;
+    const val = parseFloat(match[1].replace(/,/g, ''));
+    if (Number.isFinite(val) && val > 0) return val;
+  }
+
   return null;
 }
 
@@ -572,9 +594,42 @@ function isDemoMode() {
     if (/\breal\b/i.test(t)) return false;
   }
 
+  const textMode = getActiveAccountModeFromText();
+  if (textMode === 'demo') return true;
+  if (textMode === 'real') return false;
+
   // Couldn't resolve from URL or label → assume REAL. Never silently treat a
   // real account as demo (that's the failure mode we're fixing).
   return false;
+}
+
+function getActiveAccountModeFromText() {
+  const lines = getBodyTextLines();
+
+  for (const line of lines) {
+    if (/^(QT\s+)?Demo$/i.test(line)) return 'demo';
+    if (/^(QT\s+)?Real$/i.test(line)) return 'real';
+  }
+
+  return null;
+}
+
+function getBodyTextLines() {
+  const innerText = document.body?.innerText;
+  if (innerText) {
+    return innerText.split(/\n+/).map(line => line.trim()).filter(Boolean);
+  }
+
+  const leaves = Array.from(document.body?.querySelectorAll('*') || [])
+    .filter(el => el.children.length === 0)
+    .map(el => (el.textContent || '').trim())
+    .filter(Boolean);
+  if (leaves.length) return leaves;
+
+  return (document.body?.textContent || '')
+    .split(/\n+/)
+    .map(line => line.trim())
+    .filter(Boolean);
 }
 
 function getCurrentPair() {
