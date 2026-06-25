@@ -83,7 +83,7 @@ const testPromise = dom.window.eval(`${extensionBundle}
     injectOverlay();
 
   assert.equal(document.getElementById('av-strategy').value, 'martingale');
-  assert.equal(document.getElementById('av-build-badge').textContent, 'v2.4.5');
+  assert.equal(document.getElementById('av-build-badge').textContent, 'v2.4.6');
   assert.equal(document.getElementById('av-row-direction').style.display, 'flex');
   assert.equal(document.getElementById('av-row-timeframe').style.display, 'flex');
   assert.equal(document.getElementById('av-row-intensity').style.display, 'none');
@@ -139,6 +139,10 @@ const testPromise = dom.window.eval(`${extensionBundle}
   document.body.innerHTML = '<div>QT Demo</div><div>USD</div><div>$50,000</div><div>TOP UP</div>';
   assert.equal(isDemoMode(), true);
   assert.equal(await getBalance(), 50000);
+
+  document.body.innerHTML = '<div style="display:none" class="js-balance-demo">$544.84</div><div>QT Demo</div><div>USD</div><div>$32.84</div><div>TOP UP</div><div>Status: Recovery paused — $1024.00 is above balance $544.84.</div>';
+  assert.equal(isDemoMode(), true);
+  assert.equal(await getBalance(), 32.84);
 
   state.settings = {
     ...getDefaultSettings(),

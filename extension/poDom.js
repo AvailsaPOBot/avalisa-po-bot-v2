@@ -33,9 +33,15 @@ async function getBalance() {
     : ['.js-balance-real-USD', '.js-balance-real', '.js-hd.js-balance-real', '[class*="balance-real"]', '.balance__value', '.header-balance'];
 
   for (let attempt = 1; attempt <= 3; attempt++) {
+    const activeTextBalance = getActiveAccountBalanceFromText(demo);
+    if (activeTextBalance !== null) {
+      console.log(`[Avalisa] Balance found via active account text = ${activeTextBalance} (mode=${demo ? 'demo' : 'real'}, attempt=${attempt})`);
+      return activeTextBalance;
+    }
+
     for (const sel of selectors) {
       const el = document.querySelector(sel);
-      if (el) {
+      if (el && isVisibleAccountBalanceElement(el)) {
         const text = el.textContent.replace(/[^0-9.]/g, '');
         const val = parseFloat(text);
         if (val > 0) {
@@ -44,15 +50,19 @@ async function getBalance() {
         }
       }
     }
-    const activeTextBalance = getActiveAccountBalanceFromText(demo);
-    if (activeTextBalance !== null) {
-      console.log(`[Avalisa] Balance found via active account text = ${activeTextBalance} (mode=${demo ? 'demo' : 'real'}, attempt=${attempt})`);
-      return activeTextBalance;
-    }
     if (attempt < 3) await sleep(300);
   }
   console.warn('[Avalisa] Balance not found after 3 attempts — mode:', demo ? 'demo' : 'real');
   return null;
+}
+
+function isVisibleAccountBalanceElement(el) {
+  if (!(el instanceof Element)) return false;
+  if (el.closest('#avalisa-overlay') || el.closest('#avalisa-panel')) return false;
+  const style = window.getComputedStyle(el);
+  if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
+  const rect = el.getBoundingClientRect();
+  return rect.width > 0 && rect.height > 0;
 }
 
 function getActiveAccountBalanceFromText(demo) {
