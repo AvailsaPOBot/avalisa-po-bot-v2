@@ -32,7 +32,7 @@
     mobileAmountFallback: 'stop',
   };
   const state = {
-    version: '1.3-webapp-readiness',
+    version: '1.4-safe-stop',
     jwt: null,
     userId: null,
     userEmail: null,
@@ -84,6 +84,7 @@
     lastOrderDebug: 'order template: none',
     aiSkipStreak: 0,
     lastTradeStatus: 'Read-only until account mode is confirmed.',
+    lastBotError: null,
     guidance: 'Log in to PO, confirm Demo or Real account mode, then tap Scan.',
   };
   let botTimer = null;
@@ -375,6 +376,8 @@
       layoutHealth: state.layoutHealth,
       pairScanEnabled: state.pairScanEnabled,
       botRunning: state.botRunning,
+      botInTrade: state.botInTrade,
+      tradeLock: state.tradeLock,
       botMode: state.botMode,
       martingaleStep: state.martingaleStep,
       nextAmount: state.nextAmount,
@@ -384,6 +387,7 @@
       lastSignal: state.lastSignal,
       lastResult: state.lastResult,
       lastTradeStatus: state.lastTradeStatus,
+      lastBotError: state.lastBotError,
       lastAmountDebug: state.lastAmountDebug,
       lastOrderDebug: state.lastOrderDebug,
       webappReadiness: assessWebappReadiness(),
@@ -1393,6 +1397,42 @@
     return statusPayload();
   }
 
+  function handleBotError(error, phase = 'bot-cycle') {
+    const message = error?.message || String(error || 'unknown error');
+    console.error('[Avalisa Webapp] Bot stopped safely after unexpected error:', error);
+    state.lastBotError = {
+      at: new Date().toISOString(),
+      phase,
+      name: error?.name || 'Error',
+      message,
+      botMode: state.botMode,
+      botInTrade: state.botInTrade,
+      tradeLock: state.tradeLock,
+    };
+    state.botRunning = false;
+    state.botMode = 'stopped';
+    state.botInTrade = false;
+    state.tradeLock = false;
+    state.botTradesRemaining = 0;
+    state.botBalanceBeforeTrade = null;
+    state.botPendingDirection = null;
+    state.botPendingAmount = null;
+    state.botTradeStartTs = null;
+    state.botPayoutSwitchOpenAttempted = false;
+    if (botTimer) {
+      window.clearTimeout(botTimer);
+      botTimer = null;
+    }
+    if (interimTimer) {
+      window.clearTimeout(interimTimer);
+      interimTimer = null;
+    }
+    clearBotState();
+    state.lastTradeStatus = 'bot stopped safely — Pocket Option changed or page error. Reload and try again.';
+    post();
+    return statusPayload();
+  }
+
   function classifyResult(balanceBefore, balanceDuringTrade, balanceNow, amount, elapsedMs = 0) {
     if (balanceNow == null) return 'unknown';
     const settleTolerance = Math.max(0.15, amount * 0.15);
@@ -1462,39 +1502,49 @@
     }
     state.lastTradeStatus = `waiting trade-open confirmation $${amount}`;
     post();
-    interimTimer = window.setTimeout(() => waitForTradeOpen(balanceBeforeTrade, amount, startedAt, timeoutMs), 750);
+    interimTimer = window.setTimeout(() => {
+      try {
+        waitForTradeOpen(balanceBeforeTrade, amount, startedAt, timeoutMs);
+      } catch (error) {
+        handleBotError(error, 'confirm-open');
+      }
+    }, 750);
   }
 
   function scheduleBotResultCheck(amountBeforeTrade, amount) {
     const waitMs = Math.max(20, durationSeconds() + 5) * 1000;
     const resolveStartTs = Date.now();
     botTimer = window.setTimeout(() => {
-      scan();
-      const balanceAfter = parseBalanceValue(state.balance);
-      state.botInTrade = false;
-      state.tradeLock = false;
-      const hasTradeLimit = state.botTradesRemaining > 0;
-      if (hasTradeLimit) {
-        state.botTradesRemaining = Math.max(0, state.botTradesRemaining - 1);
+      try {
+        scan();
+        const balanceAfter = parseBalanceValue(state.balance);
+        state.botInTrade = false;
+        state.tradeLock = false;
+        const hasTradeLimit = state.botTradesRemaining > 0;
+        if (hasTradeLimit) {
+          state.botTradesRemaining = Math.max(0, state.botTradesRemaining - 1);
+        }
+        if (!state.botRunning) return;
+        const result = classifyResult(amountBeforeTrade, state.botBaselineBalance, balanceAfter, amount, Date.now() - resolveStartTs);
+        logTradeResult({
+          direction: state.botPendingDirection || state.lastDirection || 'unknown',
+          amount,
+          result,
+          balanceBefore: amountBeforeTrade,
+          balanceAfter,
+        });
+        applyMartingale(result);
+        state.lastTradeStatus = `bot result ${result.toUpperCase()}; next $${state.nextAmount}`;
+        persistBotState('resolved');
+        post();
+        if (hasTradeLimit && state.botTradesRemaining <= 0) {
+          stopBot('stopped: proof trade limit reached');
+          return;
+        }
+        botTimer = window.setTimeout(scheduleRunBotTrade, Math.max(0, Number(state.settings.delaySeconds) || 0) * 1000);
+      } catch (error) {
+        handleBotError(error, 'resolve-result');
       }
-      if (!state.botRunning) return;
-      const result = classifyResult(amountBeforeTrade, state.botBaselineBalance, balanceAfter, amount, Date.now() - resolveStartTs);
-      logTradeResult({
-        direction: state.botPendingDirection || state.lastDirection || 'unknown',
-        amount,
-        result,
-        balanceBefore: amountBeforeTrade,
-        balanceAfter,
-      });
-      applyMartingale(result);
-      state.lastTradeStatus = `bot result ${result.toUpperCase()}; next $${state.nextAmount}`;
-      persistBotState('resolved');
-      post();
-      if (hasTradeLimit && state.botTradesRemaining <= 0) {
-        stopBot('stopped: proof trade limit reached');
-        return;
-      }
-      botTimer = window.setTimeout(scheduleRunBotTrade, Math.max(0, Number(state.settings.delaySeconds) || 0) * 1000);
     }, waitMs);
   }
 
@@ -1573,6 +1623,7 @@
     state.nextAmount = Math.max(1, Number(state.settings.startAmount) || 1);
     state.tradesCount = 0;
     state.aiSkipStreak = 0;
+    state.lastBotError = null;
     state.botPayoutSwitchOpenAttempted = false;
     state.botTradesRemaining = Math.max(0, Math.min(100, Number(state.settings.maxProofTrades) || 0));
     state.lastTradeStatus = state.botTradesRemaining > 0
@@ -1580,14 +1631,21 @@
       : `bot started: ${state.settings.strategy}, running until stopped`;
     persistBotState('started');
     post();
-    await runBotTrade();
-    return true;
+    return await runBotTradeSafe('start');
+  }
+
+  async function runBotTradeSafe(phase = 'scheduled-trade') {
+    try {
+      await runBotTrade();
+      return true;
+    } catch (error) {
+      handleBotError(error, phase);
+      return false;
+    }
   }
 
   function scheduleRunBotTrade() {
-    runBotTrade().catch(error => {
-      stopBot(`stopped: ${error.message || error}`);
-    });
+    runBotTradeSafe('scheduled-trade');
   }
 
   async function placeTrade(direction, amount) {
@@ -1702,6 +1760,8 @@
     logout,
     checkLicense,
     stopBot,
+    debugStopSafely: message => handleBotError(new Error(message || 'debug safe stop'), 'debug'),
+    lastBotError: () => state.lastBotError,
   };
 
   document.addEventListener('DOMContentLoaded', scan);

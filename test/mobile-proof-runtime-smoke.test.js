@@ -60,7 +60,7 @@ const runtime = fs.readFileSync(path.join(root, 'mobile-proof/ios/AvalisaMobileP
 dom.window.eval(`${runtime}\n//# sourceURL=ProofRuntime.js`);
 
 const proof = dom.window.AvalisaProof;
-assert.equal(proof.version, '1.3-webapp-readiness');
+assert.equal(proof.version, '1.4-safe-stop');
 
 (async () => {
 let snapshot = JSON.parse(proof.snapshot());
@@ -78,6 +78,9 @@ assert.equal(snapshot.webappReadiness.readyForLivePhoneTradeProof, false);
 assert.ok(snapshot.webappReadiness.blockers.some(item => /old WKWebView proof shell/.test(item)));
 assert.ok(snapshot.webappReadiness.blockers.some(item => /WebSocket\/tick stream not observed/.test(item)));
 assert.deepEqual(proof.assessWebappReadiness(), snapshot.webappReadiness);
+assert.equal(snapshot.botInTrade, false);
+assert.equal(snapshot.tradeLock, false);
+assert.equal(snapshot.lastBotError, null);
 assert.equal(await proof.placeTrade('call', 1), true);
 snapshot = JSON.parse(proof.snapshot());
 assert.match(snapshot.lastTradeStatus, /real CALL click sent/);
@@ -217,6 +220,13 @@ assert.equal(await proof.startDemoMartingale(), true);
 snapshot = JSON.parse(proof.snapshot());
 assert.equal(snapshot.botRunning, true);
 assert.match(snapshot.lastTradeStatus, /switching to AUD\/CAD OTC \(92%\) before trade/);
+proof.debugStopSafely('simulated mobile PO drift');
+snapshot = JSON.parse(proof.snapshot());
+assert.equal(snapshot.botRunning, false);
+assert.equal(snapshot.botInTrade, false);
+assert.equal(snapshot.tradeLock, false);
+assert.equal(snapshot.lastBotError.message, 'simulated mobile PO drift');
+assert.match(snapshot.lastTradeStatus, /stopped safely/);
 
 proof.stopBot('test reset');
 licenseState = { allowed: false, plan: 'free', tradesRemaining: 0, tradesUsed: 10, tradesLimit: 10, reason: 'Trade limit reached' };
