@@ -36,6 +36,11 @@ dom.window.chrome = {
         Object.assign(storageData, values);
         if (callback) callback();
       },
+      remove(keys, callback) {
+        const list = Array.isArray(keys) ? keys : [keys];
+        list.forEach(key => delete storageData[key]);
+        if (callback) callback();
+      },
     },
     onChanged: { addListener() {} },
   },
@@ -78,7 +83,7 @@ const testPromise = dom.window.eval(`${extensionBundle}
     injectOverlay();
 
   assert.equal(document.getElementById('av-strategy').value, 'martingale');
-  assert.equal(document.getElementById('av-build-badge').textContent, 'v2.4.3');
+  assert.equal(document.getElementById('av-build-badge').textContent, 'v2.4.4');
   assert.equal(document.getElementById('av-row-direction').style.display, 'flex');
   assert.equal(document.getElementById('av-row-timeframe').style.display, 'flex');
   assert.equal(document.getElementById('av-row-intensity').style.display, 'none');
@@ -180,6 +185,33 @@ const testPromise = dom.window.eval(`${extensionBundle}
   assert.equal(document.getElementById('av-start-btn').disabled, true);
   assert.equal(document.getElementById('av-stop-btn').disabled, false);
   assert.equal(document.getElementById('av-strategy').disabled, true);
+
+  state.settings = getDefaultSettings();
+  state.running = true;
+  state.stopRequested = false;
+  state.cycleGeneration = 150;
+  state.currentAmount = 6400;
+  state.martingaleStep = 6;
+  state.tradesCount = 33;
+  state.lastDirection = 'put';
+  state.amountSetFailures = 2;
+  await persistRuntimeSession('amount_retry');
+  assert.equal(__storageData.avalisaRuntimeSession.currentAmount, 6400);
+  state.running = false;
+  state.currentAmount = 1;
+  state.martingaleStep = 0;
+  state.tradesCount = 0;
+  state.lastDirection = null;
+  state.amountSetFailures = 0;
+  assert.equal(await restoreRuntimeSession(), true);
+  assert.equal(state.running, true);
+  assert.equal(state.currentAmount, 6400);
+  assert.equal(state.martingaleStep, 6);
+  assert.equal(state.tradesCount, 33);
+  assert.equal(state.lastDirection, 'put');
+  assert.equal(state.amountSetFailures, 2);
+  stopBot();
+  assert.equal(__storageData.avalisaRuntimeSession, undefined);
 
   const originalCheckLicense = checkLicense;
   document.body.innerHTML = '';

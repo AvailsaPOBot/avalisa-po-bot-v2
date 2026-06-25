@@ -12,6 +12,7 @@ const state = {
   currentAmount: 0,
   martingaleStep: 0,
   tradesCount: 0,
+  amountSetFailures: 0,
   lastDirection: null,
   licenseInfo: null,
   settings: null,
@@ -66,4 +67,6 @@ const AI_NO_PROGRESS_RETRY_MS = 5000;
 const LATE_OPEN_WATCH_MS = 90000;
 const MAX_UNCONFIRMED_ORDER_FAILURES = 3;
 const CANDLE_CACHE_KEY = 'avalisaCandleCache';
+const RUNTIME_SESSION_KEY = 'avalisaRuntimeSession';
+const RUNTIME_SESSION_MAX_AGE_MS = 10 * 60 * 1000;
 let candleCacheSaveTimer = null;

@@ -180,6 +180,65 @@ function scheduleCandleCacheSave() {
   }, 1000);
 }
 
+function persistRuntimeSession(phase = 'running') {
+  if (typeof chrome === 'undefined' || !chrome.storage?.local) return Promise.resolve(false);
+  const payload = {
+    savedAt: Date.now(),
+    version: chrome.runtime?.getManifest?.().version || null,
+    phase,
+    running: state.running,
+    stopRequested: state.stopRequested,
+    currentAmount: state.currentAmount,
+    martingaleStep: state.martingaleStep,
+    tradesCount: state.tradesCount,
+    lastDirection: state.lastDirection,
+    settings: state.settings,
+    amountSetFailures: state.amountSetFailures || 0,
+  };
+  return new Promise(resolve => chrome.storage.local.set({ [RUNTIME_SESSION_KEY]: payload }, () => resolve(true)));
+}
+
+function clearRuntimeSession() {
+  if (typeof chrome === 'undefined' || !chrome.storage?.local) return Promise.resolve(false);
+  return new Promise(resolve => chrome.storage.local.remove([RUNTIME_SESSION_KEY], () => resolve(true)));
+}
+
+function loadRuntimeSession() {
+  if (typeof chrome === 'undefined' || !chrome.storage?.local) return Promise.resolve(null);
+  return new Promise(resolve => {
+    chrome.storage.local.get([RUNTIME_SESSION_KEY], data => resolve(data?.[RUNTIME_SESSION_KEY] || null));
+  });
+}
+
+async function restoreRuntimeSession() {
+  const saved = await loadRuntimeSession();
+  if (!saved?.running || saved.stopRequested) return false;
+  if (Date.now() - Number(saved.savedAt || 0) > RUNTIME_SESSION_MAX_AGE_MS) {
+    await clearRuntimeSession();
+    return false;
+  }
+
+  state.settings = { ...getDefaultSettings(), ...(saved.settings || state.settings || {}) };
+  state.running = true;
+  state.stopRequested = false;
+  state.cycleGeneration += 1;
+  state.currentAmount = Math.max(1, Number(saved.currentAmount) || Number(state.settings.startAmount) || 1);
+  state.martingaleStep = Math.max(0, Number(saved.martingaleStep) || 0);
+  state.tradesCount = Math.max(0, Number(saved.tradesCount) || 0);
+  state.lastDirection = saved.lastDirection || null;
+  state.amountSetFailures = Math.max(0, Number(saved.amountSetFailures) || 0);
+  clearTradeLock();
+
+  updateUI();
+  updateTradeCounter();
+  updateStatus('running', `Recovered session — continuing $${state.currentAmount.toFixed(2)} recovery`);
+  const gen = state.cycleGeneration;
+  setTimeout(() => {
+    if (isCycleActive(gen)) runTradeCycle(gen).catch(err => console.error('[Avalisa] Recovered cycle error:', err));
+  }, 2500);
+  return true;
+}
+
 // Merge-seed the buffer from a bulk updateHistoryNewFast payload.
 // `ticks` is an array of [timestamp_seconds_float, price_float].
 // v2.3.1: MERGE existing + incoming candles by time key, NEVER shrink the buffer.
@@ -384,6 +443,7 @@ function handleTradeCycleError(err, generation) {
   state.running = false;
   state.stopRequested = true;
   clearTradeLock();
+  clearRuntimeSession().catch(() => {});
   updateUI();
   updateStatus('error', 'Avalisa stopped safely — Pocket Option changed or page error. Reload and try again.');
 }
@@ -450,6 +510,30 @@ function clearTradeLock() {
   state.tradeLockPhase = null;
   state.tradeLockSince = 0;
   state.isTradeOpen = false;
+}
+
+async function retryAfterAmountSetFailure(generation, safeAmount) {
+  state.amountSetFailures = (state.amountSetFailures || 0) + 1;
+  state.lastTradeCycleError = {
+    at: new Date().toISOString(),
+    generation,
+    phase: 'set_amount',
+    name: 'AmountSetFailed',
+    message: `Could not set trade amount ${safeAmount}`,
+  };
+  await persistRuntimeSession('amount_retry');
+  closePOPopovers();
+
+  if (state.amountSetFailures >= 3) {
+    updateStatus('running', `Amount control stuck — reloading PO, then continuing $${safeAmount.toFixed(2)} recovery`);
+    setTimeout(() => window.location.reload(), 1500);
+    return;
+  }
+
+  const retryMs = 2500 + (state.amountSetFailures * 1000);
+  updateStatus('running', `Could not set $${safeAmount.toFixed(2)} — refreshing controls, retrying (${state.amountSetFailures}/3)`);
+  await sleep(retryMs);
+  if (isCycleActive(generation)) runTradeCycle(generation).catch(console.error);
 }
 
 async function recoverAfterUnconfirmedOrder() {
@@ -690,9 +774,11 @@ async function runTradeCycleUnsafe(generation) {
 
   if (!setTradeAmount(safeAmount)) {
     if (!isCycleActive(generation)) return;
-    updateStatus('error', 'Could not set trade amount — page may have changed');
+    await retryAfterAmountSetFailure(generation, safeAmount);
     return;
   }
+  state.amountSetFailures = 0;
+  await persistRuntimeSession('amount_set');
 
   // PO can accept a favorite/timeframe click visually before its trade controls
   // are fully ready. Give pair switches a short settle window before order click.
@@ -725,6 +811,7 @@ async function runTradeCycleUnsafe(generation) {
   }
 
   setTradeLock('order_pending');
+  await persistRuntimeSession('order_pending');
   updateStatus('running', 'Order sent — confirming open...');
 
   // PO can delay stake deduction under load/background throttling. Waiting
@@ -752,6 +839,7 @@ async function runTradeCycleUnsafe(generation) {
   const balanceDuringTrade = openResult.balanceDuring;
 
   setTradeLock('trade_open');
+  await persistRuntimeSession('trade_open');
   state.unconfirmedOrderFailures = 0;
   console.log('[Avalisa] Trade confirmed open. isTradeOpen = true. Balance during:', balanceDuringTrade, 'method:', openResult.method);
 
@@ -797,6 +885,7 @@ async function runTradeCycleUnsafe(generation) {
   }
 
   applyMartingaleLogic(result);
+  await persistRuntimeSession('resolved');
   clearTradeLock();
 
   if (isCycleActive(generation)) {
@@ -1201,10 +1290,12 @@ async function startBot() {
   state.martingaleStep = 0;
   state.aiNoProgressCycles = 0;
   state.unconfirmedOrderFailures = 0;
+  state.amountSetFailures = 0;
 
   const gen = startGeneration;
   updateUI();
   updateStatus('running', 'Starting...');
+  await persistRuntimeSession('started');
   warmupCandleHistory().catch(console.error);
   runTradeCycle(gen);
 }
@@ -1216,6 +1307,8 @@ function stopBot() {
   clearTradeLock();
   state.aiNoProgressCycles = 0;
   state.unconfirmedOrderFailures = 0;
+  state.amountSetFailures = 0;
+  clearRuntimeSession().catch(() => {});
   updateUI();
   updateStatus('', 'Stopped');
   updateBottomStatus(); // re-evaluate idle AI status (Ready / Loading / Waiting)
@@ -1622,6 +1715,7 @@ async function init() {
   setTimeout(() => prefillCandleHistory().catch(console.error), 3000);
   setInterval(updateBottomStatus, 10000);
   setInterval(() => watchPOSelectionForAvalisa().catch(console.error), 2000);
+  setTimeout(() => restoreRuntimeSession().catch(console.error), 2500);
 
   // Wait for PO header to render before injecting button
   const headerInterval = setInterval(() => {
@@ -1689,6 +1783,7 @@ function getAvalisaDebugSnapshot() {
     tradeLockAgeMs: state.tradeLockSince ? Date.now() - state.tradeLockSince : 0,
     martingaleStep: state.martingaleStep,
     currentAmount: state.currentAmount,
+    amountSetFailures: state.amountSetFailures,
     lastTradeResultDebug: state.lastTradeResultDebug,
     lastTradeCycleError: state.lastTradeCycleError,
   };
