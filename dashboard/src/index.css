@@ -445,6 +445,25 @@ html {
   line-height: 1.45;
 }
 
+.floating-chat__feed p.is-escalation {
+  border-color: rgba(241, 200, 120, 0.42);
+  background: rgba(216, 162, 74, 0.1);
+}
+
+.floating-chat__feed p > span:last-child {
+  display: block;
+}
+
+.floating-chat__escalation-label {
+  display: block;
+  margin-bottom: 0.32rem;
+  color: #f1c878;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
 .floating-chat__feed p.is-user {
   align-self: flex-end;
   border-color: rgba(216, 162, 74, 0.24);

@@ -2868,6 +2868,25 @@
   line-height: 1.5;
 }
 
+.lux-support-feed p.is-escalation {
+  border-color: rgba(241, 200, 120, 0.4);
+  background: rgba(216, 162, 74, 0.1);
+}
+
+.lux-support-feed p > span:last-child {
+  display: block;
+}
+
+.lux-support-escalation-label {
+  display: block;
+  margin-bottom: 0.38rem;
+  color: var(--lux-gold);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
 .lux-support-feed p.is-user {
   justify-self: end;
   border-color: rgba(216, 162, 74, 0.22);
