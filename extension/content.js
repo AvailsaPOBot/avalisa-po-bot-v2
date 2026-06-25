@@ -1319,6 +1319,7 @@ function updateUI() {
     if (loginForm) loginForm.style.display = 'block';
     if (loggedIn) loggedIn.style.display = 'none';
   }
+  syncLimitReachedMessage();
 
   // Load settings into UI
   const s = state.settings;
@@ -1398,6 +1399,19 @@ function showLimitReachedMessage(license) {
   const limitMsg = document.getElementById('av-limit-msg');
   if (limitMsg) limitMsg.style.display = 'block';
   updateStatus('error', license?.reason || 'Limit reached');
+}
+
+function hideLimitReachedMessage() {
+  const limitMsg = document.getElementById('av-limit-msg');
+  if (limitMsg) limitMsg.style.display = 'none';
+}
+
+function syncLimitReachedMessage() {
+  const license = state.licenseInfo;
+  const aiAllowanceBlock = license?.allowed ? getAiAllowanceBlock(license) : null;
+  if (license?.allowed && !aiAllowanceBlock) {
+    hideLimitReachedMessage();
+  }
 }
 
 // ─── Load affiliate link from backend ────────────────────────────────────────
