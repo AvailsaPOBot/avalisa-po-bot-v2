@@ -1595,6 +1595,11 @@
   box-shadow: 0 0 0 1px rgba(216, 162, 74, 0.18), 0 0 54px rgba(216, 162, 74, 0.14);
 }
 
+.lux-price.is-targeted {
+  border-color: rgba(96, 206, 188, 0.72);
+  box-shadow: 0 0 0 1px rgba(96, 206, 188, 0.22), 0 0 42px rgba(96, 206, 188, 0.13);
+}
+
 .lux-price > b {
   position: absolute;
   top: -0.72rem;

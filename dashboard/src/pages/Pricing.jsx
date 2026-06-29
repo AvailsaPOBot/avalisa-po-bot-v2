@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import '../styles/luxury.css';
@@ -9,6 +9,7 @@ const API_BASE = process.env.REACT_APP_API_URL || 'https://avalisa-backend.onren
 
 export default function Pricing() {
   const { user } = useAuth();
+  const location = useLocation();
   const currentPlan = user?.license?.plan || null;
   const [affiliateLink, setAffiliateLink] = useState(FALLBACK_AFFILIATE_LINK);
 
@@ -18,6 +19,23 @@ export default function Pricing() {
       .then((data) => { if (data?.url) setAffiliateLink(data.url); })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!location.hash) return undefined;
+
+    const targetId = location.hash.slice(1);
+    if (!targetId) return undefined;
+
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+
+    return () => {
+      if (typeof window.cancelAnimationFrame === 'function') {
+        window.cancelAnimationFrame(frame);
+      }
+    };
+  }, [location.hash]);
 
   const email = user?.email || '';
   const appendEmail = (url) => {
@@ -75,8 +93,9 @@ export default function Pricing() {
       <section className="lux-shell lux-pricing-grid lux-pricing-grid--page">
         {plans.map((plan) => {
           const current = currentPlan === plan.id || (currentPlan === 'free' && plan.id === 'demo') || (currentPlan === 'lifetime' && plan.id === 'pro');
+          const targeted = location.hash === `#${plan.id}`;
           return (
-            <article className={`lux-price ${plan.featured ? 'is-featured' : ''}`} id={plan.id} key={plan.id}>
+            <article className={`lux-price ${plan.featured ? 'is-featured' : ''} ${targeted ? 'is-targeted' : ''}`} id={plan.id} key={plan.id} aria-current={current ? 'true' : undefined}>
               {plan.featured && <b>MOST POPULAR</b>}
               <span>{plan.name}</span>
               <h3>{plan.price}<small>{plan.period}</small></h3>
