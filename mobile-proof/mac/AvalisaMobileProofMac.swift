@@ -162,6 +162,7 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
             row("Amount", key: "hasAmountInput"),
             row("Buttons", key: "buttons"),
             row("Layout", key: "layoutHealth"),
+            row("Ready", key: "webappReadiness"),
         ]
         rows.forEach { rowViews in
             _ = statusGrid.addRow(with: rowViews)
@@ -969,7 +970,13 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
         } else if lowerDemoMode.contains("blocked") || lowerDemoMode.contains("denied") || lowerDemoMode == "unknown" {
             stableAccountCanTrade = false
         }
-        let canTradeAccount = stableAccountCanTrade && licenseAllowed
+        let readiness = body["webappReadiness"] as? [String: Any]
+        let accountReady = ((readiness?["accountReady"] as? Bool) == true)
+        let layoutReady = ((readiness?["layoutReady"] as? Bool) == true)
+        let tradeControlsReady = ((readiness?["tradeControlsReady"] as? Bool) == true)
+        let readinessReady = ((readiness?["readyForLivePhoneTradeProof"] as? Bool) == true)
+        let readinessBlocker = firstReadinessBlocker(readiness)
+        let canTradeAccount = stableAccountCanTrade && licenseAllowed && accountReady && layoutReady && tradeControlsReady
         let botRunning = ((body["botRunning"] as? Bool) == true)
         setEnabled(startBotButton, canTradeAccount && !botRunning)
         setEnabled(stopBotButton, botRunning)
@@ -993,10 +1000,17 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
         let put = ((body["hasPutButton"] as? Bool) == true) ? "PUT" : "-"
         values["buttons"]?.stringValue = "\(call) / \(put)"
         values["layoutHealth"]?.stringValue = "\(body["layoutHealth"] ?? "-")"
+        values["webappReadiness"]?.stringValue = readinessReady
+            ? "live proof ready"
+            : (readinessBlocker.isEmpty ? "blocked" : readinessBlocker)
         if botRunning {
             setStatusText("Status: Running", color: NSColor(hex: 0x34D399))
         } else if canTradeAccount {
             setStatusText("Status: Ready", color: purpleColor)
+        } else if !readinessBlocker.isEmpty {
+            setStatusText("Status: Blocked: \(readinessBlocker)", color: purpleColor)
+        } else if !licenseAllowed {
+            setStatusText("Status: Locked: \(authSummary)", color: purpleColor)
         } else {
             setStatusText("Status: Stopped", color: purpleColor)
         }
@@ -1009,6 +1023,14 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
         } else {
             tradeAllowance.stringValue = "Plan: \(authPlan) · \(licenseAllowed ? "active" : "locked")"
         }
+    }
+
+    private func firstReadinessBlocker(_ readiness: [String: Any]?) -> String {
+        guard let blockers = readiness?["blockers"] as? [Any] else { return "" }
+        return blockers.compactMap { item -> String? in
+            let value = "\(item)".trimmingCharacters(in: .whitespacesAndNewlines)
+            return value.isEmpty ? nil : value
+        }.first ?? ""
     }
 
     private func setEnabled(_ button: NSButton?, _ enabled: Bool) {
