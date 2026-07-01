@@ -83,7 +83,10 @@ const testPromise = dom.window.eval(`${extensionBundle}
     injectOverlay();
 
   assert.equal(document.getElementById('av-strategy').value, 'martingale');
-  assert.equal(document.getElementById('av-build-badge').textContent, 'v2.4.6');
+  assert.equal(document.getElementById('av-build-badge').textContent, 'v2.4.7');
+  assert.equal(PO_SELECTORS.tradeButtons.call[0], 'a.btn.btn-call');
+  assert.equal(PO_SELECTORS.tradeButtons.put[0], 'a.btn.btn-put');
+  assert.equal(PO_SELECTORS.balance.demo.includes('.js-balance-demo'), true);
   assert.equal(document.getElementById('av-row-direction').style.display, 'flex');
   assert.equal(document.getElementById('av-row-timeframe').style.display, 'flex');
   assert.equal(document.getElementById('av-row-intensity').style.display, 'none');
@@ -173,7 +176,7 @@ const testPromise = dom.window.eval(`${extensionBundle}
   const healthyLayout = assessPOLayoutHealth();
   assert.equal(healthyLayout.ok, true);
   assert.equal(healthyLayout.message, 'PO layout ready');
-  assert.equal(healthyLayout.controls.amountSelector, '.block--bet-amount .value__val input');
+  assert.equal(healthyLayout.controls.amountSelector, PO_SELECTORS.tradeAmount[0]);
   assert.equal(healthyLayout.controls.hasCallButton, true);
   assert.equal(healthyLayout.controls.hasPutButton, true);
 
