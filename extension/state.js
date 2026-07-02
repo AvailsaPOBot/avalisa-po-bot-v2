@@ -14,6 +14,8 @@ const state = {
   tradesCount: 0,
   amountSetFailures: 0,
   recoveryReloads: 0,
+  cycleErrorStreak: 0,
+  cycleErrorReloads: 0,
   lastDirection: null,
   licenseInfo: null,
   settings: null,
@@ -70,4 +72,11 @@ const MAX_UNCONFIRMED_ORDER_FAILURES = 3;
 const CANDLE_CACHE_KEY = 'avalisaCandleCache';
 const RUNTIME_SESSION_KEY = 'avalisaRuntimeSession';
 const RUNTIME_SESSION_MAX_AGE_MS = 10 * 60 * 1000;
+// Preserved martingale ladder from a safety pause; consumed by the next Start
+// so a paused recovery can resume instead of restarting at step 0.
+const PAUSED_LADDER_KEY = 'avalisaPausedLadder';
+const PAUSED_LADDER_MAX_AGE_MS = 30 * 60 * 1000;
+const MAX_RECOVERY_RELOADS = 2;
+const MAX_CYCLE_ERROR_RETRIES = 2;
+const BALANCE_CONFIRM_DELAY_MS = 1200;
 let candleCacheSaveTimer = null;

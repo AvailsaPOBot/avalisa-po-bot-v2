@@ -30,13 +30,11 @@ async function getBalance() {
   const demo = isDemoMode();
   const selectors = demo ? PO_SELECTORS.balance.demo : PO_SELECTORS.balance.real;
 
+  // v2.4.8: dedicated balance selectors are the primary source (visibility-guarded
+  // so hidden/stale account elements are skipped). Free-text parsing of the page
+  // is fallback only — it can grab an unrelated number, and a misread balance can
+  // falsely pause a live martingale ladder.
   for (let attempt = 1; attempt <= 3; attempt++) {
-    const activeTextBalance = getActiveAccountBalanceFromText(demo);
-    if (activeTextBalance !== null) {
-      console.log(`[Avalisa] Balance found via active account text = ${activeTextBalance} (mode=${demo ? 'demo' : 'real'}, attempt=${attempt})`);
-      return activeTextBalance;
-    }
-
     for (const sel of selectors) {
       const el = document.querySelector(sel);
       if (el && isVisibleAccountBalanceElement(el)) {
@@ -47,6 +45,11 @@ async function getBalance() {
           return val;
         }
       }
+    }
+    const activeTextBalance = getActiveAccountBalanceFromText(demo);
+    if (activeTextBalance !== null) {
+      console.log(`[Avalisa] Balance found via active account text = ${activeTextBalance} (mode=${demo ? 'demo' : 'real'}, attempt=${attempt})`);
+      return activeTextBalance;
     }
     if (attempt < 3) await sleep(300);
   }

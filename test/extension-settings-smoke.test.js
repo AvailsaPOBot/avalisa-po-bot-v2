@@ -77,13 +77,18 @@ const extensionBundle = scripts
 const testPromise = dom.window.eval(`${extensionBundle}
 
 (async () => {
+    // content.js schedules restoreRuntimeSession() at +2.5s after load (reload
+    // recovery). Let it fire on empty storage first so it cannot collide with
+    // sessions this test persists mid-run.
+    await new Promise(resolve => setTimeout(resolve, 2600));
+
     state.settings = getDefaultSettings();
     state.licenseInfo = { allowed: true, plan: 'basic', aiTradesAllowance: 10, aiTradesUsed: 0 };
     state.jwt = 'test-token';
     injectOverlay();
 
   assert.equal(document.getElementById('av-strategy').value, 'martingale');
-  assert.equal(document.getElementById('av-build-badge').textContent, 'v2.4.7');
+  assert.equal(document.getElementById('av-build-badge').textContent, 'v2.4.8');
   assert.equal(PO_SELECTORS.tradeButtons.call[0], 'a.btn.btn-call');
   assert.equal(PO_SELECTORS.tradeButtons.put[0], 'a.btn.btn-put');
   assert.equal(PO_SELECTORS.balance.demo.includes('.js-balance-demo'), true);
@@ -230,8 +235,9 @@ const testPromise = dom.window.eval(`${extensionBundle}
   state.stopRequested = false;
   state.cycleGeneration = 300;
   state.currentAmount = 640;
+  state.martingaleStep = 6;
   state.amountSetFailures = 2;
-  state.recoveryReloads = 1;
+  state.recoveryReloads = 2;
   await persistRuntimeSession('amount_retry');
   await retryAfterAmountSetFailure(300, 640);
   assert.equal(state.running, false);
@@ -241,14 +247,68 @@ const testPromise = dom.window.eval(`${extensionBundle}
   assert.equal(state.lastTradeCycleError.phase, 'amount_above_balance');
   assert.equal(__storageData.avalisaRuntimeSession, undefined);
   assert.match(document.getElementById('av-status').textContent, /above balance \\$499\\.28/);
+  // v2.4.8: the pause preserves the mid-recovery ladder for the next Start
+  assert.equal(__storageData.avalisaPausedLadder.currentAmount, 640);
+  assert.equal(__storageData.avalisaPausedLadder.martingaleStep, 6);
+
+  // v2.4.8: consumePausedLadder resumes fresh markers with unchanged settings…
+  const resumed = await consumePausedLadder(state.settings);
+  assert.equal(resumed.currentAmount, 640);
+  assert.equal(resumed.martingaleStep, 6);
+  assert.equal(__storageData.avalisaPausedLadder, undefined);
+  // …drops stale markers…
+  __storageData.avalisaPausedLadder = {
+    savedAt: Date.now() - (31 * 60 * 1000), currentAmount: 16, martingaleStep: 4,
+    startAmount: parseFloat(state.settings.startAmount) || 1,
+    martingaleMultiplier: state.settings.martingaleMultiplier,
+    martingaleSteps: state.settings.martingaleSteps,
+  };
+  assert.equal(await consumePausedLadder(state.settings), null);
+  assert.equal(__storageData.avalisaPausedLadder, undefined);
+  // …and drops markers whose martingale settings changed.
+  __storageData.avalisaPausedLadder = {
+    savedAt: Date.now(), currentAmount: 16, martingaleStep: 4,
+    startAmount: 999,
+    martingaleMultiplier: state.settings.martingaleMultiplier,
+    martingaleSteps: state.settings.martingaleSteps,
+  };
+  assert.equal(await consumePausedLadder(state.settings), null);
 
   const originalCheckLicense = checkLicense;
   document.body.innerHTML = '';
   injectOverlay();
+
+  // v2.4.8: a first unexpected error retries with backoff instead of stopping.
+  state.settings = getDefaultSettings();
+  state.running = true;
+  state.stopRequested = false;
+  state.cycleGeneration = 201;
+  state.cycleErrorStreak = 0;
+  state.cycleErrorReloads = 1;
+  let licenseCalls = 0;
+  checkLicense = async () => {
+    licenseCalls += 1;
+    if (licenseCalls === 1) throw new Error('one-off hiccup');
+    state.cycleGeneration = 999; // invalidate so the retried cycle exits quietly
+    return { allowed: true, plan: 'lifetime' };
+  };
+  await runTradeCycle(201);
+  assert.equal(state.running, true);
+  assert.equal(state.cycleErrorStreak, 1);
+  assert.match(document.getElementById('av-status').textContent, /retrying/);
+  await new Promise(resolve => setTimeout(resolve, 150)); // retry fires before runTradeCycle resolves; small settle only
+  assert.equal(licenseCalls, 2);
+
+  // v2.4.8: after retries and the one self-heal reload are exhausted, it stops
+  // safely and preserves the ladder for the next Start.
   state.settings = getDefaultSettings();
   state.running = true;
   state.stopRequested = false;
   state.cycleGeneration = 200;
+  state.currentAmount = 8;
+  state.martingaleStep = 3;
+  state.cycleErrorStreak = 2;
+  state.cycleErrorReloads = 1;
   checkLicense = async () => { throw new Error('simulated PO drift'); };
   await runTradeCycle(200);
   assert.equal(state.running, false);
@@ -257,6 +317,10 @@ const testPromise = dom.window.eval(`${extensionBundle}
   assert.equal(state.isTradeOpen, false);
   assert.equal(state.lastTradeCycleError.message, 'simulated PO drift');
   assert.match(document.getElementById('av-status').textContent, /stopped safely/);
+  assert.equal(__storageData.avalisaPausedLadder.currentAmount, 8);
+  assert.equal(__storageData.avalisaPausedLadder.martingaleStep, 3);
+  stopBot();
+  assert.equal(__storageData.avalisaPausedLadder, undefined); // manual Stop drops the preserved ladder
   checkLicense = originalCheckLicense;
 
   console.log('Extension settings smoke passed.');

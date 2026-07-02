@@ -195,8 +195,60 @@ function persistRuntimeSession(phase = 'running') {
     settings: state.settings,
     amountSetFailures: state.amountSetFailures || 0,
     recoveryReloads: state.recoveryReloads || 0,
+    cycleErrorReloads: state.cycleErrorReloads || 0,
   };
   return new Promise(resolve => chrome.storage.local.set({ [RUNTIME_SESSION_KEY]: payload }, () => resolve(true)));
+}
+
+// v2.4.8: when a safety stop fires mid-ladder, keep the ladder position so the
+// next Start can resume the recovery instead of restarting at step 0 — an
+// abandoned half-ladder is realized loss for the user. Manual Stop clears it.
+function preservePausedLadder(reason) {
+  if (typeof chrome === 'undefined' || !chrome.storage?.local) return Promise.resolve(false);
+  const startAmount = parseFloat(state.settings?.startAmount) || 1.0;
+  const midLadder = (state.martingaleStep || 0) > 0 || (state.currentAmount || 0) > startAmount;
+  if (!midLadder) return Promise.resolve(false);
+  const payload = {
+    savedAt: Date.now(),
+    reason,
+    currentAmount: state.currentAmount,
+    martingaleStep: state.martingaleStep,
+    tradesCount: state.tradesCount,
+    lastDirection: state.lastDirection,
+    startAmount,
+    martingaleMultiplier: state.settings?.martingaleMultiplier,
+    martingaleSteps: state.settings?.martingaleSteps,
+  };
+  return new Promise(resolve => chrome.storage.local.set({ [PAUSED_LADDER_KEY]: payload }, () => resolve(true)));
+}
+
+function clearPausedLadder() {
+  if (typeof chrome === 'undefined' || !chrome.storage?.local) return Promise.resolve(false);
+  return new Promise(resolve => chrome.storage.local.remove([PAUSED_LADDER_KEY], () => resolve(true)));
+}
+
+function loadPausedLadder() {
+  if (typeof chrome === 'undefined' || !chrome.storage?.local) return Promise.resolve(null);
+  return new Promise(resolve => {
+    chrome.storage.local.get([PAUSED_LADDER_KEY], data => resolve(data?.[PAUSED_LADDER_KEY] || null));
+  });
+}
+
+// Consume a preserved ladder if it is fresh and the martingale settings are
+// unchanged. Returns the payload to resume, or null. Always clears the marker.
+async function consumePausedLadder(settings) {
+  const saved = await loadPausedLadder();
+  if (!saved) return null;
+  await clearPausedLadder();
+  if (Date.now() - Number(saved.savedAt || 0) > PAUSED_LADDER_MAX_AGE_MS) return null;
+  const startAmount = parseFloat(settings?.startAmount) || 1.0;
+  const sameSettings =
+    Number(saved.startAmount) === startAmount &&
+    String(saved.martingaleMultiplier) === String(settings?.martingaleMultiplier) &&
+    String(saved.martingaleSteps) === String(settings?.martingaleSteps);
+  if (!sameSettings) return null;
+  if (!Number.isFinite(Number(saved.currentAmount)) || Number(saved.currentAmount) <= 0) return null;
+  return saved;
 }
 
 function clearRuntimeSession() {
@@ -229,6 +281,7 @@ async function restoreRuntimeSession() {
   state.lastDirection = saved.lastDirection || null;
   state.amountSetFailures = Math.max(0, Number(saved.amountSetFailures) || 0);
   state.recoveryReloads = Math.max(0, Number(saved.recoveryReloads) || 0);
+  state.cycleErrorReloads = Math.max(0, Number(saved.cycleErrorReloads) || 0);
   clearTradeLock();
 
   updateUI();
@@ -429,9 +482,13 @@ function stopAvalisaForDecision(message) {
   updateStatus('error', message);
 }
 
-function handleTradeCycleError(err, generation) {
+// v2.4.8: an unexpected error no longer kills the bot on first strike — a
+// mid-ladder halt leaves the user holding the accumulated loss. Retry with
+// backoff, then self-heal with one page reload (session persists through it),
+// and only then stop — preserving the ladder for the next Start.
+async function handleTradeCycleError(err, generation) {
   const message = err?.message || String(err || 'unknown error');
-  console.error('[Avalisa] Trade cycle stopped safely after unexpected error:', err);
+  console.error('[Avalisa] Trade cycle error:', err);
   state.lastTradeCycleError = {
     at: new Date().toISOString(),
     generation,
@@ -442,12 +499,37 @@ function handleTradeCycleError(err, generation) {
 
   if (generation !== state.cycleGeneration) return;
 
+  state.cycleErrorStreak = (state.cycleErrorStreak || 0) + 1;
+
+  if (!state.isTradeOpen && state.cycleErrorStreak <= MAX_CYCLE_ERROR_RETRIES) {
+    const backoffMs = 3000 * state.cycleErrorStreak;
+    clearTradeLock();
+    updateStatus('running', `Page hiccup — retrying in ${Math.round(backoffMs / 1000)}s (${state.cycleErrorStreak}/${MAX_CYCLE_ERROR_RETRIES + 1})`);
+    await persistRuntimeSession('cycle_error_retry');
+    await sleep(backoffMs);
+    if (isCycleActive(generation)) runTradeCycle(generation).catch(console.error);
+    return;
+  }
+
+  if (!state.isTradeOpen && (state.cycleErrorReloads || 0) < 1) {
+    state.cycleErrorReloads = (state.cycleErrorReloads || 0) + 1;
+    state.cycleErrorStreak = 0;
+    clearTradeLock();
+    await persistRuntimeSession('auto_reload_error');
+    updateStatus('running', 'Repeated page errors — reloading PO to recover, ladder continues');
+    setTimeout(() => window.location.reload(), 1500);
+    return;
+  }
+
+  await preservePausedLadder('cycle_error');
   state.running = false;
   state.stopRequested = true;
+  state.cycleErrorStreak = 0;
+  state.cycleErrorReloads = 0;
   clearTradeLock();
   clearRuntimeSession().catch(() => {});
   updateUI();
-  updateStatus('error', 'Avalisa stopped safely — Pocket Option changed or page error. Reload and try again.');
+  updateStatus('error', 'Avalisa stopped safely — Pocket Option changed or page error. Press Start to resume the ladder.');
 }
 
 async function chooseAvalisaOpportunity(intensity, generation) {
@@ -514,8 +596,24 @@ function clearTradeLock() {
   state.isTradeOpen = false;
 }
 
+// v2.4.8: a single balance read is not enough evidence to kill a live ladder —
+// PO re-renders and overlays can produce one-off misreads. Require two reads,
+// a beat apart, that agree with each other before trusting the number.
+async function getConfirmedBalance() {
+  const first = await getBalance().catch(() => null);
+  if (!Number.isFinite(first) || first <= 0) return null;
+  await sleep(BALANCE_CONFIRM_DELAY_MS);
+  const second = await getBalance().catch(() => null);
+  if (!Number.isFinite(second) || second <= 0) return null;
+  if (Math.abs(first - second) > Math.max(1, first * 0.02)) {
+    console.warn(`[Avalisa] Balance reads disagree (${first} vs ${second}) — treating balance as unknown`);
+    return null;
+  }
+  return Math.max(first, second);
+}
+
 async function retryAfterAmountSetFailure(generation, safeAmount) {
-  const availableBalance = await getBalance().catch(() => null);
+  const availableBalance = await getConfirmedBalance();
   if (Number.isFinite(availableBalance) && availableBalance > 0 && safeAmount > availableBalance + 0.01) {
     await pauseRecoveryAfterAmountSetFailure(generation, safeAmount, availableBalance);
     return;
@@ -533,13 +631,14 @@ async function retryAfterAmountSetFailure(generation, safeAmount) {
   closePOPopovers();
 
   if (state.amountSetFailures >= 3) {
-    if ((state.recoveryReloads || 0) >= 1) {
+    if ((state.recoveryReloads || 0) >= MAX_RECOVERY_RELOADS) {
       await pauseRecoveryAfterAmountSetFailure(generation, safeAmount, availableBalance);
       return;
     }
     state.recoveryReloads = (state.recoveryReloads || 0) + 1;
+    state.amountSetFailures = 0;
     await persistRuntimeSession('auto_reload_amount');
-    updateStatus('running', `Amount control stuck — reloading PO, then continuing $${safeAmount.toFixed(2)} recovery`);
+    updateStatus('running', `Amount control stuck — reloading PO (${state.recoveryReloads}/${MAX_RECOVERY_RELOADS}), then continuing $${safeAmount.toFixed(2)} recovery`);
     setTimeout(() => window.location.reload(), 1500);
     return;
   }
@@ -553,13 +652,15 @@ async function retryAfterAmountSetFailure(generation, safeAmount) {
 async function pauseRecoveryAfterAmountSetFailure(generation, safeAmount, availableBalance = null) {
   const hasBalance = Number.isFinite(availableBalance) && availableBalance > 0;
   const balanceText = hasBalance ? ` above balance $${availableBalance.toFixed(2)}` : '';
+  const aboveBalance = hasBalance && safeAmount > availableBalance + 0.01;
   state.lastTradeCycleError = {
     at: new Date().toISOString(),
     generation,
-    phase: hasBalance && safeAmount > availableBalance + 0.01 ? 'amount_above_balance' : 'amount_control_stuck',
+    phase: aboveBalance ? 'amount_above_balance' : 'amount_control_stuck',
     name: 'RecoveryPaused',
     message: `Could not safely set recovery amount ${safeAmount}${balanceText}`,
   };
+  await preservePausedLadder(aboveBalance ? 'amount_above_balance' : 'amount_control_stuck');
   state.running = false;
   state.stopRequested = true;
   state.amountSetFailures = 0;
@@ -569,9 +670,9 @@ async function pauseRecoveryAfterAmountSetFailure(generation, safeAmount, availa
   updateUI();
   updateStatus(
     'error',
-    hasBalance && safeAmount > availableBalance + 0.01
-      ? `Recovery paused — $${safeAmount.toFixed(2)} is above balance $${availableBalance.toFixed(2)}. Top up or lower start amount.`
-      : `Recovery paused — PO would not accept $${safeAmount.toFixed(2)} after reload. Check amount, then Start again.`
+    aboveBalance
+      ? `Recovery paused — $${safeAmount.toFixed(2)} is above balance $${availableBalance.toFixed(2)}. Top up or lower start amount, then press Start to resume the ladder.`
+      : `Recovery paused — PO would not accept $${safeAmount.toFixed(2)} after reloads. Press Start to resume the ladder.`
   );
 }
 
@@ -618,7 +719,7 @@ async function runTradeCycle(generation) {
   try {
     await runTradeCycleUnsafe(generation);
   } catch (err) {
-    handleTradeCycleError(err, generation);
+    await handleTradeCycleError(err, generation);
   }
 }
 
@@ -818,6 +919,8 @@ async function runTradeCycleUnsafe(generation) {
   }
   state.amountSetFailures = 0;
   state.recoveryReloads = 0;
+  state.cycleErrorStreak = 0;
+  state.cycleErrorReloads = 0;
   await persistRuntimeSession('amount_set');
 
   // PO can accept a favorite/timeframe click visually before its trade controls
@@ -1332,10 +1435,27 @@ async function startBot() {
   state.unconfirmedOrderFailures = 0;
   state.amountSetFailures = 0;
   state.recoveryReloads = 0;
+  state.cycleErrorStreak = 0;
+  state.cycleErrorReloads = 0;
+
+  // v2.4.8: if a safety pause preserved a mid-recovery ladder and the
+  // martingale settings are unchanged, resume it instead of restarting at
+  // step 0 — restarting abandons the accumulated recovery.
+  const pausedLadder = await consumePausedLadder(state.settings);
+  if (state.stopRequested || state.cycleGeneration !== startGeneration) return;
+  if (pausedLadder) {
+    state.currentAmount = Number(pausedLadder.currentAmount);
+    state.martingaleStep = Math.max(0, Number(pausedLadder.martingaleStep) || 0);
+    state.tradesCount = Math.max(state.tradesCount, Number(pausedLadder.tradesCount) || 0);
+    state.lastDirection = pausedLadder.lastDirection || state.lastDirection;
+    console.log('[Avalisa] Resuming paused ladder:', pausedLadder);
+  }
 
   const gen = startGeneration;
   updateUI();
-  updateStatus('running', 'Starting...');
+  updateStatus('running', pausedLadder
+    ? `Resuming recovery at $${state.currentAmount.toFixed(2)} (step ${state.martingaleStep})`
+    : 'Starting...');
   await persistRuntimeSession('started');
   warmupCandleHistory().catch(console.error);
   runTradeCycle(gen);
@@ -1350,7 +1470,10 @@ function stopBot() {
   state.unconfirmedOrderFailures = 0;
   state.amountSetFailures = 0;
   state.recoveryReloads = 0;
+  state.cycleErrorStreak = 0;
+  state.cycleErrorReloads = 0;
   clearRuntimeSession().catch(() => {});
+  clearPausedLadder().catch(() => {}); // manual Stop = intentional reset, drop any preserved ladder
   updateUI();
   updateStatus('', 'Stopped');
   updateBottomStatus(); // re-evaluate idle AI status (Ready / Loading / Waiting)
@@ -1827,6 +1950,8 @@ function getAvalisaDebugSnapshot() {
     currentAmount: state.currentAmount,
     amountSetFailures: state.amountSetFailures,
     recoveryReloads: state.recoveryReloads,
+    cycleErrorStreak: state.cycleErrorStreak,
+    cycleErrorReloads: state.cycleErrorReloads,
     lastTradeResultDebug: state.lastTradeResultDebug,
     lastTradeCycleError: state.lastTradeCycleError,
   };
