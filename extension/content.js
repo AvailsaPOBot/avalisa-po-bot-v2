@@ -1948,6 +1948,7 @@ function getAvalisaDebugSnapshot() {
     tradeLockAgeMs: state.tradeLockSince ? Date.now() - state.tradeLockSince : 0,
     martingaleStep: state.martingaleStep,
     currentAmount: state.currentAmount,
+    tradesCount: state.tradesCount, // live-test/publish gate waits on this — keep exposed
     amountSetFailures: state.amountSetFailures,
     recoveryReloads: state.recoveryReloads,
     cycleErrorStreak: state.cycleErrorStreak,
