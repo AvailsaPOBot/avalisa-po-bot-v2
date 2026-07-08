@@ -25,6 +25,16 @@ services:
         sync: false
       - key: WHOP_PLAN_ID_PRO
         sync: false
+      - key: PAYPAL_ENV
+        sync: false
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false
+      - key: PAYPAL_CURRENCY
+        sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
       - key: FRONTEND_URL

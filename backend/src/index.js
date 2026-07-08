@@ -37,6 +37,7 @@ const settingsRoutes = require('./routes/settings');
 const adminRoutes = require('./routes/admin');
 const supportRoutes = require('./routes/support');
 const webhookRoutes = require('./routes/webhooks');
+const paymentRoutes = require('./routes/payments');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -133,6 +134,7 @@ app.use('/api/trades', tradeRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/support', supportRoutes);
+app.use('/api/payments', paymentRoutes);
 app.use('/api/webhooks/pocketpartners', require('./routes/pocketpartners'));
 app.use('/api/config', require('./routes/config'));
 app.use('/api/ai', require('./routes/ai'));
