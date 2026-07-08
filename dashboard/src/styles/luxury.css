@@ -1583,6 +1583,7 @@
   display: flex;
   flex-direction: column;
   padding: 1.35rem;
+  scroll-margin-top: 6rem;
 }
 
 .lux-price.is-featured {
@@ -1595,9 +1596,10 @@
   box-shadow: 0 0 0 1px rgba(216, 162, 74, 0.18), 0 0 54px rgba(216, 162, 74, 0.14);
 }
 
-.lux-price.is-targeted {
-  border-color: rgba(96, 206, 188, 0.72);
-  box-shadow: 0 0 0 1px rgba(96, 206, 188, 0.22), 0 0 42px rgba(96, 206, 188, 0.13);
+.lux-price.is-targeted,
+.lux-price:target {
+  border-color: rgba(241, 200, 120, 0.9);
+  box-shadow: 0 0 0 1px rgba(216, 162, 74, 0.24), 0 0 54px rgba(216, 162, 74, 0.18);
 }
 
 .lux-price > b {
@@ -1647,6 +1649,8 @@
 }
 
 .lux-price a,
+.lux-price > button,
+.lux-price .lux-paypal-button,
 .lux-price button[disabled],
 .lux-referral button,
 .lux-settings-card button,
@@ -1666,6 +1670,8 @@
 }
 
 .lux-price a,
+.lux-price > button,
+.lux-price .lux-paypal-button,
 .lux-price button[disabled] {
   margin-top: auto;
 }
@@ -1674,6 +1680,155 @@
   border-color: rgba(216, 162, 74, 0.25);
   background: rgba(255, 255, 255, 0.04);
   color: var(--lux-muted);
+}
+
+.lux-price > button:not(:disabled) {
+  cursor: pointer;
+}
+
+.lux-payment-actions {
+  margin-top: auto;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.lux-payment-actions > a,
+.lux-payment-actions > .lux-paypal-button {
+  margin-top: 0;
+}
+
+.lux-price .lux-paypal-button {
+  gap: 0.45rem;
+  border-color: rgba(216, 162, 74, 0.38);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--lux-text);
+  cursor: pointer;
+}
+
+.lux-price .lux-paypal-button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.lux-payment-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.lux-payment-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(0, 0, 0, 0.72);
+  cursor: pointer;
+}
+
+.lux-payment-modal__panel {
+  position: relative;
+  width: min(100%, 34rem);
+  border: 1px solid rgba(216, 162, 74, 0.32);
+  border-radius: 0.6rem;
+  padding: clamp(1.2rem, 3vw, 1.8rem);
+  background:
+    radial-gradient(circle at 78% 0%, rgba(216, 162, 74, 0.16), transparent 11rem),
+    linear-gradient(180deg, rgba(14, 18, 22, 0.98), rgba(6, 6, 6, 0.98));
+  color: var(--lux-text);
+  box-shadow: 0 2rem 5rem rgba(0, 0, 0, 0.48);
+}
+
+.lux-payment-modal__close {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.35rem;
+  padding: 0.42rem 0.62rem;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--lux-muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.lux-payment-modal h2 {
+  margin: 0.3rem 0 0;
+  color: var(--lux-gold-2);
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4vw, 2.8rem);
+  font-weight: 500;
+  line-height: 0.98;
+  letter-spacing: 0;
+}
+
+.lux-payment-modal__copy {
+  margin: 0.8rem 0 1.1rem;
+  color: var(--lux-muted);
+  line-height: 1.65;
+}
+
+.lux-payment-choice-grid {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.lux-payment-choice {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.1rem 0.65rem;
+  align-items: center;
+  border: 1px solid rgba(216, 162, 74, 0.26);
+  border-radius: 0.5rem;
+  padding: 0.9rem;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--lux-text);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.lux-payment-choice strong {
+  grid-column: 2;
+  color: var(--lux-text);
+  font-size: 0.95rem;
+}
+
+.lux-payment-choice span {
+  grid-column: 2;
+  color: var(--lux-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.lux-payment-choice::before {
+  grid-row: 1 / span 2;
+  align-self: center;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--lux-gold);
+  content: '';
+}
+
+.lux-payment-choice--paypal {
+  font: inherit;
+}
+
+.lux-payment-choice--paypal svg {
+  grid-row: 1 / span 2;
+  color: var(--lux-gold-2);
+}
+
+.lux-payment-choice--paypal::before {
+  display: none;
+}
+
+.lux-payment-choice:disabled {
+  opacity: 0.52;
+  cursor: not-allowed;
 }
 
 .lux-price-guide {
@@ -2865,6 +3020,25 @@
   color: rgba(243, 238, 230, 0.78);
   font-size: 0.84rem;
   line-height: 1.5;
+}
+
+.lux-support-feed p.is-escalation {
+  border-color: rgba(241, 200, 120, 0.4);
+  background: rgba(216, 162, 74, 0.1);
+}
+
+.lux-support-feed p > span:last-child {
+  display: block;
+}
+
+.lux-support-escalation-label {
+  display: block;
+  margin-bottom: 0.38rem;
+  color: var(--lux-gold);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
 }
 
 .lux-support-feed p.is-user {

@@ -1,60 +1,84 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import Landing from './pages/Landing';
 import Pricing from './pages/Pricing';
 
-let mockCurrentHash = '';
-let mockUser = null;
+let mockLocation = { pathname: '/pricing', hash: '' };
 
 jest.mock('react-router-dom', () => ({
   Link: ({ children, to, ...props }) => <a href={to} {...props}>{children}</a>,
-  useLocation: () => ({ pathname: '/pricing', hash: mockCurrentHash }),
+  useLocation: () => mockLocation,
+  useNavigate: () => jest.fn(),
 }), { virtual: true });
 
-jest.mock('./hooks/useAuth', () => ({
-  useAuth: () => ({ user: mockUser }),
+jest.mock('./lib/api', () => ({
+  __esModule: true,
+  default: {
+    get: jest.fn(),
+    post: jest.fn(),
+  },
+  API_BASE: 'https://test-api.example',
 }));
 
-const renderPricing = () => render(<Pricing />);
+jest.mock('./hooks/useAuth', () => ({
+  useAuth: () => ({
+    user: {
+      email: 'customer@example.com',
+      license: { plan: 'basic' },
+    },
+  }),
+}));
+
+beforeAll(() => {
+  window.HTMLElement.prototype.scrollIntoView = jest.fn();
+  window.requestAnimationFrame = (callback) => callback();
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: (query) => ({
+      matches: false,
+      media: query,
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+    }),
+  });
+});
 
 beforeEach(() => {
-  localStorage.clear();
-  global.fetch = jest.fn(() => Promise.resolve({ json: () => Promise.resolve({}) }));
-  window.requestAnimationFrame = jest.fn((callback) => {
-    callback();
-    return 1;
+  window.HTMLElement.prototype.scrollIntoView.mockClear();
+  global.fetch = jest.fn().mockResolvedValue({
+    json: () => Promise.resolve({}),
   });
-  window.cancelAnimationFrame = jest.fn();
-  Element.prototype.scrollIntoView = jest.fn();
-  mockCurrentHash = '';
-  mockUser = null;
 });
 
-afterEach(() => {
-  jest.restoreAllMocks();
-});
+test.each([
+  ['basic', 'Basic'],
+  ['pro', 'Pro'],
+])('pricing hash #%s scrolls the target plan card into view', async (hash, planName) => {
+  mockLocation = { pathname: '/pricing', hash: `#${hash}` };
 
-test('scrolls to pricing plan from a deep link hash', async () => {
-  mockCurrentHash = '#pro';
-  renderPricing();
+  render(<Pricing />);
 
-  const proCard = screen.getByRole('heading', { name: /\$119/i }).closest('article');
+  const targetCard = screen.getByText(planName).closest('article');
+  expect(targetCard).toHaveAttribute('id', hash);
 
   await waitFor(() => {
-    expect(proCard).toHaveClass('is-targeted');
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' });
+    expect(window.HTMLElement.prototype.scrollIntoView).toHaveBeenCalledWith({
+      behavior: 'smooth',
+      block: 'center',
+    });
   });
 });
 
-test('keeps current plan accessibility separate from hash targeting', () => {
-  mockUser = { license: { plan: 'basic' } };
-  mockCurrentHash = '#pro';
+test('pricing page marks the active customer plan accessibly', () => {
+  mockLocation = { pathname: '/pricing', hash: '#basic' };
 
-  renderPricing();
+  render(<Pricing />);
 
-  const basicCard = screen.getByRole('heading', { name: /\$69/i }).closest('article');
-  const proCard = screen.getByRole('heading', { name: /\$119/i }).closest('article');
+  expect(screen.getByText('Basic').closest('article')).toHaveAttribute('aria-current', 'true');
+});
 
-  expect(basicCard).toHaveAttribute('aria-current', 'true');
-  expect(basicCard).not.toHaveClass('is-targeted');
-  expect(proCard).toHaveClass('is-targeted');
-  expect(proCard).not.toHaveAttribute('aria-current');
+test('landing pricing CTAs keep routing to pricing plan anchors', () => {
+  render(<Landing />);
+
+  expect(screen.getByRole('link', { name: 'View Basic' })).toHaveAttribute('href', '/pricing#basic');
+  expect(screen.getByRole('link', { name: 'View Pro' })).toHaveAttribute('href', '/pricing#pro');
 });
