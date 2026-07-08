@@ -7,7 +7,17 @@ let mockLocation = { pathname: '/pricing', hash: '' };
 jest.mock('react-router-dom', () => ({
   Link: ({ children, to, ...props }) => <a href={to} {...props}>{children}</a>,
   useLocation: () => mockLocation,
+  useNavigate: () => jest.fn(),
 }), { virtual: true });
+
+jest.mock('./lib/api', () => ({
+  __esModule: true,
+  default: {
+    get: jest.fn(),
+    post: jest.fn(),
+  },
+  API_BASE: 'https://test-api.example',
+}));
 
 jest.mock('./hooks/useAuth', () => ({
   useAuth: () => ({

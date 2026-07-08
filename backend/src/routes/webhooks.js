@@ -2,6 +2,8 @@ const express = require('express');
 const crypto = require('crypto');
 const prisma = require('../lib/prisma');
 const { getPaidPlanFromWhop, getPlanEntitlements, getAiTradesAllowanceForPlan } = require('../lib/plans');
+const { activatePaidLicense } = require('../lib/licenseActivation');
+const { decodeCustomId, normalizeCheckoutPlan, verifyPayPalWebhook } = require('../lib/paypal');
 
 const router = express.Router();
 
@@ -66,6 +68,65 @@ router.post('/whop', express.raw({ type: 'application/json' }), async (req, res)
 
   res.json({ received: true });
 });
+
+// ─── PayPal Webhook ───────────────────────────────────────────────────────────
+// POST /api/webhooks/paypal
+router.post('/paypal', express.raw({ type: 'application/json' }), async (req, res) => {
+  let event;
+  try {
+    event = JSON.parse(req.body.toString());
+  } catch (err) {
+    return res.status(400).json({ error: 'Invalid JSON payload' });
+  }
+
+  try {
+    await verifyPayPalWebhook({ headers: req.headers, event });
+  } catch (err) {
+    console.warn('[PayPal] Invalid webhook signature:', err.message);
+    return res.status(401).json({ error: 'Invalid webhook signature' });
+  }
+
+  if (event.event_type !== 'PAYMENT.CAPTURE.COMPLETED') {
+    return res.json({ received: true, ignored: true });
+  }
+
+  try {
+    await handlePayPalCaptureCompleted(event.resource);
+  } catch (err) {
+    console.error('[PayPal] Error processing capture:', err);
+    return res.status(500).json({ error: 'Failed to process PayPal capture' });
+  }
+
+  res.json({ received: true });
+});
+
+async function handlePayPalCaptureCompleted(resource) {
+  const custom = decodeCustomId(resource?.custom_id || resource?.supplementary_data?.related_ids?.custom_id);
+  if (!custom) {
+    console.warn('[PayPal] Capture missing Avalisa custom_id:', resource?.id);
+    return;
+  }
+
+  const plan = normalizeCheckoutPlan(custom.plan);
+  if (!plan) {
+    console.warn('[PayPal] Capture has unsupported plan:', custom.plan);
+    return;
+  }
+
+  if (resource?.status !== 'COMPLETED') {
+    console.warn('[PayPal] Capture not completed:', resource?.id, resource?.status);
+    return;
+  }
+
+  await activatePaidLicense({
+    userId: custom.userId,
+    plan,
+    paymentProvider: 'paypal',
+    paymentId: resource.id,
+  });
+
+  console.log(`[PayPal] Activated ${plan} plan for user ${custom.userId}`);
+}
 
 function verifyWhopSignature({ signatureHeader, webhookId, webhookTimestamp, body, secret }) {
   const signedContent = Buffer.concat([

@@ -2,6 +2,12 @@ const express = require('express');
 const { authMiddleware, optionalAuthMiddleware } = require('../middleware/auth');
 const prisma = require('../lib/prisma');
 const { PLAN_IDS, getPlanEntitlements, getAiTradesAllowanceForPlan } = require('../lib/plans');
+const {
+  PRICING_URL,
+  getClaimRejectionMessage,
+  getRegisterUrl,
+  normalizeClaimRejectionReason,
+} = require('../lib/claimGuidance');
 
 const router = express.Router();
 
@@ -232,9 +238,15 @@ router.get('/claim/status', authMiddleware, async (req, res) => {
   try {
     const license = await prisma.license.findUnique({ where: { userId: req.userId } });
     if (!license) return res.status(404).json({ error: 'No license found' });
+    const isRejected = license.claimStatus === 'rejected';
+    const claimReason = isRejected ? normalizeClaimRejectionReason(license.claimNote) : license.claimNote;
+    const registerUrl = isRejected ? await getRegisterUrl(prisma) : undefined;
     res.json({
       claimStatus: license.claimStatus,
-      claimNote: license.claimNote,
+      claimNote: claimReason,
+      claimMessage: isRejected ? getClaimRejectionMessage(claimReason) : null,
+      registerUrl,
+      pricingUrl: isRejected ? PRICING_URL : undefined,
       claimedPoUid: license.claimedPoUid,
       plan: license.plan,
       tradesUsed: license.tradesUsed,

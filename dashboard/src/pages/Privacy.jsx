@@ -53,8 +53,8 @@ export default function Privacy() {
       title: '3. Third-Party Services',
       content: [
         {
-          subtitle: 'Whop (Payments)',
-          text: 'Paid plans are processed by Whop. We do not store your credit card details. When you purchase a plan, Whop sends us a webhook confirming payment and your email, which we use to activate your license. Whop\'s privacy policy applies to payment processing.',
+          subtitle: 'Whop / PayPal (Payments)',
+          text: 'Paid plans may be processed by Whop or PayPal. We do not store your credit card details. When you purchase a plan, the payment provider sends us a payment confirmation, which we use to activate your license. The selected payment provider\'s privacy policy applies to payment processing.',
         },
         {
           subtitle: 'Render (Backend Hosting)',

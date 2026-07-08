@@ -66,7 +66,7 @@ export default function Dashboard() {
   const [claimLoading, setClaimLoading] = useState(false);
   const [claimResult, setClaimResult] = useState(null);
   const [claimStatus, setClaimStatus] = useState(null); // null | 'pending' | 'approved' | 'rejected'
-  const [, setClaimNote] = useState(null);
+  const [claimNotice, setClaimNotice] = useState(null);
 
   // Admin claims state
   const [pendingClaims, setPendingClaims] = useState([]);
@@ -119,7 +119,11 @@ export default function Dashboard() {
     try {
       const res = await api.get('/api/license/claim/status');
       setClaimStatus(res.data.claimStatus || 'none');
-      setClaimNote(res.data.claimNote || null);
+      setClaimNotice({
+        message: res.data.claimMessage || null,
+        registerUrl: res.data.registerUrl || null,
+        pricingUrl: res.data.pricingUrl || '/pricing',
+      });
     } catch (err) {
       // silent
     }
@@ -546,14 +550,14 @@ export default function Dashboard() {
           ) : claimStatus === 'rejected' ? (
             <div className="space-y-3">
               <div className="text-sm px-3 py-3 rounded-lg bg-red-900/30 border border-red-700/50 text-red-400">
-                ❌ Your UID was not found in our system. Please make sure you registered your Pocket Option account under our affiliate link, then resubmit your UID below.
+                ❌ {claimNotice?.message || 'PO UID not found. Register with the Avalisa Pocket Option link, or make payment to activate your account.'}
               </div>
               <div className="flex gap-3">
-                <a href="https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50"
+                <a href={claimNotice?.registerUrl || 'https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50'}
                   target="_blank" rel="noreferrer" className="btn-primary text-sm py-2 px-4">
-                  Affiliate Link
+                  Register
                 </a>
-                <Link to="/pricing" className="btn-outline text-sm py-2 px-4">View Pricing</Link>
+                <Link to={claimNotice?.pricingUrl?.replace('https://avalisabot.vercel.app', '') || '/pricing'} className="btn-outline text-sm py-2 px-4">Make Payment</Link>
               </div>
               <div>
                 <label className="text-sm text-gray-400 block mb-1">Your Pocket Option UID</label>
