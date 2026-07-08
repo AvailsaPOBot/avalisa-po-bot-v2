@@ -23,6 +23,25 @@ function setClaimStatus(text, color) {
   el.innerHTML = text;
 }
 
+function escapeClaimHtml(value) {
+  return String(value || '').replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  })[char]);
+}
+
+function safeClaimUrl(value, fallback) {
+  try {
+    const url = new URL(value || fallback);
+    return url.protocol === 'https:' ? url.href : fallback;
+  } catch (err) {
+    return fallback;
+  }
+}
+
 async function handleClaimClick() {
   if (!state.jwt) {
     setClaimStatus('⚠️ Please log in to claim Pro access.', '#f59e0b');
@@ -97,13 +116,16 @@ async function checkClaimStatus() {
       setClaimStatus('✅ Already approved! Refresh to see your plan.', '#34d399');
     } else if (data.claimStatus === 'rejected') {
       const note = data.claimNote || '';
+      const message = escapeClaimHtml(data.claimMessage || 'PO UID not found. Register with the Avalisa Pocket Option link, or make payment to activate your account.');
+      const registerUrl = safeClaimUrl(data.registerUrl, state.affiliateLink);
+      const pricingUrl = safeClaimUrl(data.pricingUrl, `${DASHBOARD_URL}/pricing`);
       if (note === 'not_found') {
-        setClaimStatus('❌ UID not found under our affiliate link. Please register via our link, or upgrade your plan.' +
-          ` <a href="${state.affiliateLink}" style="color:#a78bfa">Affiliate link</a> | <a href="${DASHBOARD_URL}/pricing" style="color:#a78bfa">Pricing</a>`, '#f87171');
+        setClaimStatus(`❌ ${message}` +
+          ` <a href="${registerUrl}" target="_blank" rel="noopener" style="color:#a78bfa">Register</a> | <a href="${pricingUrl}" target="_blank" rel="noopener" style="color:#a78bfa">Make payment</a>`, '#f87171');
       } else if (note === 'uid_mismatch') {
-        setClaimStatus('❌ UID mismatch. Contact support.', '#f87171');
+        setClaimStatus(`❌ ${message}`, '#f87171');
       } else {
-        setClaimStatus(`❌ Claim rejected: ${note}. <a href="${DASHBOARD_URL}/pricing" style="color:#a78bfa">Upgrade your plan</a>`, '#f87171');
+        setClaimStatus(`❌ ${message} <a href="${pricingUrl}" target="_blank" rel="noopener" style="color:#a78bfa">Make payment</a>`, '#f87171');
       }
     }
   } catch (err) {

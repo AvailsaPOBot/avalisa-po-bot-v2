@@ -3,6 +3,7 @@ const { authMiddleware, adminMiddleware } = require('../middleware/auth');
 const prisma = require('../lib/prisma');
 const { PLAN_IDS, getPlanEntitlements, getAiTradesAllowanceForPlan } = require('../lib/plans');
 const { buildUserSearchWhere } = require('../lib/adminUsers');
+const { getClaimRejectionMessage, normalizeClaimRejectionReason } = require('../lib/claimGuidance');
 
 const router = express.Router();
 
@@ -136,13 +137,21 @@ router.post('/claims/reject', async (req, res) => {
   try {
     const license = await prisma.license.findUnique({ where: { userId } });
     if (!license) return res.status(404).json({ error: 'License not found' });
+    if (license.claimStatus !== 'pending') {
+      return res.status(400).json({ error: 'Claim is not in pending state' });
+    }
+
+    const normalizedReason = normalizeClaimRejectionReason(reason);
 
     await prisma.license.update({
       where: { userId },
-      data: { claimStatus: 'rejected', claimNote: reason },
+      data: { claimStatus: 'rejected', claimNote: normalizedReason },
     });
 
-    return res.json({ message: 'Claim rejected.' });
+    return res.json({
+      message: 'Claim rejected. User will see activation instructions in Avalisa.',
+      claimMessage: getClaimRejectionMessage(normalizedReason),
+    });
   } catch (err) {
     console.error('[Admin] reject claim error:', err);
     return res.status(500).json({ error: 'Failed to reject claim' });
