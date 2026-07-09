@@ -10,6 +10,10 @@ test('sensitive support complaints are routed to human follow-up before provider
     'I want a refund because this did not work for me',
     'Is Avalisa a scam?',
     'I lost money using the bot',
+    'I lost $500 using the bot',
+    'I lost 500 dollars after starting real mode',
+    'I lost my deposit today',
+    'This blew up my account',
     'Please delete my account',
     'I will do a chargeback',
     'This feels fraudulent and I need legal help',
@@ -39,4 +43,3 @@ test('ordinary setup and pricing questions still go to the AI support provider',
     );
   }
 });
-
