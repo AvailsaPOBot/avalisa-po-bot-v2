@@ -76,6 +76,15 @@ test('pricing page marks the active customer plan accessibly', () => {
   expect(screen.getByText('Basic').closest('article')).toHaveAttribute('aria-current', 'true');
 });
 
+test('pricing Demo plan sends visitors to Avalisa account creation first', () => {
+  mockLocation = { pathname: '/pricing', hash: '' };
+
+  render(<Pricing />);
+
+  expect(screen.getByRole('link', { name: 'Create Free Account' })).toHaveAttribute('href', '/register');
+  expect(screen.getAllByRole('link', { name: 'Open Pocket Option' })).toHaveLength(1);
+});
+
 test('landing pricing CTAs keep routing to pricing plan anchors', () => {
   render(<Landing />);
 

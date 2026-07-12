@@ -100,10 +100,9 @@ export default function Pricing() {
       name: 'Demo',
       price: '10',
       period: 'trades',
-      description: 'Existing users can test the workflow before upgrading.',
-      cta: 'Open Pocket Option',
-      href: affiliateLink,
-      external: true,
+      description: 'Create an Avalisa account and test the workflow before upgrading.',
+      cta: 'Create Free Account',
+      href: '/register',
       features: ['10 Martingale trades', 'Webapp Bot access', 'Dashboard access', 'All supported timeframes', 'Basic trade history'],
     },
     {
