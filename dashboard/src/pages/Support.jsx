@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { MessageCircle, PlugZap, Receipt, Send, Settings, ShieldCheck } from 'lucide-react';
 import api from '../lib/api';
+import { HUMAN_FOLLOW_UP_LABEL, createAssistantMessage } from '../lib/supportChat';
 import '../styles/luxury.css';
 
 const topics = [
@@ -29,7 +30,7 @@ export default function Support() {
 
     try {
       const res = await api.post('/api/support/chat', { messages: nextMessages });
-      setMessages((items) => [...items, { role: 'assistant', content: res.data.reply }]);
+      setMessages((items) => [...items, createAssistantMessage(res.data)]);
     } catch {
       setMessages((items) => [...items, { role: 'assistant', content: 'Sorry, I could not reach support. Try again in a moment or email avalisapobot@gmail.com.' }]);
     } finally {
@@ -59,8 +60,15 @@ export default function Support() {
           </header>
           <div className="lux-support-feed">
             {messages.map((message, index) => (
-              <p key={`${message.role}-${index}`} className={message.role === 'user' ? 'is-user' : ''}>
-                {message.content}
+              <p
+                key={`${message.role}-${index}`}
+                className={[
+                  message.role === 'user' ? 'is-user' : '',
+                  message.escalation ? 'is-escalation' : '',
+                ].filter(Boolean).join(' ')}
+              >
+                {message.escalation && <span className="lux-support-escalation-label">{HUMAN_FOLLOW_UP_LABEL}</span>}
+                <span>{message.content}</span>
               </p>
             ))}
             {loading && <p>Thinking...</p>}

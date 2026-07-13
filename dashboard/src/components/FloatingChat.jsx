@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { MessageCircle, Send, X } from 'lucide-react';
 import api from '../lib/api';
+import { HUMAN_FOLLOW_UP_LABEL, createAssistantMessage } from '../lib/supportChat';
 
 export default function FloatingChat() {
   const [open, setOpen] = useState(false);
@@ -27,7 +28,7 @@ export default function FloatingChat() {
 
     try {
       const res = await api.post('/api/support/chat', { messages: nextMessages });
-      setMessages((items) => [...items, { role: 'assistant', content: res.data.reply }]);
+      setMessages((items) => [...items, createAssistantMessage(res.data)]);
     } catch {
       setMessages((items) => [...items, { role: 'assistant', content: 'Sorry, I could not reach support. Try again in a moment or email avalisapobot@gmail.com.' }]);
     } finally {
@@ -50,8 +51,15 @@ export default function FloatingChat() {
 
           <div className="floating-chat__feed">
             {messages.map((message, index) => (
-              <p key={`${message.role}-${index}`} className={message.role === 'user' ? 'is-user' : ''}>
-                {message.content}
+              <p
+                key={`${message.role}-${index}`}
+                className={[
+                  message.role === 'user' ? 'is-user' : '',
+                  message.escalation ? 'is-escalation' : '',
+                ].filter(Boolean).join(' ')}
+              >
+                {message.escalation && <span className="floating-chat__escalation-label">{HUMAN_FOLLOW_UP_LABEL}</span>}
+                <span>{message.content}</span>
               </p>
             ))}
             {loading && <p>Thinking...</p>}

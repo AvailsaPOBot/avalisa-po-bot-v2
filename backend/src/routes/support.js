@@ -17,6 +17,10 @@ const SENSITIVE_ESCALATION_PATTERNS = [
   /\bfraud(s|ulent)?\b/i,
   /\bfinancial\s+loss(es)?\b/i,
   /\blost\s+(money|cash|funds|\$|usd|baht|thb)\b/i,
+  /\blost\s+[$€£฿]\s*\d[\d,]*(\.\d+)?\b/i,
+  /\blost\s+\d[\d,]*(\.\d+)?\s*(usd|dollars?|baht|thb)\b/i,
+  /\blost\s+(all\s+)?(my\s+)?(deposit|balance|account|investment)\b/i,
+  /\bblew\s+(up\s+)?(my\s+)?(account|balance)\b/i,
   /\bmoney\s+back\b/i,
 ];
 
