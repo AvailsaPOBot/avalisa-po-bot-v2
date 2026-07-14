@@ -741,14 +741,7 @@
     const favorites = getFavoritePairs().sort((a, b) => b.payout - a.payout);
     const best = favorites[0];
     if (!best) {
-      if (!state.botPayoutSwitchOpenAttempted && openPairSelectorForAutoSwitch()) {
-        state.botPayoutSwitchOpenAttempted = true;
-        state.lastTradeStatus = `opening pair selector to auto-switch from ${current}% below minimum ${minPct}%`;
-        post();
-        botTimer = window.setTimeout(scheduleRunBotTrade, 900);
-        return { proceed: false, deferred: true };
-      }
-      return { proceed: false, reason: `payout ${current}% below minimum ${minPct}%; no favorite available to auto-switch` };
+      return { proceed: false, reason: `payout ${current}% below minimum ${minPct}%; no visible favorite available to auto-switch` };
     }
     if (best.payout < minPct) {
       return { proceed: false, reason: `payout ${current}% below minimum ${minPct}%; highest favorite ${best.payout}%` };

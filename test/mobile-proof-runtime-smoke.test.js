@@ -192,7 +192,7 @@ proof.setSettings({
 assert.equal(await proof.startDemoMartingale(), true);
 snapshot = JSON.parse(proof.snapshot());
 assert.equal(snapshot.botRunning, false);
-assert.match(snapshot.lastTradeStatus, /payout 66% below minimum 90%; no favorite available to auto-switch/);
+assert.match(snapshot.lastTradeStatus, /payout 66% below minimum 90%; no visible favorite available to auto-switch/);
 
 dom.window.document.body.innerHTML = '<div>QT Demo USD 100.00</div><button>CAD/CHF</button><div>Payout +66%</div>';
 proof.setSettings({
@@ -204,8 +204,8 @@ proof.setSettings({
 });
 assert.equal(await proof.startDemoMartingale(), true);
 snapshot = JSON.parse(proof.snapshot());
-assert.equal(snapshot.botRunning, true);
-assert.match(snapshot.lastTradeStatus, /opening pair selector to auto-switch from 66% below minimum 90%/);
+assert.equal(snapshot.botRunning, false);
+assert.match(snapshot.lastTradeStatus, /payout 66% below minimum 90%; no visible favorite available to auto-switch/);
 
 dom.window.document.body.innerHTML = '<div>QT Demo USD 100.00</div><button>CAD/CHF</button><div>Payout +66%</div><div class="favorite-list__item">AUD/CAD OTC +92%</div>';
 proof.stopBot('test reset');
