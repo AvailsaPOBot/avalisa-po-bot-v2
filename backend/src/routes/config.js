@@ -1,5 +1,6 @@
 const express = require('express');
 const prisma = require('../lib/prisma');
+const { recordFunnelEvent } = require('../lib/funnel');
 
 const router = express.Router();
 
@@ -11,6 +12,7 @@ let cache = { url: null, expiry: 0 };
 // GET /api/config/affiliate-link — no auth, public
 router.get('/affiliate-link', async (req, res) => {
   const now = Date.now();
+  recordFunnelEvent(prisma, 'affiliate_link_served');
   if (cache.url && now < cache.expiry) {
     return res.json({ url: cache.url });
   }

@@ -107,3 +107,14 @@ model UserTokenUsage {
   user       User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@unique([userId, month])
 }
+
+model FunnelEvent {
+  id        String   @id @default(cuid())
+  type      String
+  userId    String?
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([type, createdAt])
+  @@index([userId])
+}

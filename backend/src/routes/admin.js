@@ -4,6 +4,7 @@ const prisma = require('../lib/prisma');
 const { PLAN_IDS, getPlanEntitlements, getAiTradesAllowanceForPlan } = require('../lib/plans');
 const { buildUserSearchWhere } = require('../lib/adminUsers');
 const { getClaimRejectionMessage, normalizeClaimRejectionReason } = require('../lib/claimGuidance');
+const { getFunnelSummary } = require('../lib/funnel');
 
 const router = express.Router();
 
@@ -439,6 +440,22 @@ router.post('/token-reset', async (req, res) => {
   } catch (err) {
     console.error('[Admin] token reset error:', err);
     return res.status(500).json({ error: 'Failed to reset token usage' });
+  }
+});
+
+// GET /api/admin/funnel?sinceDays=30 — funnel event counts by type.
+// Returns an empty funnel (never 500s) if analytics is disabled or the
+// FunnelEvent table has not been created yet.
+router.get('/funnel', async (req, res) => {
+  try {
+    const sinceDays = parseInt(req.query.sinceDays, 10);
+    const since = Number.isFinite(sinceDays) && sinceDays > 0
+      ? new Date(Date.now() - sinceDays * 86400000)
+      : null;
+    const funnel = await getFunnelSummary(prisma, { since });
+    return res.json({ funnel, since });
+  } catch (err) {
+    return res.json({ funnel: [], note: 'Funnel analytics not enabled.' });
   }
 });
 
