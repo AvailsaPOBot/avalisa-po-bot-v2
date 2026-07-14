@@ -115,3 +115,4 @@ dashboard/src/assets/po-screenshot.png
 *.key
 *.cert
 test/smoke-test.log
+node_modules
