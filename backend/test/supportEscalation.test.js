@@ -43,3 +43,14 @@ test('ordinary setup and pricing questions still go to the AI support provider',
     );
   }
 });
+
+test('human follow-up reply asks for useful support evidence without unsafe claims or private contacts', () => {
+  assert.match(HUMAN_FOLLOW_UP_REPLY, /avalisapobot@gmail\.com/);
+  assert.match(HUMAN_FOLLOW_UP_REPLY, /Avalisa account email/);
+  assert.match(HUMAN_FOLLOW_UP_REPLY, /Pocket Option ID/);
+  assert.match(HUMAN_FOLLOW_UP_REPLY, /screenshot or short screen recording/);
+  assert.match(HUMAN_FOLLOW_UP_REPLY, /human from Avalisa will follow up/i);
+
+  assert.doesNotMatch(HUMAN_FOLLOW_UP_REPLY, /oil4121|whatsapp|phone|private/i);
+  assert.doesNotMatch(HUMAN_FOLLOW_UP_REPLY, /guarantee|guaranteed|risk[- ]?free|profit|income/i);
+});

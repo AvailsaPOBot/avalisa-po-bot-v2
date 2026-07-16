@@ -9,7 +9,7 @@ jest.mock('./lib/api', () => ({
 
 const escalationResponse = {
   data: {
-    reply: 'Thanks for telling us. This needs human review, so please email avalisapobot@gmail.com.',
+    reply: 'Thanks for telling us. This needs human review, so please email avalisapobot@gmail.com with your Avalisa account email, Pocket Option ID if relevant, and a screenshot or short screen recording of the issue. A human from Avalisa will follow up.',
     provider: 'avalisa-escalation',
     escalate: true,
   },
@@ -34,6 +34,7 @@ test('support page labels sensitive support replies as human follow-up', async (
 
   expect(await screen.findByText('Human follow-up needed')).toBeInTheDocument();
   expect(screen.getByText(/please email avalisapobot@gmail.com/i)).toBeInTheDocument();
+  expect(screen.getByText(/screenshot or short screen recording/i)).toBeInTheDocument();
   expect(api.post).toHaveBeenCalledWith('/api/support/chat', expect.objectContaining({
     messages: expect.arrayContaining([
       expect.objectContaining({ role: 'user', content: 'I want a refund' }),
@@ -52,4 +53,5 @@ test('floating chat labels sensitive support replies as human follow-up', async 
 
   expect(await screen.findByText('Human follow-up needed')).toBeInTheDocument();
   expect(screen.getByText(/please email avalisapobot@gmail.com/i)).toBeInTheDocument();
+  expect(screen.getByText(/screenshot or short screen recording/i)).toBeInTheDocument();
 });

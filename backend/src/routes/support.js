@@ -2,7 +2,7 @@ const express = require('express');
 
 const router = express.Router();
 
-const HUMAN_FOLLOW_UP_REPLY = 'Thanks for telling us. This needs human review, so please email avalisapobot@gmail.com with your account email, Pocket Option ID if relevant, and a short description. A human from Avalisa will follow up.';
+const HUMAN_FOLLOW_UP_REPLY = 'Thanks for telling us. This needs human review, so please email avalisapobot@gmail.com with your Avalisa account email, Pocket Option ID if relevant, and a screenshot or short screen recording of the issue. A human from Avalisa will follow up.';
 
 const SENSITIVE_ESCALATION_PATTERNS = [
   /\brefund(s|ed|ing)?\b/i,
