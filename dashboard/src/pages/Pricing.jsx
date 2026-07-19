@@ -183,7 +183,7 @@ export default function Pricing() {
       </section>
 
       <p className="lux-risk-note lux-shell">
-        Trading involves risk. Avalisa does not guarantee profits. Use demo mode first and trade responsibly.
+        Trading involves risk. Avalisa does not promise profits. Use demo mode first and trade responsibly.
       </p>
 
       {selectedPaymentPlan && (

@@ -130,7 +130,7 @@ export default function Landing() {
               <Gift size={20} />
               <p>
                 Want Pro free? Register Pocket Option through Avalisa, then submit your PO UID in the dashboard.
-                Start in demo first; trading involves risk and profits are never guaranteed.
+                Start in demo first; trading involves risk and no profit is promised.
               </p>
               <SmartLink href={AFFILIATE_URL} external className="avalisa-text-link">
                 Open PO signup <ArrowRight size={15} />
@@ -277,7 +277,7 @@ export default function Landing() {
             <SectionTitle accent="Avalisa?">Ready to experience</SectionTitle>
             <p>
               Start in demo, confirm your account access, then choose the device path that fits your workflow.
-              Trading involves risk and Avalisa does not guarantee profits.
+              Trading involves risk and Avalisa does not promise profits.
             </p>
           </div>
           <div className="avalisa-final__actions">

@@ -46,7 +46,7 @@ export default function RealResults({ results }) {
         </div>
 
         <p className="landing-note">
-          Past performance is not a guarantee. Test first, control your amount, and stop anytime.
+          Past performance is not a promise of future results. Test first, control your amount, and stop anytime.
         </p>
       </div>
     </section>

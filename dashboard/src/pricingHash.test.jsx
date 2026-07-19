@@ -91,3 +91,19 @@ test('landing pricing CTAs keep routing to pricing plan anchors', () => {
   expect(screen.getByRole('link', { name: 'View Basic' })).toHaveAttribute('href', '/pricing#basic');
   expect(screen.getByRole('link', { name: 'View Pro' })).toHaveAttribute('href', '/pricing#pro');
 });
+
+test('landing and pricing risk copy stays demo-first without banned wording', () => {
+  mockLocation = { pathname: '/pricing', hash: '' };
+
+  const { unmount } = render(<Pricing />);
+  expect(document.body).toHaveTextContent('Trading involves risk');
+  expect(document.body).toHaveTextContent('Avalisa does not promise profits');
+  expect(document.body).not.toHaveTextContent(/\bguarantee(?:d)?\b/i);
+
+  unmount();
+  render(<Landing />);
+
+  expect(document.body).toHaveTextContent('Start in demo first');
+  expect(document.body).toHaveTextContent('no profit is promised');
+  expect(document.body).not.toHaveTextContent(/\bguarantee(?:d)?\b/i);
+});

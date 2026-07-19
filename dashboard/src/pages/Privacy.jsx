@@ -187,7 +187,7 @@ export default function Privacy() {
           ))}
 
         <aside className="lux-privacy-risk">
-          <strong>Risk Disclaimer:</strong> Binary options trading carries significant financial risk. This tool does not guarantee profits. Trade responsibly.
+          <strong>Risk Disclaimer:</strong> Binary options trading carries significant financial risk. This tool does not promise profits. Trade responsibly.
         </aside>
       </section>
     </main>

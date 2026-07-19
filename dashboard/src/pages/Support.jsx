@@ -8,7 +8,7 @@ const topics = [
   [PlugZap, 'Connect PO', 'Register, install, and open the overlay on Pocket Option.'],
   [Settings, 'Bot setup', 'Strategy, intensity, start amount, and demo mode.'],
   [Receipt, 'Billing', 'Basic, Pro, affiliate unlock, and account access.'],
-  [ShieldCheck, 'Risk', 'What Avalisa can automate and what it cannot guarantee.'],
+  [ShieldCheck, 'Risk', 'What Avalisa can automate and what it cannot promise.'],
 ];
 
 export default function Support() {
