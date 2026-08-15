@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './hooks/useAuth';
@@ -20,6 +21,28 @@ import NotFound from './pages/NotFound';
 function AppShell() {
   const location = useLocation();
   const showFloatingChat = location.pathname === '/';
+
+  // Cross-page hash links (e.g. "Webapp Bot" -> /#webapp from /register) load the
+  // landing route but React Router does not scroll to the anchor, so the visitor lands
+  // at the top of the home page and thinks the link is broken. Scroll to it ourselves;
+  // retry briefly because the target section mounts after the route renders.
+  useEffect(() => {
+    if (!location.hash) return undefined;
+    const id = decodeURIComponent(location.hash.slice(1));
+    let frame = 0;
+    let timer = null;
+    const tryScroll = () => {
+      const target = document.getElementById(id);
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+      frame += 1;
+      if (frame < 20) timer = window.setTimeout(tryScroll, 100);
+    };
+    timer = window.setTimeout(tryScroll, 60);
+    return () => { if (timer) window.clearTimeout(timer); };
+  }, [location.pathname, location.hash]);
 
   return (
     <>

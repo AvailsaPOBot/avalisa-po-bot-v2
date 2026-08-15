@@ -4123,3 +4123,35 @@
     width: 100%;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Mobile tap-target + input hygiene (2026-08-15)
+   Measured on the live site at 375px: the pricing CTAs ("Choose payment method",
+   "Open Pocket Option") were 39px and the auth switch link 18px, all under the 44px
+   minimum; auth inputs were 13.1px, under the 16px threshold where iOS Safari zooms
+   the page on focus. Scoped to phones so desktop typography is untouched.
+--------------------------------------------------------------------------- */
+@media (max-width: 680px) {
+  .lux-price > button,
+  .lux-price > a,
+  .lux-price-guide a,
+  .lux-auth-switch a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+  }
+
+  .lux-auth-switch a {
+    padding: 0 0.25rem;
+  }
+
+  .lux-auth-card label input:not([type='checkbox']),
+  .lux-chat-form input,
+  .lux-settings-card input,
+  .lux-support-chat input,
+  .lux-auth-card select,
+  .lux-auth-card textarea {
+    font-size: 16px;
+  }
+}
