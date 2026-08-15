@@ -27,6 +27,14 @@ function AppShell() {
   // landing route but React Router does not scroll to the anchor, so the visitor lands
   // at the top of the home page and thinks the link is broken. Scroll to it ourselves;
   // retry briefly because the target section mounts after the route renders.
+  // React Router keeps the previous scroll position across route changes, so opening a
+  // page from a scrolled one lands the visitor partway down it. Reset to the top unless
+  // the URL points at a specific section.
+  useEffect(() => {
+    if (location.hash) return;
+    window.scrollTo(0, 0);
+  }, [location.pathname, location.hash]);
+
   useEffect(() => {
     if (!location.hash) return undefined;
     const id = decodeURIComponent(location.hash.slice(1));
