@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Laptop, Monitor, Puzzle, ShieldCheck, Smartphone } from 'lucide-react';
+import { ArrowRight, Check, Laptop, Monitor, Puzzle, Smartphone } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import '../styles/luxury.css';
 
@@ -118,21 +118,39 @@ export default function Webapp() {
           )}
         </article>
 
-        <article className="lux-webapp-account">
-          <ShieldCheck size={18} />
-          {user ? (
-            <p>
-              Signed in as <strong>{user.email}</strong>. Your plan and trade allowance are
-              checked by the bot each time it runs — manage them in the{' '}
-              <Link to="/dashboard">dashboard</Link>.
-            </p>
-          ) : (
-            <p>
-              <Link to="/login">Sign in</Link> or <Link to="/register">create an account</Link>{' '}
-              first — the bot checks your Avalisa plan before it can run.
-            </p>
-          )}
-        </article>
+        {/* Two separate sign-ins, and people conflate them: the Avalisa account gates
+            the bot's licence, the Pocket Option account is the broker the bot trades on.
+            Show both as steps so nobody sits on a login screen wondering which is which. */}
+        <ol className="lux-webapp-steps">
+          <li className={user ? 'is-done' : ''}>
+            <span className="lux-webapp-steps__mark">{user ? <Check size={15} /> : '1'}</span>
+            <div>
+              <strong>Avalisa account</strong>
+              {user ? (
+                <p>
+                  Signed in as {user.email}. Your plan and trade allowance are checked each
+                  time the bot runs — manage them in the <Link to="/dashboard">dashboard</Link>.
+                </p>
+              ) : (
+                <p>
+                  <Link to="/login?next=/webapp">Sign in</Link> or{' '}
+                  <Link to="/register">create an account</Link> — this is the licence the bot
+                  checks before it can run. You will come straight back here.
+                </p>
+              )}
+            </div>
+          </li>
+          <li>
+            <span className="lux-webapp-steps__mark">2</span>
+            <div>
+              <strong>Pocket Option account</strong>
+              <p>
+                Separate from your Avalisa account. You sign in to Pocket Option itself, in
+                the same window the bot runs in — Avalisa never sees those credentials.
+              </p>
+            </div>
+          </li>
+        </ol>
 
         <p className="lux-risk-note">
           Start in demo mode. Trading involves risk and Avalisa does not guarantee profits.

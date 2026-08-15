@@ -20,7 +20,9 @@ export default function Login() {
   }, [searchParams]);
 
   function startSocialAuth(provider) {
-    window.location.href = `${API_BASE}/api/auth/oauth/${provider}?from=login`;
+    const next = searchParams.get('next');
+    const from = next && next.startsWith('/') && !next.startsWith('//') ? `login&next=${encodeURIComponent(next)}` : 'login';
+    window.location.href = `${API_BASE}/api/auth/oauth/${provider}?from=${from}`;
   }
 
   async function handleSubmit(e) {
@@ -29,7 +31,10 @@ export default function Login() {
     try {
       await login(form.email, form.password);
       toast.success('Welcome back.');
-      navigate('/dashboard');
+      // Continue to wherever the visitor started (e.g. /webapp) instead of always
+      // dropping them on the dashboard. Same-site paths only — never an absolute URL.
+      const next = searchParams.get('next');
+      navigate(next && next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard');
     } catch (err) {
       toast.error(err.response?.data?.error || 'Login failed');
     } finally {

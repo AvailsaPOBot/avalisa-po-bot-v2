@@ -13,7 +13,7 @@ import {
   TabletSmartphone,
 } from 'lucide-react';
 import { useLenis } from '../lib/useLenis';
-import { AVALISA_MASCOT_IMAGE } from '../lib/brandAssets';
+import { AVALISA_HERO_PORTRAIT_IMAGE } from '../lib/brandAssets';
 import '../styles/luxury.css';
 
 const AFFILIATE_URL =
@@ -133,7 +133,7 @@ export default function Landing() {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.7, delay: 0.08 }}
             >
-              <img src={AVALISA_MASCOT_IMAGE} alt="Avalisa PO Bot on desktop and mobile Pocket Option screens" />
+              <img src={AVALISA_HERO_PORTRAIT_IMAGE} alt="Avalisa, the Avalisa PO Bot brand ambassador" />
             </motion.figure>
             <div className="avalisa-hero__affiliate">
               <Gift size={20} />
@@ -162,7 +162,7 @@ export default function Landing() {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.7, delay: 0.08 }}
           >
-            <img src={AVALISA_MASCOT_IMAGE} alt="Avalisa PO Bot on desktop and mobile Pocket Option screens" />
+            <img src={AVALISA_HERO_PORTRAIT_IMAGE} alt="Avalisa, the Avalisa PO Bot brand ambassador" />
           </motion.figure>
         </div>
       </section>

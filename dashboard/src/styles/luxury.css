@@ -4197,3 +4197,52 @@
   .lux-webapp-account a { display: inline-flex; align-items: center; min-height: 44px; }
   .lux-webapp-card .avalisa-button { width: 100%; }
 }
+
+/* /webapp: the two sign-ins, shown as steps */
+.lux-webapp-steps { list-style: none; margin: 1.15rem 0 0; padding: 0; display: grid; gap: 0.7rem; }
+.lux-webapp-steps li {
+  display: flex; gap: 0.8rem; align-items: flex-start;
+  padding: 0.95rem 1.1rem; border: 1px solid rgba(216, 162, 74, 0.18);
+  border-radius: 0.6rem; background: rgba(216, 162, 74, 0.05);
+}
+.lux-webapp-steps li.is-done { border-color: rgba(120, 200, 140, 0.34); background: rgba(120, 200, 140, 0.07); }
+.lux-webapp-steps__mark {
+  flex: 0 0 1.6rem; height: 1.6rem; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(216, 162, 74, 0.16); color: #d8a24a;
+  font-size: 0.78rem; font-weight: 700;
+}
+.lux-webapp-steps li.is-done .lux-webapp-steps__mark { background: rgba(120, 200, 140, 0.18); color: #78c88c; }
+.lux-webapp-steps strong { display: block; color: #fff8ee; font-size: 0.95rem; margin-bottom: 0.2rem; }
+.lux-webapp-steps p { margin: 0; color: rgba(245, 239, 228, 0.72); line-height: 1.55; font-size: 0.9rem; }
+.lux-webapp-steps a { color: #d8a24a; }
+@media (max-width: 680px) { .lux-webapp-steps a { display: inline-flex; align-items: center; min-height: 44px; } }
+
+/* ---------------------------------------------------------------------------
+   Hero image: one picture, same on every screen (2026-08-15)
+   The hero image was absolutely positioned at min(70rem,72vw) inside a 43rem-tall
+   box with object-fit:cover. A 1.75:1 image in a 1.29:1 box lost its sides on
+   desktop, while mobile used object-position 50% 32% at 114vw — so Mac and iPhone
+   showed visibly different pictures from one file. Contain never crops, so every
+   screen now shows the identical frame.
+--------------------------------------------------------------------------- */
+.avalisa-hero__visual img,
+.avalisa-hero__visual--desktop img,
+.avalisa-hero__visual--mobile img {
+  object-fit: contain;
+  object-position: 50% 50%;
+}
+
+@media (max-width: 680px) {
+  .avalisa-hero__visual--mobile {
+    min-height: 0;
+  }
+  .avalisa-hero__visual--mobile img {
+    position: relative;
+    inset: auto;
+    transform: none;
+    width: 100%;
+    height: clamp(19rem, 74vw, 26rem);
+    object-position: 50% 50%;
+  }
+}
