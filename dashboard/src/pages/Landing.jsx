@@ -176,7 +176,7 @@ export default function Landing() {
               while desktop users can keep using the Chrome extension. Same Avalisa account,
               same backend access rules, same product discipline.
             </p>
-            <SmartLink to="/register" className="avalisa-button avalisa-button--dark">
+            <SmartLink to="/webapp" className="avalisa-button avalisa-button--dark">
               Open Webapp Bot Access <ArrowRight size={17} />
             </SmartLink>
           </div>

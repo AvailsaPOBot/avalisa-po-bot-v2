@@ -4155,3 +4155,45 @@
     font-size: 16px;
   }
 }
+
+/* --- /webapp: per-device bot access page (2026-08-15) --- */
+.lux-webapp-page {
+  min-height: calc(100vh - 4.45rem);
+  padding: clamp(2rem, 6vw, 4.5rem) 1.15rem 4rem;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(216, 162, 74, 0.13), transparent 30rem),
+    #020711;
+}
+
+.lux-webapp-shell { width: min(100%, 46rem); margin: 0 auto; }
+.lux-webapp-shell h1 { margin: 0.35rem 0 0.9rem; color: #fff8ee; font-size: clamp(1.75rem, 6vw, 2.6rem); line-height: 1.1; }
+.lux-webapp-intro { color: rgba(245, 239, 228, 0.72); margin: 0 0 1.75rem; line-height: 1.6; }
+
+.lux-webapp-card {
+  border: 1px solid rgba(216, 162, 74, 0.26);
+  border-radius: 0.8rem;
+  background: rgba(8, 13, 22, 0.86);
+  padding: clamp(1.15rem, 4vw, 1.9rem);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.38);
+}
+.lux-webapp-card.is-ready { border-color: rgba(120, 200, 140, 0.4); }
+.lux-webapp-card header { display: flex; gap: 0.85rem; align-items: flex-start; margin-bottom: 0.85rem; color: #d8a24a; }
+.lux-webapp-card header strong { display: block; color: #fff8ee; font-size: 0.82rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.lux-webapp-card header span { display: block; color: #fff8ee; font-size: 1.12rem; font-weight: 700; margin-top: 0.2rem; }
+.lux-webapp-card p { color: rgba(245, 239, 228, 0.76); line-height: 1.62; margin: 0 0 1.25rem; }
+.lux-webapp-card .avalisa-button { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; min-height: 44px; }
+
+.lux-webapp-account {
+  display: flex; gap: 0.7rem; align-items: flex-start;
+  margin-top: 1.15rem; padding: 0.95rem 1.1rem;
+  border: 1px solid rgba(216, 162, 74, 0.18); border-radius: 0.6rem;
+  background: rgba(216, 162, 74, 0.05); color: rgba(245, 239, 228, 0.78);
+}
+.lux-webapp-account p { margin: 0; line-height: 1.6; }
+.lux-webapp-account a { color: #d8a24a; }
+.lux-webapp-page .lux-risk-note { margin-top: 1.5rem; color: rgba(245, 239, 228, 0.5); font-size: 0.85rem; }
+
+@media (max-width: 680px) {
+  .lux-webapp-account a { display: inline-flex; align-items: center; min-height: 44px; }
+  .lux-webapp-card .avalisa-button { width: 100%; }
+}
