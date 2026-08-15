@@ -57,6 +57,7 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
     private var loginPasswordField: NSSecureTextField!
     private var directionRow: NSStackView!
     private var timeframeRow: NSStackView!
+    private var qcTimeframeDone = false
     private var intensityRow: NSStackView!
     private var pairScanRow: NSStackView!
     private let tradeCounter = NSTextField(labelWithString: "Trades this session: 0")
@@ -908,6 +909,68 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
         webView.evaluateJavaScript(script)
     }
 
+    // QC-only. Set AVALISA_QC_TIMEFRAME=S30|M1|M3|M5 to make the shell drive the
+    // runtime's expiry control against the live PO page and print the result. Places
+    // no trade and spends no licence: it only proves the expiry can be switched.
+    private func runTimeframeQCIfRequested() {
+        // AVALISA_QC_SCRIPT=<file> runs an arbitrary async JS body against the live page
+        // and prints its return value. QC only — nothing reads this in normal use.
+        if let scriptPath = ProcessInfo.processInfo.environment["AVALISA_QC_SCRIPT"],
+           let body = try? String(contentsOfFile: scriptPath, encoding: .utf8) {
+            webView.callAsyncJavaScript(body, arguments: [:], in: nil, in: .page) { outcome in
+                switch outcome {
+                case .success(let value): print("[AVALISA-QC] \(value)")
+                case .failure(let error): print("[AVALISA-QC] error: \(error)")
+                }
+                fflush(stdout)
+            }
+            return
+        }
+        if ProcessInfo.processInfo.environment["AVALISA_QC_DUMP"] != nil {
+            let dump = "const out = [];"
+                + "for (const el of Array.from(document.querySelectorAll('*'))) {"
+                + "  const r = el.getBoundingClientRect();"
+                + "  if (!(r.width > 0 && r.height > 0)) continue;"
+                + "  if (r.top < window.innerHeight * 0.25) continue;"
+                + "  if (el.children.length > 1) continue;"
+                + "  const t = String(el.value || el.textContent || '').replace(/\\s+/g, ' ').trim();"
+                + "  if (!t || t.length > 26) continue;"
+                + "  out.push(Math.round(r.top) + '|' + el.tagName + '|' + String(el.className || '').slice(0, 44) + '|' + t);"
+                + "}"
+                + "return JSON.stringify({ vh: window.innerHeight, vw: window.innerWidth, leaves: out.slice(0, 160) });"
+            webView.callAsyncJavaScript(dump, arguments: [:], in: nil, in: .page) { outcome in
+                switch outcome {
+                case .success(let value): print("[AVALISA-DUMP] \(value)")
+                case .failure(let error): print("[AVALISA-DUMP] error: \(error)")
+                }
+                fflush(stdout)
+            }
+            return
+        }
+        guard let tf = ProcessInfo.processInfo.environment["AVALISA_QC_TIMEFRAME"], !tf.isEmpty else { return }
+        let script = "const A = window.AvalisaProof;"
+            + "if (!A || !A.debug) { return JSON.stringify({ qc: 'runtime not ready' }); }"
+            // PO floats a deposit modal over the trade panel right after launch; wait
+            // for the real panel before probing, or the probe measures the wrong screen.
+            + "for (let i = 0; i < 60; i++) { A.scan(); if (A.debug.currentExpirySeconds() != null) break; await new Promise(r => setTimeout(r, 1000)); }"
+            + "A.scan();"
+            + "const before = A.debug.currentExpirySeconds();"
+            + "const el = A.debug.findDurationElement();"
+            + "const seen = el ? (el.tagName + '.' + String(el.className || '').slice(0, 60) + ' = ' + (el.value || el.textContent || '').trim().slice(0, 20)) : 'NOT FOUND';"
+            + "const result = await A.debug.applyTimeframe('" + tf + "');"
+            + "A.scan();"
+            + "return JSON.stringify({ qc: 'timeframe', requested: '" + tf + "', before, control: seen, result, after: A.debug.currentExpirySeconds() });"
+        webView.callAsyncJavaScript(script, arguments: [:], in: nil, in: .page) { outcome in
+            switch outcome {
+            case .success(let value):
+                print("[AVALISA-QC] \(value)")
+            case .failure(let error):
+                print("[AVALISA-QC] error: \(error)")
+            }
+            fflush(stdout)
+        }
+    }
+
     private func pollStatus() {
         webView.evaluateJavaScript("(window.AvalisaProof ? (window.AvalisaProof.scan(), window.AvalisaProof.snapshot()) : null)") { [weak self] result, error in
             if error != nil {
@@ -920,6 +983,15 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
                 return
             }
             self.applyStatus(body)
+            if "\(body["layoutHealth"] ?? "")" == "mobile layout ready" {
+                // The dump probe keeps sampling (PO can float a deposit modal over the
+                // trade panel right after launch); the timeframe probe runs once.
+                let repeating = ProcessInfo.processInfo.environment["AVALISA_QC_DUMP"] != nil
+                if repeating || !self.qcTimeframeDone {
+                    if !repeating { self.qcTimeframeDone = true }
+                    self.runTimeframeQCIfRequested()
+                }
+            }
         }
     }
 

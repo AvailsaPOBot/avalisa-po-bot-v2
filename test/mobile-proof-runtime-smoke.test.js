@@ -4,7 +4,7 @@ const path = require('path');
 const { JSDOM } = require('../dashboard/node_modules/jsdom');
 
 const root = path.resolve(__dirname, '..');
-const dom = new JSDOM('<!doctype html><html><head></head><body><div>QT Real USD 100.00</div><input type="number" value="1"><button>CALL</button><button>PUT</button></body></html>', {
+const dom = new JSDOM('<!doctype html><html><head></head><body><div>QT Real USD 100.00</div><div class="block--expiration-inputs"><div class="block__title">Time</div><div class="control__value"><div class="value__val">00:00:30</div></div></div><input type="number" value="1"><button>CALL</button><button>PUT</button></body></html>', {
   url: 'https://m.po.trade/en/cabinet/demo-quick-high-low/?source=pwa',
   runScripts: 'outside-only',
 });
@@ -60,7 +60,7 @@ const runtime = fs.readFileSync(path.join(root, 'mobile-proof/ios/AvalisaMobileP
 dom.window.eval(`${runtime}\n//# sourceURL=ProofRuntime.js`);
 
 const proof = dom.window.AvalisaProof;
-assert.equal(proof.version, '1.4-safe-stop');
+assert.equal(proof.version, '1.5-expiry-confirmed');
 
 (async () => {
 let snapshot = JSON.parse(proof.snapshot());

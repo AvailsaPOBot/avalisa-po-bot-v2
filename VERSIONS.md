@@ -12,11 +12,55 @@
 | Extension (local/dev) | **2.4.8** | Mr. Oil's Chrome (unpacked from this repo `extension/`) | `extension/manifest.json` |
 | Backend | main @ `d86b591` | Render (auto-deploy from GitHub `main`) | `git log origin/main` |
 | Dashboard/site | main @ `d86b591` | Vercel (auto-deploy from GitHub `main`) | `git log origin/main` |
-| Webapp Bot (mobile proof) | v1.02 | Mac WKWebView shell / mobile webview | `mobile-proof/` |
+| Webapp Bot (mobile proof) | v1.5-expiry-confirmed | Mac WKWebView shell / mobile webview | `mobile-proof/` |
 
 ⚠️ **The repo `extension/` folder is LIVE** — Mr. Oil's Chrome loads it unpacked.
 Never leave it broken or mid-refactor. Smoke test (`node test/extension-settings-smoke.test.js`)
 must pass before any commit that touches it. The AGE dispatcher enforces this (fail-closed revert).
+
+## Webapp Bot (mobile proof) changelog
+
+### 1.5-expiry-confirmed — 2026-08-15 — the bot now actually sets the PO expiry [Board-approved]
+Reported by the Board: panel set to 30s, but the bot never switched Pocket Option's expiry
+(PO was left on 3m) and instead fired a trade roughly every 30s, so martingale stepped without
+knowing whether the previous trade had won or lost.
+
+Root cause — three compounding defects in `mobile-proof/ios/AvalisaMobileProof/ProofRuntime.js`:
+1. `settings.timeframe` was never applied to PO. The webapp runtime only ever *read* the expiry
+   (`inferDuration`); `setTimeframe()` existed in the Chrome extension (`extension/poDom.js`) but
+   was never ported to the webapp.
+2. `durationSeconds()` parsed only `HH:MM:SS`, so any other rendering silently fell back to the
+   panel timeframe (30s).
+3. `classifyResult()` allowed a `loss` verdict after 10s. A still-open trade looks exactly like a
+   loss (stake gone, no payout), so an open 3m trade was booked as a loss and the ladder doubled.
+
+Fixes:
+- New `applyTimeframe(tf)`: switches PO's expiry and **confirms it by reading the field back**
+  after the picker closes. Runs **before** the amount is set (PO re-renders the panel on expiry
+  change). Verified live against m.po.trade: `.block--expiration-inputs .value__val` opens the
+  `.dops__timeframes-item` grid (S3/S15/S30/M1/M3/M5) — same markup as desktop PO.
+- **Fail closed**: if the requested expiry cannot be set and confirmed, the bot stops with a
+  reason instead of trading on an unknown expiry. Applies to demo and real alike.
+- Reads never come from inside the open picker (its own option list parses as a duration and
+  would falsely "confirm" any target).
+- `parseDurationToSeconds()` understands `00:03:00`, `3:00`, `3 min`, `30 sec`, `M3`, `S30`.
+- Result resolution waits for the **confirmed** expiry, then polls to settlement (+20s grace);
+  `loss` is impossible before the expiry has elapsed. 3 unreadable results in a row stops the bot.
+- AI mode applies the AI-suggested timeframe, matching extension behaviour.
+- Layout is no longer "ready" unless the expiry field is readable — PO's deposit modal was
+  satisfying the amount/CALL/PUT checks on its own.
+
+QC: 72 assertions in a jsdom harness (parser table, both PO layouts, fail-closed paths,
+expiry→amount→trade ordering, demo *and* real account paths, the reported regression).
+Live on the PO demo account: S30→M1→M5→S30→M3→S30 all applied and confirmed, amount preserved
+at $2 across switches, picker closed each time.
+NOT yet verified live: a full Start→trade→result cycle — the test account is FREE with 0/10
+trades left, so the licence gate blocks placement. Needs trade allowance on the test account.
+
+Mac shell (`mobile-proof/mac/AvalisaMobileProofMac.swift`) gained QC-only, env-gated probes
+(`AVALISA_QC_TIMEFRAME`, `AVALISA_QC_DUMP`, `AVALISA_QC_SCRIPT`). Inert unless the env var is set.
+`AVALISA_QC_SCRIPT` runs an arbitrary JS file against the page — dev tool; decide before this
+shell ever ships to users.
 
 ## Extension changelog
 
