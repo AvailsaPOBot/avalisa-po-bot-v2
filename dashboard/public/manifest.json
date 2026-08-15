@@ -1,7 +1,7 @@
 {
-  "name": "Avalisa Bot",
+  "name": "Avalisa PO Bot",
   "short_name": "Avalisa",
-  "start_url": "/app",
+  "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#0d1b2e",
   "theme_color": "#0d1b2e",

@@ -15,6 +15,7 @@ import Dashboard from './pages/Dashboard';
 import Pricing from './pages/Pricing';
 import Support from './pages/Support';
 import Privacy from './pages/Privacy';
+import NotFound from './pages/NotFound';
 
 function AppShell() {
   const location = useLocation();
@@ -36,6 +37,7 @@ function AppShell() {
         <Route path="/dashboard" element={
           <ProtectedRoute><Dashboard /></ProtectedRoute>
         } />
+        <Route path="*" element={<NotFound />} />
       </Routes>
       {showFloatingChat && <FloatingChat />}
     </>

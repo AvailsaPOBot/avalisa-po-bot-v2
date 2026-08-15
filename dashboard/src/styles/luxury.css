@@ -3219,18 +3219,18 @@
   }
 
   .floating-chat-button {
-    right: 0.9rem;
-    top: 54vh;
-    bottom: auto;
+    right: 16px;
+    top: auto;
+    bottom: max(16px, calc(env(safe-area-inset-bottom) + 16px));
     min-width: 3rem;
     width: 3rem;
     height: 3rem;
     animation: none;
-    transform: translateY(-50%);
+    transform: none;
   }
 
   .floating-chat-button:hover {
-    transform: translateY(-50%) scale(1.02);
+    transform: translateY(-4px) scale(1.02);
   }
 
   .floating-chat-button span {
@@ -3548,6 +3548,10 @@
   margin: 0;
 }
 
+.avalisa-hero__visual--mobile {
+  display: none;
+}
+
 .avalisa-hero__copy,
 .avalisa-hero__visual,
 .avalisa-device-band__grid > *,
@@ -3809,7 +3813,66 @@
 }
 
 .avalisa-text-link {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 0.35rem;
   color: #8a5b1d;
+  font-weight: 800;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.lux-not-found {
+  min-height: calc(100vh - 4.45rem);
+  display: grid;
+  place-items: center;
+  padding: 2rem 1rem;
+  background:
+    radial-gradient(circle at 50% 10%, rgba(216, 162, 74, 0.14), transparent 28rem),
+    #020711;
+}
+
+.lux-not-found section {
+  width: min(100%, 38rem);
+  border: 1px solid rgba(216, 162, 74, 0.28);
+  border-radius: 0.75rem;
+  padding: clamp(2rem, 7vw, 4.5rem);
+  background: rgba(7, 12, 20, 0.86);
+  text-align: center;
+  box-shadow: 0 28px 86px rgba(0, 0, 0, 0.42);
+}
+
+.lux-not-found img {
+  margin: 0 auto 1.5rem;
+}
+
+.lux-not-found h1 {
+  margin: 0.4rem 0 1rem;
+  color: #fff8ee;
+  font-family: var(--font-display);
+  font-size: clamp(2.4rem, 8vw, 4rem);
+  font-weight: 520;
+  line-height: 1;
+}
+
+.lux-not-found section > p:not(.lux-kicker) {
+  color: rgba(248, 244, 236, 0.72);
+  line-height: 1.65;
+}
+
+.lux-not-found a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  border: 1px solid rgba(255, 218, 154, 0.75);
+  border-radius: 0.55rem;
+  padding: 0.82rem 1.12rem;
+  background: linear-gradient(180deg, #f5d486, #d89d3c);
+  color: #11120d;
   font-weight: 800;
   text-decoration: none;
 }
@@ -3970,6 +4033,11 @@
     padding-top: 3.2rem;
   }
 
+  .avalisa-site a,
+  .avalisa-site button {
+    min-height: 44px;
+  }
+
   .avalisa-hero__copy h1 {
     font-size: clamp(2.55rem, 11vw, 3.35rem);
     line-height: 1;
@@ -3998,13 +4066,19 @@
     grid-column: 2;
   }
 
-  .avalisa-hero__visual {
-    min-height: 22rem;
+  .avalisa-hero__visual--desktop {
+    display: none;
   }
 
-  .avalisa-hero__visual img {
-    width: min(45rem, 118vw);
-    object-position: 48% center;
+  .avalisa-hero__visual--mobile {
+    display: block;
+    min-height: clamp(12.5rem, 56vw, 15rem);
+    margin-top: 1rem;
+  }
+
+  .avalisa-hero__visual--mobile img {
+    width: min(42rem, 114vw);
+    object-position: 50% 32%;
   }
 
   .avalisa-proof-strip,
@@ -4014,7 +4088,7 @@
   }
 
   .avalisa-proof-strip a {
-    min-height: auto;
+    min-height: 44px;
     border-right: 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.09);
     padding: 0 0 0.95rem;

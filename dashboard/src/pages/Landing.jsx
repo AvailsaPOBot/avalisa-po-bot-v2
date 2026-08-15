@@ -13,6 +13,7 @@ import {
   TabletSmartphone,
 } from 'lucide-react';
 import { useLenis } from '../lib/useLenis';
+import { AVALISA_MASCOT_IMAGE } from '../lib/brandAssets';
 import '../styles/luxury.css';
 
 const AFFILIATE_URL =
@@ -126,6 +127,14 @@ export default function Landing() {
                 Install Extension <Puzzle size={17} />
               </SmartLink>
             </div>
+            <motion.figure
+              className="avalisa-hero__visual avalisa-hero__visual--mobile"
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.7, delay: 0.08 }}
+            >
+              <img src={AVALISA_MASCOT_IMAGE} alt="Avalisa PO Bot on desktop and mobile Pocket Option screens" />
+            </motion.figure>
             <div className="avalisa-hero__affiliate">
               <Gift size={20} />
               <p>
@@ -148,12 +157,12 @@ export default function Landing() {
           </motion.div>
 
           <motion.figure
-            className="avalisa-hero__visual"
+            className="avalisa-hero__visual avalisa-hero__visual--desktop"
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.7, delay: 0.08 }}
           >
-            <img src="/images/landing/webapp-redesign/hero-product-composite.png" alt="Avalisa PO Bot on desktop and mobile Pocket Option screens" />
+            <img src={AVALISA_MASCOT_IMAGE} alt="Avalisa PO Bot on desktop and mobile Pocket Option screens" />
           </motion.figure>
         </div>
       </section>

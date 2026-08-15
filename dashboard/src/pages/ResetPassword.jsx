@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../lib/api';
+import { AVALISA_MASCOT_IMAGE } from '../lib/brandAssets';
 import '../styles/luxury.css';
 
 export default function ResetPassword() {
@@ -53,7 +54,7 @@ export default function ResetPassword() {
         </form>
 
         <aside className="lux-auth-visual lux-auth-visual--login">
-          <img className="lux-auth-visual__scene" src="/images/landing/webapp-redesign/hero-product-composite.png" alt="Avalisa PO Bot dashboard and mobile access" />
+          <img className="lux-auth-visual__scene" src={AVALISA_MASCOT_IMAGE} alt="Avalisa brand ambassador" />
         </aside>
       </section>
     </main>

@@ -315,6 +315,8 @@ html {
 
 .site-nav__menu {
   display: none;
+  min-width: 44px;
+  min-height: 44px;
   border: 1px solid rgba(216, 162, 74, 0.32);
   border-radius: 0.4rem;
   padding: 0.55rem;
@@ -344,6 +346,17 @@ html {
     margin: 0 auto;
     border-top: 1px solid rgba(216, 162, 74, 0.18);
     padding: 1rem 0 1.2rem;
+  }
+
+  .site-nav__mobile a,
+  .site-nav__mobile button {
+    display: flex;
+    min-height: 44px;
+    align-items: center;
+    justify-content: flex-start;
+    width: 100%;
+    padding: 0.65rem 0;
+    text-align: left;
   }
 
   .site-brand__partner img {
@@ -508,7 +521,7 @@ html {
 .floating-chat-button {
   position: fixed;
   right: 1.5rem;
-  bottom: 1.5rem;
+  bottom: max(16px, calc(env(safe-area-inset-bottom) + 16px));
   z-index: 999999;
   gap: 0.45rem;
   min-width: 4.15rem;

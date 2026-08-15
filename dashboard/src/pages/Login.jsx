@@ -4,6 +4,7 @@ import { Lock, Mail } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';
 import { API_BASE } from '../lib/api';
+import { AVALISA_MASCOT_IMAGE } from '../lib/brandAssets';
 import '../styles/luxury.css';
 
 export default function Login() {
@@ -67,7 +68,7 @@ export default function Login() {
         </form>
 
         <aside className="lux-auth-visual lux-auth-visual--login">
-          <img className="lux-auth-visual__scene" src="/images/landing/webapp-redesign/hero-product-composite.png" alt="Avalisa PO Bot dashboard and mobile access" />
+          <img className="lux-auth-visual__scene" src={AVALISA_MASCOT_IMAGE} alt="Avalisa brand ambassador" />
         </aside>
       </section>
     </main>

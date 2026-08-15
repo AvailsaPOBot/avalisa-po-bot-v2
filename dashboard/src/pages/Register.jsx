@@ -4,6 +4,7 @@ import { Gift, Lock, Mail, ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';
 import { API_BASE } from '../lib/api';
+import { AVALISA_MASCOT_IMAGE } from '../lib/brandAssets';
 import '../styles/luxury.css';
 
 const AFFILIATE_LINK = 'https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50';
@@ -73,7 +74,7 @@ export default function Register() {
         </form>
 
         <aside className="lux-auth-visual lux-auth-visual--register">
-          <img className="lux-auth-visual__scene" src="/images/landing/webapp-redesign/hero-product-composite.png" alt="Avalisa PO Bot dashboard and mobile access" />
+          <img className="lux-auth-visual__scene" src={AVALISA_MASCOT_IMAGE} alt="Avalisa brand ambassador" />
         </aside>
       </section>
     </main>

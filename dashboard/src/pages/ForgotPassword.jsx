@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Mail } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../lib/api';
+import { AVALISA_MASCOT_IMAGE } from '../lib/brandAssets';
 import '../styles/luxury.css';
 
 export default function ForgotPassword() {
@@ -43,7 +44,7 @@ export default function ForgotPassword() {
         </form>
 
         <aside className="lux-auth-visual lux-auth-visual--login">
-          <img className="lux-auth-visual__scene" src="/images/landing/webapp-redesign/hero-product-composite.png" alt="Avalisa PO Bot dashboard and mobile access" />
+          <img className="lux-auth-visual__scene" src={AVALISA_MASCOT_IMAGE} alt="Avalisa brand ambassador" />
         </aside>
       </section>
     </main>
