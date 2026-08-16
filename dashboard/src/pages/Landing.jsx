@@ -161,7 +161,7 @@ export default function Landing() {
             <img
               className="avalisa-hero__product"
               src={AVALISA_PRODUCT_IMAGE}
-              alt="Avalisa PO Bot running on Pocket Option across phone, tablet and laptop"
+              alt="The Avalisa Bot panel running inside Pocket Option, showing timeframe, direction and martingale controls"
             />
             <img
               className="avalisa-hero__mascot"
