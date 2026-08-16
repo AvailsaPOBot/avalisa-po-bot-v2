@@ -21,7 +21,7 @@ import Webapp from './pages/Webapp';
 
 function AppShell() {
   const location = useLocation();
-  const showFloatingChat = location.pathname === '/';
+  const isLanding = location.pathname === '/';
 
   // Cross-page hash links (e.g. "Webapp Bot" -> /#webapp from /register) load the
   // landing route but React Router does not scroll to the anchor, so the visitor lands
@@ -55,7 +55,7 @@ function AppShell() {
 
   return (
     <>
-      <Navbar />
+      {!isLanding && <Navbar />}
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
@@ -72,7 +72,7 @@ function AppShell() {
         <Route path="/webapp" element={<Webapp />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
-      {showFloatingChat && <FloatingChat />}
+      {isLanding && <FloatingChat deferUntilScroll />}
     </>
   );
 }
