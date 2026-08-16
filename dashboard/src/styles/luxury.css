@@ -4506,3 +4506,12 @@
 @media (max-width: 900px) {
   .avalisa-hero__grid { grid-template-columns: 1fr; }
 }
+
+/* The shared character frame is a landscape composition with her on the right and
+   negative space on the left for hero copy. The auth and pricing panels crop with
+   object-fit:cover, so the default centre crop showed mostly empty background.
+   Bias the crop toward the subject. */
+.lux-auth-visual__scene,
+.lux-price-guide img {
+  object-position: 74% center;
+}

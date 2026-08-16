@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';
 import api from '../lib/api';
 import '../styles/luxury.css';
-import { AVALISA_MASCOT_IMAGE } from '../lib/brandAssets';
+import { AVALISA_CHARACTER_IMAGE } from '../lib/brandAssets';
 
 const FALLBACK_AFFILIATE_LINK = 'https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50';
 const API_BASE = process.env.REACT_APP_API_URL || 'https://avalisa-backend.onrender.com';
@@ -176,7 +176,7 @@ export default function Pricing() {
           );
         })}
         <aside className="lux-price-guide lux-price-guide--page">
-          <img src={AVALISA_MASCOT_IMAGE} alt="Avalisa pricing guide" />
+          <img src={AVALISA_CHARACTER_IMAGE} alt="Avalisa, the Avalisa PO Bot brand ambassador" />
           <div>
             <strong>Want Pro through Pocket Option?</strong>
             <p>Register through Avalisa, then submit your PO UID in the dashboard to request Pro access.</p>
