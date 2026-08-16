@@ -4246,3 +4246,118 @@
     object-position: 50% 50%;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Hero rebuild (2026-08-15) — Board feedback: the mascot shipped as a hard-edged
+   rectangle with no product in sight, so nothing told a visitor what we sell.
+   Now: product screens are the subject, the die-cut mascot stands in front of them,
+   and the headline is sized to actually fit its column.
+--------------------------------------------------------------------------- */
+.avalisa-hero__grid {
+  grid-template-columns: minmax(20rem, 1.02fr) minmax(22rem, 1fr);
+  align-items: center;
+}
+
+/* Was clamp(4.3rem, 8.6vw, 8.2rem): ~110px inside a ~430px column, which forced
+   "Avalisa PO Bot" to break across three lines with PO and Bot orphaned. */
+.avalisa-hero__copy h1 {
+  font-size: clamp(2.6rem, 4.9vw, 4.65rem);
+  line-height: 1.02;
+  letter-spacing: -0.015em;
+}
+
+.avalisa-hero__stage {
+  position: relative;
+  margin: 0;
+  min-height: clamp(21rem, 30vw, 30rem);
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+}
+
+.avalisa-hero__product {
+  width: 100%;
+  max-width: 40rem;
+  height: auto;
+  border-radius: 0.6rem;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+}
+
+/* Overlaps the product card's left edge so the two read as one composition. */
+.avalisa-hero__mascot {
+  position: absolute;
+  left: -1.5rem;
+  bottom: 0;
+  height: clamp(19rem, 30vw, 31rem);
+  width: auto;
+  object-fit: contain;
+  object-position: bottom center;
+  filter: drop-shadow(0 18px 34px rgba(0, 0, 0, 0.55));
+  pointer-events: none;
+}
+
+/* Five columns inside a 0.74fr column gave each label ~86px, so every one of them
+   stacked and crammed. Let them wrap instead. */
+.avalisa-proof-strip {
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.9rem 0.2rem;
+}
+
+.avalisa-proof-strip a { min-height: 0; }
+
+@media (max-width: 900px) {
+  .avalisa-hero__grid { grid-template-columns: 1fr; }
+  .avalisa-hero__stage {
+    min-height: clamp(17rem, 58vw, 24rem);
+    justify-content: center;
+  }
+  .avalisa-hero__product { max-width: 100%; }
+  .avalisa-hero__mascot {
+    left: auto;
+    right: -0.5rem;
+    height: clamp(14rem, 46vw, 21rem);
+  }
+}
+
+@media (max-width: 560px) {
+  .avalisa-hero__mascot { height: clamp(11rem, 42vw, 16rem); right: -1rem; }
+  .avalisa-proof-strip a { border-right: 0; }
+}
+
+/* The generated die-cut came back with a fake checkerboard instead of an alpha
+   channel, so there is no real matte to use. Her rendered background is near-black
+   (#0a0a0f-#0d1b2e) and so is the hero, so `screen` blending drops it: black goes
+   fully transparent, her lit form stays. No keying, no chewed hair edges. */
+.avalisa-hero__mascot {
+  mix-blend-mode: screen;
+  filter: none;
+  -webkit-mask-image: radial-gradient(120% 92% at 50% 46%, #000 62%, transparent 99%);
+  mask-image: radial-gradient(120% 92% at 50% 46%, #000 62%, transparent 99%);
+}
+
+/* The product composite carries its own dark panel, which met the page in a hard
+   straight edge — the same "pasted rectangle" the Board objected to. Feather its
+   edges into the background and drop the card chrome so the hero reads as one scene. */
+.avalisa-hero__product {
+  border-radius: 0;
+  box-shadow: none;
+  -webkit-mask-image: radial-gradient(118% 104% at 62% 52%, #000 58%, transparent 97%);
+  mask-image: radial-gradient(118% 104% at 62% 52%, #000 58%, transparent 97%);
+}
+
+/* Real die-cut now available (rembg isnet-general-use + alpha matting; alpha verified:
+   corners transparent, no interior gaps). Drop the screen-blend workaround that was
+   standing in for a matte — with true alpha she composites properly and keeps her
+   own shadow for grounding. */
+.avalisa-hero__mascot {
+  mix-blend-mode: normal;
+  -webkit-mask-image: none;
+  mask-image: none;
+  filter: drop-shadow(0 22px 38px rgba(0, 0, 0, 0.62));
+}
+
+/* Measured at 375: the mascot's right edge landed at 381px, so her arm was clipped
+   by the viewport. Keep her fully inside the frame on phones. */
+@media (max-width: 560px) {
+  .avalisa-hero__mascot { right: 0; }
+}

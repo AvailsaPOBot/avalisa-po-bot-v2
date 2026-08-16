@@ -7,3 +7,6 @@ export const AVALISA_HERO_PORTRAIT_IMAGE = '/images/landing/generated/avalisa-gi
 export const AVALISA_CUTOUT_IMAGE = '/images/landing/generated/avalisa-girl-cutout.png';
 
 export const AVALISA_MASCOT_IMAGE = '/images/landing/webapp-redesign/hero-product-composite.png';
+
+export const AVALISA_PRODUCT_IMAGE = '/images/landing/webapp-redesign/device-product-composite.png';
+export const AVALISA_DIECUT_IMAGE = '/images/landing/generated/avalisa-girl-diecut.png';

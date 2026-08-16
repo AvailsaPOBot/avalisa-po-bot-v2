@@ -13,7 +13,7 @@ import {
   TabletSmartphone,
 } from 'lucide-react';
 import { useLenis } from '../lib/useLenis';
-import { AVALISA_HERO_PORTRAIT_IMAGE } from '../lib/brandAssets';
+import { AVALISA_DIECUT_IMAGE, AVALISA_PRODUCT_IMAGE } from '../lib/brandAssets';
 import '../styles/luxury.css';
 
 const AFFILIATE_URL =
@@ -127,14 +127,7 @@ export default function Landing() {
                 Install Extension <Puzzle size={17} />
               </SmartLink>
             </div>
-            <motion.figure
-              className="avalisa-hero__visual avalisa-hero__visual--mobile"
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.7, delay: 0.08 }}
-            >
-              <img src={AVALISA_HERO_PORTRAIT_IMAGE} alt="Avalisa, the Avalisa PO Bot brand ambassador" />
-            </motion.figure>
+
             <div className="avalisa-hero__affiliate">
               <Gift size={20} />
               <p>
@@ -157,12 +150,25 @@ export default function Landing() {
           </motion.div>
 
           <motion.figure
-            className="avalisa-hero__visual avalisa-hero__visual--desktop"
+            className="avalisa-hero__stage"
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.7, delay: 0.08 }}
           >
-            <img src={AVALISA_HERO_PORTRAIT_IMAGE} alt="Avalisa, the Avalisa PO Bot brand ambassador" />
+            {/* Product first — a visitor has to see what Avalisa actually does. The
+                mascot stands in front of the screens rather than sitting in her own
+                box, so she reads as part of the layout instead of a pasted photo. */}
+            <img
+              className="avalisa-hero__product"
+              src={AVALISA_PRODUCT_IMAGE}
+              alt="Avalisa PO Bot running on Pocket Option across phone, tablet and laptop"
+            />
+            <img
+              className="avalisa-hero__mascot"
+              src={AVALISA_DIECUT_IMAGE}
+              alt=""
+              aria-hidden="true"
+            />
           </motion.figure>
         </div>
       </section>
