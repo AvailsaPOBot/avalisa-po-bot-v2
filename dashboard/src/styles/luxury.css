@@ -4523,6 +4523,313 @@
 .lux-support-chat > header > div > strong {
   display: block;
 }
+
+/* ---------------------------------------------------------------------------
+   Mascot-led homepage hero (Board-selected visual, 2026-08-16)
+--------------------------------------------------------------------------- */
+.mascot-hero {
+  position: relative;
+  overflow: hidden;
+  background: #020812;
+}
+
+.mascot-hero__desktop {
+  position: relative;
+  width: 100%;
+  max-width: 1500px;
+  margin: 0 auto;
+  aspect-ratio: 1500 / 1049;
+}
+
+.mascot-hero__art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.mascot-hero__desktop-copy {
+  position: absolute;
+  z-index: 2;
+  top: 18.8%;
+  left: 3.75%;
+  width: 32%;
+  min-height: 21.5%;
+  display: flex;
+  align-items: flex-start;
+  background: #030914;
+  box-shadow: 0 0 2.4rem 1.4rem #030914;
+}
+
+.mascot-hero__desktop-copy h1 {
+  margin: 0;
+  color: #fff8ee;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 3.2vw, 3.1rem);
+  font-weight: 520;
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+}
+
+.mascot-hero__title-line {
+  display: block;
+  color: #f4cb78;
+  white-space: nowrap;
+}
+
+.mascot-hero__title-line--light { color: #fff8ee; }
+
+.pocket-option-mark {
+  position: relative;
+  top: 0.08em;
+  display: inline-block;
+  width: 0.82em;
+  height: 0.72em;
+  overflow: hidden;
+  vertical-align: baseline;
+}
+
+.pocket-option-mark img {
+  display: block;
+  width: auto;
+  max-width: none;
+  height: 100%;
+}
+
+.mascot-hero__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.mascot-hero__hotspot,
+.mascot-hero__product-nav {
+  position: absolute;
+  z-index: 3;
+  border-radius: 0.45rem;
+}
+
+.mascot-hero__hotspot { display: block; }
+
+.mascot-hero__hotspot:focus-visible,
+.mascot-hero__product-nav > button:focus-visible {
+  outline: 2px solid #f4cb78;
+  outline-offset: 2px;
+  background: rgba(244, 203, 120, 0.08);
+}
+
+.mascot-hero__hotspot--logo { left: 1.45%; top: 1.45%; width: 10.7%; height: 7.8%; }
+.mascot-hero__product-nav { left: 17.8%; top: 3.25%; width: 7.7%; height: 5.2%; }
+.mascot-hero__hotspot--pricing { left: 26.2%; top: 3.25%; width: 6.4%; height: 5.2%; }
+.mascot-hero__hotspot--support { left: 33.5%; top: 3.25%; width: 6.7%; height: 5.2%; }
+.mascot-hero__hotspot--login { left: 72.3%; top: 3.25%; width: 5.4%; height: 5.2%; }
+.mascot-hero__hotspot--register-nav { left: 79%; top: 3.1%; width: 18.1%; height: 6.2%; }
+.mascot-hero__hotspot--register-hero { left: 3.8%; top: 54.2%; width: 22.9%; height: 7.2%; }
+.mascot-hero__hotspot--learn { left: 6.25%; top: 71.8%; width: 7.2%; height: 3.5%; }
+
+.mascot-hero__product-nav > button {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.mascot-hero__product-menu {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  display: grid;
+  width: 12rem;
+  overflow: hidden;
+  border: 1px solid rgba(244, 203, 120, 0.28);
+  border-radius: 0.65rem;
+  background: rgba(4, 11, 21, 0.97);
+  box-shadow: 0 1.2rem 3rem rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(18px);
+}
+
+.mascot-hero__product-menu a {
+  padding: 0.78rem 0.9rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  color: #fff8ee;
+  font-size: 0.84rem;
+  text-decoration: none;
+}
+
+.mascot-hero__product-menu a:last-child { border-bottom: 0; }
+.mascot-hero__product-menu a:hover { background: rgba(244, 203, 120, 0.1); color: #f4cb78; }
+
+.mascot-hero__mobile { display: none; }
+
+@media (max-width: 959px) {
+  .mascot-hero__desktop { display: none; }
+
+  .mascot-hero__mobile {
+    display: block;
+    min-height: 100vh;
+    padding: 0 1rem 1rem;
+    background:
+      radial-gradient(circle at 76% 18%, rgba(216, 162, 74, 0.12), transparent 18rem),
+      linear-gradient(180deg, #06101d 0%, #020711 100%);
+    color: #fff8ee;
+  }
+
+  .mascot-mobile-nav {
+    position: relative;
+    z-index: 8;
+    display: flex;
+    min-height: 4.8rem;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .mascot-mobile-nav img { display: block; width: 7.8rem; height: auto; }
+
+  .mascot-mobile-nav button {
+    display: grid;
+    width: 2.8rem;
+    height: 2.8rem;
+    place-items: center;
+    border: 1px solid rgba(244, 203, 120, 0.3);
+    border-radius: 0.55rem;
+    background: rgba(255, 255, 255, 0.04);
+    color: #fff8ee;
+  }
+
+  .mascot-mobile-menu {
+    position: relative;
+    z-index: 7;
+    display: grid;
+    margin-bottom: 1rem;
+    overflow: hidden;
+    border: 1px solid rgba(244, 203, 120, 0.24);
+    border-radius: 0.75rem;
+    background: rgba(4, 11, 21, 0.97);
+  }
+
+  .mascot-mobile-menu a {
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    color: #fff8ee;
+    text-decoration: none;
+  }
+
+  .mascot-mobile-copy { position: relative; z-index: 4; padding: 2rem 0 0; }
+
+  .mascot-mobile-copy h1 {
+    max-width: 34rem;
+    margin: 0;
+    color: #fff8ee;
+    font-family: var(--font-display);
+    font-size: clamp(2.75rem, 10vw, 4.75rem);
+    font-weight: 520;
+    line-height: 1.02;
+    letter-spacing: -0.025em;
+  }
+
+  .mascot-mobile-copy .pocket-option-mark {
+    width: 0.82em;
+    height: 0.72em;
+  }
+
+  .mascot-mobile-copy > p:not(.mascot-mobile-copy__affiliate) {
+    max-width: 34rem;
+    margin: 1rem 0 1.4rem;
+    color: rgba(248, 244, 236, 0.72);
+    font-size: 0.98rem;
+    line-height: 1.68;
+  }
+
+  .mascot-mobile-copy small {
+    display: block;
+    margin-top: 0.8rem;
+    color: rgba(248, 244, 236, 0.48);
+    font-size: 0.72rem;
+  }
+
+  .mascot-mobile-copy__affiliate {
+    max-width: 31rem;
+    margin-top: 1rem;
+    color: rgba(248, 244, 236, 0.68);
+    font-size: 0.82rem;
+    line-height: 1.5;
+  }
+
+  .mascot-mobile-copy__affiliate a { color: #f4cb78; font-weight: 800; }
+
+  .mascot-mobile-stage {
+    position: relative;
+    min-height: clamp(24rem, 85vw, 38rem);
+    margin: 1.2rem 0 0;
+  }
+
+  .mascot-mobile-stage img { position: absolute; display: block; object-fit: contain; }
+
+  .mascot-mobile-stage__desktop {
+    top: 2%;
+    right: -2%;
+    width: 78%;
+    max-height: 78%;
+  }
+
+  .mascot-mobile-stage__phone {
+    z-index: 3;
+    top: 31%;
+    right: 1%;
+    width: 22%;
+    max-height: 58%;
+  }
+
+  .mascot-mobile-stage__girl {
+    z-index: 4;
+    bottom: 0;
+    left: -6%;
+    width: 52%;
+    max-height: 100%;
+    object-position: center bottom;
+  }
+
+  .mascot-mobile-highlights {
+    display: grid;
+    gap: 0.7rem;
+    border: 1px solid rgba(216, 162, 74, 0.32);
+    border-radius: 0.75rem;
+    padding: 0.8rem;
+    background: rgba(5, 11, 20, 0.78);
+  }
+
+  .mascot-mobile-highlights article {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 0.7rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  }
+
+  .mascot-mobile-highlights article:last-child { border-bottom: 0; }
+  .mascot-mobile-highlights svg { color: #f4cb78; }
+  .mascot-mobile-highlights strong,
+  .mascot-mobile-highlights span { display: block; }
+  .mascot-mobile-highlights strong { color: #f4cb78; font-size: 0.9rem; }
+  .mascot-mobile-highlights span { margin-top: 0.2rem; color: rgba(248, 244, 236, 0.62); font-size: 0.78rem; }
+}
+
+@media (max-width: 520px) {
+  .mascot-mobile-copy { padding-top: 1.35rem; }
+  .mascot-mobile-copy h1 { font-size: clamp(2.05rem, 9.2vw, 2.9rem); line-height: 1.04; }
+  .mascot-mobile-copy .avalisa-button { width: 100%; }
+  .mascot-mobile-stage { min-height: 23rem; }
+  .mascot-mobile-stage__desktop { top: 4%; width: 86%; }
+  .mascot-mobile-stage__phone { top: 33%; width: 24%; }
+  .mascot-mobile-stage__girl { left: -12%; width: 58%; }
+}
 .lux-support-chat > header > div > span {
   font-size: 0.82rem;
   color: rgba(245, 239, 228, 0.6);

@@ -1,5 +1,5 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import {
   ArrowRight,
   Brain,
@@ -7,25 +7,24 @@ import {
   Gift,
   Laptop,
   Lock,
+  Menu,
   Puzzle,
   ShieldCheck,
   Smartphone,
   TabletSmartphone,
+  X,
 } from 'lucide-react';
 import { useLenis } from '../lib/useLenis';
-import { AVALISA_DIECUT_IMAGE, AVALISA_PRODUCT_IMAGE } from '../lib/brandAssets';
 import '../styles/luxury.css';
 
 const AFFILIATE_URL =
   'https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50';
 const CHROME_EXTENSION_URL = process.env.REACT_APP_CHROME_STORE_URL || 'https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa';
 
-const proofItems = [
-  { icon: Puzzle, title: 'Chrome Extension', text: 'Desktop trading control for Pocket Option.' },
-  { icon: Smartphone, title: 'Webapp Bot', text: 'Mobile-web shell for phone and tablet access.' },
-  { icon: Brain, title: 'Avalisa AI Pair Scan', text: 'Current pair or favorites scan with confidence filters.' },
-  { icon: Lock, title: 'Backend Plan Access', text: 'Same Avalisa login, paid plan, and free-tier gate.' },
-  { icon: ShieldCheck, title: 'Confirmed Account Mode', text: 'Demo or Real only after PO account mode is readable.' },
+const heroHighlights = [
+  { icon: Brain, title: 'AI-Assisted Execution', text: 'Signals stay visible before execution.' },
+  { icon: ShieldCheck, title: 'Martingale Strategy Controls', text: 'Visible settings and transparent outcomes.' },
+  { icon: Lock, title: 'Latest Reliability Updates', text: 'Improved control, stability, and clarity.' },
 ];
 
 const deviceLinks = [
@@ -96,85 +95,138 @@ function SectionTitle({ children, accent }) {
   );
 }
 
+function PocketOptionMark() {
+  return (
+    <span className="pocket-option-mark" aria-hidden="true">
+      <img src="/images/PO_Logo.png" alt="" />
+    </span>
+  );
+}
+
+function MascotHero() {
+  const [productOpen, setProductOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  return (
+    <section className="mascot-hero" id="top" aria-label="Meet Avalisa PO Bot, AI Trading Bot for Pocket Option">
+      <div className="mascot-hero__desktop">
+        <img
+          className="mascot-hero__art"
+          src="/images/landing/mascot-redesign/avalisa-command-partner-desktop.webp"
+          alt=""
+          aria-hidden="true"
+          fetchPriority="high"
+        />
+
+        <div className="mascot-hero__desktop-copy">
+          <h1>
+            <span className="mascot-hero__title-line mascot-hero__title-line--light">Meet Avalisa PO Bot,</span>
+            <span className="mascot-hero__title-line">AI Trading Bot for</span>
+            <span className="mascot-hero__title-line mascot-hero__title-line--light">Pocket Option <PocketOptionMark /></span>
+          </h1>
+        </div>
+        <p className="mascot-hero__sr">
+          Run Pocket Option strategies on desktop or mobile with visible settings,
+          account-mode checks, and controls before execution.
+        </p>
+
+        <Link className="mascot-hero__hotspot mascot-hero__hotspot--logo" to="/" aria-label="Avalisa PO Bot home" />
+
+        <div className="mascot-hero__product-nav">
+          <button
+            type="button"
+            aria-label="Open Product menu"
+            aria-expanded={productOpen}
+            onClick={() => setProductOpen((open) => !open)}
+          />
+          {productOpen && (
+            <div className="mascot-hero__product-menu">
+              <Link to="/webapp">Webapp Bot</Link>
+              <a href={CHROME_EXTENSION_URL} target="_blank" rel="noreferrer">Chrome Extension</a>
+              <a href="#ai">Avalisa AI</a>
+            </div>
+          )}
+        </div>
+
+        <Link className="mascot-hero__hotspot mascot-hero__hotspot--pricing" to="/pricing" aria-label="Pricing" />
+        <Link className="mascot-hero__hotspot mascot-hero__hotspot--support" to="/support" aria-label="Support" />
+        <Link className="mascot-hero__hotspot mascot-hero__hotspot--login" to="/login" aria-label="Log in" />
+        <Link className="mascot-hero__hotspot mascot-hero__hotspot--register-nav" to="/register" aria-label="Register for Free Access" />
+        <Link className="mascot-hero__hotspot mascot-hero__hotspot--register-hero" to="/register" aria-label="Register for Free Access" />
+        <Link className="mascot-hero__hotspot mascot-hero__hotspot--learn" to="/pricing" aria-label="Learn more about affiliate-confirmed Pro access" />
+      </div>
+
+      <div className="mascot-hero__mobile">
+        <header className="mascot-mobile-nav">
+          <Link to="/" aria-label="Avalisa PO Bot home">
+            <img src="/images/brand/avalisa-signature-logo-gold.png" alt="Avalisa PO Bot" />
+          </Link>
+          <button
+            type="button"
+            aria-label="Toggle navigation"
+            aria-expanded={mobileNavOpen}
+            onClick={() => setMobileNavOpen((open) => !open)}
+          >
+            {mobileNavOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
+        </header>
+
+        {mobileNavOpen && (
+          <nav className="mascot-mobile-menu" aria-label="Primary navigation">
+            <Link to="/webapp" onClick={() => setMobileNavOpen(false)}>Webapp Bot</Link>
+            <a href={CHROME_EXTENSION_URL} target="_blank" rel="noreferrer" onClick={() => setMobileNavOpen(false)}>Chrome Extension</a>
+            <a href="#ai" onClick={() => setMobileNavOpen(false)}>Avalisa AI</a>
+            <Link to="/pricing" onClick={() => setMobileNavOpen(false)}>Pricing</Link>
+            <Link to="/support" onClick={() => setMobileNavOpen(false)}>Support</Link>
+            <Link to="/login" onClick={() => setMobileNavOpen(false)}>Log in</Link>
+          </nav>
+        )}
+
+        <div className="mascot-mobile-copy">
+          <h1>
+            <span className="mascot-hero__title-line mascot-hero__title-line--light">Meet Avalisa PO Bot,</span>
+            <span className="mascot-hero__title-line">AI Trading Bot for</span>
+            <span className="mascot-hero__title-line mascot-hero__title-line--light">Pocket Option <PocketOptionMark /></span>
+          </h1>
+          <p>
+            Run Pocket Option strategies on desktop or mobile—with visible settings,
+            account-mode checks, and controls before execution.
+          </p>
+          <Link to="/register" className="avalisa-button avalisa-button--gold">
+            Register for Free Access <ArrowRight size={17} />
+          </Link>
+          <small>Start in Demo. Trading involves risk. Profits are never guaranteed.</small>
+          <p className="mascot-mobile-copy__affiliate">
+            Affiliate-confirmed Pocket Option registration can unlock Pro.{' '}
+            <Link to="/pricing">Learn more</Link>
+          </p>
+        </div>
+
+        <figure className="mascot-mobile-stage" aria-label="Avalisa PO Bot on desktop and mobile">
+          <img className="mascot-mobile-stage__desktop" src="/images/landing/mascot-redesign/avalisa-desktop-product.webp" alt="Avalisa PO Bot desktop interface" />
+          <img className="mascot-mobile-stage__phone" src="/images/landing/mascot-redesign/avalisa-mobile-product.webp" alt="Avalisa PO Bot mobile interface" />
+          <img className="mascot-mobile-stage__girl" src="/images/landing/mascot-redesign/avalisa-mascot-mobile.webp" alt="Avalisa product guide" />
+        </figure>
+
+        <div className="mascot-mobile-highlights">
+          {heroHighlights.map(({ icon: Icon, title, text }) => (
+            <article key={title}>
+              <Icon size={24} />
+              <div><strong>{title}</strong><span>{text}</span></div>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function Landing() {
   useLenis();
 
   return (
     <main className="avalisa-site">
-      <section className="avalisa-hero" id="top">
-        <div className="avalisa-shell avalisa-hero__grid">
-          <motion.div
-            className="avalisa-hero__copy"
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-          >
-            <h1>
-              Introducing
-              <span className="avalisa-title-desktop">Avalisa PO Bot</span>
-              <span className="avalisa-title-mobile">Avalisa PO<br />Bot</span>
-            </h1>
-            <p>
-              Pocket Option automation refined through years of real product work. Use the
-              Chrome extension on desktop, or open the webapp bot for mobile web access
-              without installing an extension.
-            </p>
-            <div className="avalisa-hero__actions">
-              <SmartLink to="/register" className="avalisa-button avalisa-button--gold">
-                Start Free Demo <ArrowRight size={17} />
-              </SmartLink>
-              <SmartLink href={CHROME_EXTENSION_URL} external className="avalisa-button avalisa-button--outline">
-                Install Extension <Puzzle size={17} />
-              </SmartLink>
-            </div>
-
-            <div className="avalisa-hero__affiliate">
-              <Gift size={20} />
-              <p>
-                Want Pro free? Register Pocket Option through Avalisa, then submit your PO UID in the dashboard.
-                Start in demo first; trading involves risk and profits are never guaranteed.
-              </p>
-              <SmartLink href={AFFILIATE_URL} external className="avalisa-text-link">
-                Open PO signup <ArrowRight size={15} />
-              </SmartLink>
-            </div>
-          </motion.div>
-
-          <motion.figure
-            className="avalisa-hero__stage"
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.7, delay: 0.08 }}
-          >
-            {/* Product first — a visitor has to see what Avalisa actually does. The
-                mascot stands in front of the screens rather than sitting in her own
-                box, so she reads as part of the layout instead of a pasted photo. */}
-            <img
-              className="avalisa-hero__product"
-              src={AVALISA_PRODUCT_IMAGE}
-              alt="The Avalisa Bot panel running inside Pocket Option, showing timeframe, direction and martingale controls"
-            />
-            <img
-              className="avalisa-hero__mascot"
-              src={AVALISA_DIECUT_IMAGE}
-              alt=""
-              aria-hidden="true"
-            />
-          </motion.figure>
-
-          {/* Full-width row: inside the copy column these five items got 142px each
-              and wrapped onto two lines with one orphan. */}
-          <div className="avalisa-proof-strip">
-            {proofItems.map(({ icon: Icon, title, text }) => (
-              <a href={title === 'Chrome Extension' ? CHROME_EXTENSION_URL : title === 'Backend Plan Access' ? '/login' : '#webapp'} target={title === 'Chrome Extension' ? '_blank' : undefined} rel={title === 'Chrome Extension' ? 'noreferrer' : undefined} key={title}>
-                <Icon size={21} />
-                <strong>{title}</strong>
-                <span>{text}</span>
-              </a>
-            ))}
-          </div>
-        </div>
-      </section>
+      <MascotHero />
 
       <section className="avalisa-device-band" id="webapp">
         <div className="avalisa-shell avalisa-device-band__grid">

@@ -3,8 +3,9 @@ import { MessageCircle, Send, X } from 'lucide-react';
 import api from '../lib/api';
 import { HUMAN_FOLLOW_UP_LABEL, createAssistantMessage } from '../lib/supportChat';
 
-export default function FloatingChat() {
+export default function FloatingChat({ deferUntilScroll = false }) {
   const [open, setOpen] = useState(false);
+  const [visible, setVisible] = useState(!deferUntilScroll);
   const [messages, setMessages] = useState([
     { role: 'assistant', content: "Hi, I'm Avalisa. Ask me about setup, pricing, Pocket Option, or bot settings." },
   ]);
@@ -15,6 +16,18 @@ export default function FloatingChat() {
   useEffect(() => {
     if (open) bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, open]);
+
+  useEffect(() => {
+    if (!deferUntilScroll) {
+      setVisible(true);
+      return undefined;
+    }
+
+    const updateVisibility = () => setVisible(window.scrollY > window.innerHeight * 0.72);
+    updateVisibility();
+    window.addEventListener('scroll', updateVisibility, { passive: true });
+    return () => window.removeEventListener('scroll', updateVisibility);
+  }, [deferUntilScroll]);
 
   async function sendMessage(e) {
     e.preventDefault();
@@ -35,6 +48,8 @@ export default function FloatingChat() {
       setLoading(false);
     }
   }
+
+  if (!visible) return null;
 
   return (
     <>
