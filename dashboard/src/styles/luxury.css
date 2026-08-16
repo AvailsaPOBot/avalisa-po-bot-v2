@@ -4515,3 +4515,16 @@
 .lux-price-guide img {
   object-position: 74% center;
 }
+
+/* "AI Support Chat" and "Powered by Avalisa" are a <strong> and a <span> with no
+   whitespace between the tags, so they rendered as "AI Support ChatPowered by
+   Avalisa". Make the subtitle its own line. */
+.lux-support-chat > header > div > span,
+.lux-support-chat > header > div > strong {
+  display: block;
+}
+.lux-support-chat > header > div > span {
+  font-size: 0.82rem;
+  color: rgba(245, 239, 228, 0.6);
+  margin-top: 0.1rem;
+}
