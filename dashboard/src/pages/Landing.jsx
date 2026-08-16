@@ -203,9 +203,11 @@ function MascotHero() {
         </div>
 
         <figure className="mascot-mobile-stage" aria-label="Avalisa PO Bot on desktop and mobile">
-          <img className="mascot-mobile-stage__desktop" src="/images/landing/mascot-redesign/avalisa-desktop-product.webp" alt="Avalisa PO Bot desktop interface" />
-          <img className="mascot-mobile-stage__phone" src="/images/landing/mascot-redesign/avalisa-mobile-product.webp" alt="Avalisa PO Bot mobile interface" />
-          <img className="mascot-mobile-stage__girl" src="/images/landing/mascot-redesign/avalisa-mascot-mobile.webp" alt="Avalisa product guide" />
+          <img
+            className="mascot-mobile-stage__approved"
+            src="/images/landing/mascot-redesign/avalisa-approved-mobile-stage.webp"
+            alt="Avalisa presenting the PO Bot desktop and mobile interfaces"
+          />
         </figure>
 
         <div className="mascot-mobile-highlights">

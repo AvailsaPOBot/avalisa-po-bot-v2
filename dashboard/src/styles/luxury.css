@@ -4765,34 +4765,15 @@
 
   .mascot-mobile-stage {
     position: relative;
-    min-height: clamp(24rem, 85vw, 38rem);
+    min-height: 0;
     margin: 1.2rem 0 0;
   }
 
-  .mascot-mobile-stage img { position: absolute; display: block; object-fit: contain; }
-
-  .mascot-mobile-stage__desktop {
-    top: 2%;
-    right: -2%;
-    width: 78%;
-    max-height: 78%;
-  }
-
-  .mascot-mobile-stage__phone {
-    z-index: 3;
-    top: 31%;
-    right: 1%;
-    width: 22%;
-    max-height: 58%;
-  }
-
-  .mascot-mobile-stage__girl {
-    z-index: 4;
-    bottom: 0;
-    left: -6%;
-    width: 52%;
-    max-height: 100%;
-    object-position: center bottom;
+  .mascot-mobile-stage__approved {
+    display: block;
+    width: 100%;
+    height: auto;
+    object-fit: contain;
   }
 
   .mascot-mobile-highlights {
@@ -4825,10 +4806,7 @@
   .mascot-mobile-copy { padding-top: 1.35rem; }
   .mascot-mobile-copy h1 { font-size: clamp(2.05rem, 9.2vw, 2.9rem); line-height: 1.04; }
   .mascot-mobile-copy .avalisa-button { width: 100%; }
-  .mascot-mobile-stage { min-height: 23rem; }
-  .mascot-mobile-stage__desktop { top: 4%; width: 86%; }
-  .mascot-mobile-stage__phone { top: 33%; width: 24%; }
-  .mascot-mobile-stage__girl { left: -12%; width: 58%; }
+  .mascot-mobile-stage { margin-top: 1.35rem; }
 }
 .lux-support-chat > header > div > span {
   font-size: 0.82rem;
