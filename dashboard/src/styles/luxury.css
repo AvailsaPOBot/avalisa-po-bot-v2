@@ -4361,3 +4361,148 @@
 @media (max-width: 560px) {
   .avalisa-hero__mascot { right: 0; }
 }
+
+/* ---------------------------------------------------------------------------
+   Hero composition fix (2026-08-15, second pass after visual inspection).
+   Previous attempt put the mascot in the MIDDLE of the product shot, covering the
+   chart — the one thing the hero exists to show — and the shot was small enough
+   that the bot panel was illegible. Product gets the space and stays readable;
+   she stands at the right edge and overlaps only its margin.
+--------------------------------------------------------------------------- */
+.avalisa-hero__grid {
+  grid-template-columns: minmax(18rem, 0.86fr) minmax(26rem, 1.14fr);
+}
+
+.avalisa-hero__stage {
+  align-items: center;
+  justify-content: flex-start;
+  min-height: clamp(20rem, 26vw, 27rem);
+  padding-right: clamp(4rem, 11vw, 9rem);
+}
+
+.avalisa-hero__product {
+  width: 100%;
+  max-width: none;
+  /* only the outer rim is feathered, so the UI itself stays crisp and readable */
+  -webkit-mask-image: radial-gradient(135% 130% at 50% 50%, #000 78%, transparent 100%);
+  mask-image: radial-gradient(135% 130% at 50% 50%, #000 78%, transparent 100%);
+}
+
+.avalisa-hero__mascot {
+  left: auto;
+  right: 0;
+  bottom: 0;
+  height: clamp(20rem, 32vw, 33rem);
+  z-index: 2;
+}
+
+/* Five items sat 4 + 1 with one orphan on its own row. */
+.avalisa-proof-strip {
+  grid-template-columns: repeat(auto-fit, minmax(7.2rem, 1fr));
+}
+
+@media (max-width: 900px) {
+  .avalisa-hero__stage { padding-right: clamp(2.5rem, 16vw, 6rem); justify-content: center; }
+  .avalisa-hero__mascot { height: clamp(15rem, 42vw, 22rem); }
+}
+
+/* Measured: she overlapped the product by 163px of its 530px width — covering the
+   Avalisa panel on its right edge, the single most important thing in the shot.
+   Absolute positioning made the overlap a function of her height. Lay them out as
+   flex siblings instead, so the overlap is a fixed, deliberate amount. */
+.avalisa-hero__stage {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding-right: 0;
+  gap: 0;
+}
+
+.avalisa-hero__product {
+  flex: 1 1 auto;
+  min-width: 0;
+  align-self: center;
+}
+
+.avalisa-hero__mascot {
+  position: static;
+  flex: 0 0 auto;
+  margin-left: -2.25rem;
+  height: clamp(20rem, 31vw, 32rem);
+}
+
+@media (max-width: 900px) {
+  .avalisa-hero__mascot { margin-left: -1.5rem; height: clamp(15rem, 40vw, 21rem); }
+}
+
+/* Fixing the overlap shrank the product to 412px, which is not legible for a UI
+   screenshot. Give the visual column more of the row and trim her height so the
+   screenshot keeps the width it needs. */
+.avalisa-hero__grid {
+  grid-template-columns: minmax(16rem, 0.72fr) minmax(28rem, 1.28fr);
+  gap: clamp(1.2rem, 2.6vw, 2.6rem);
+}
+
+.avalisa-hero__mascot {
+  height: clamp(17rem, 24.5vw, 26rem);
+}
+
+/* The copy column is now ~433px, so 70px type wrapped "Avalisa PO Bot" onto three
+   lines again. Size the headline to the column it actually gets. */
+.avalisa-hero__copy h1 {
+  font-size: clamp(2.3rem, 3.9vw, 3.6rem);
+}
+
+/* Proof strip now sits in the hero grid itself, spanning both columns. */
+.avalisa-hero__grid > .avalisa-proof-strip {
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+}
+
+/* She was bottom-aligned to the stage while the product was centre-aligned, so her
+   feet floated ~32px above the screenshot's baseline. Ground both on the same line
+   and let her stand a little taller than the product so she reads as present rather
+   than pasted alongside. */
+.avalisa-hero__grid {
+  grid-template-columns: minmax(17rem, 0.78fr) minmax(27rem, 1.22fr);
+}
+
+.avalisa-hero__product { align-self: flex-end; }
+
+.avalisa-hero__mascot {
+  align-self: flex-end;
+  height: clamp(19rem, 27vw, 29rem);
+}
+
+/* Phones: the side-by-side hero forced a 253px-wide trading screenshot (illegible)
+   and pushed 21 elements past the viewport edge. Stack instead — screenshot full
+   width so the UI is readable, then her beneath it, right-aligned. */
+@media (max-width: 680px) {
+  .avalisa-hero__stage {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    min-height: 0;
+    padding-right: 0;
+  }
+  .avalisa-hero__product {
+    width: 100%;
+    align-self: stretch;
+    -webkit-mask-image: none;
+    mask-image: none;
+    border-radius: 0.4rem;
+  }
+  .avalisa-hero__mascot {
+    align-self: flex-end;
+    margin-left: 0;
+    margin-top: -0.5rem;
+    height: clamp(13rem, 40vw, 18rem);
+  }
+}
+
+/* Ordering fix: the two-column rule above was appended after the earlier mobile
+   collapse, so its minmax(27rem) floor applied on phones too and forced a 432px
+   column into a 375px viewport. Re-assert the single-column layout last. */
+@media (max-width: 900px) {
+  .avalisa-hero__grid { grid-template-columns: 1fr; }
+}

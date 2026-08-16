@@ -138,15 +138,6 @@ export default function Landing() {
                 Open PO signup <ArrowRight size={15} />
               </SmartLink>
             </div>
-            <div className="avalisa-proof-strip">
-              {proofItems.map(({ icon: Icon, title, text }) => (
-                <a href={title === 'Chrome Extension' ? CHROME_EXTENSION_URL : title === 'Backend Plan Access' ? '/login' : '#webapp'} target={title === 'Chrome Extension' ? '_blank' : undefined} rel={title === 'Chrome Extension' ? 'noreferrer' : undefined} key={title}>
-                  <Icon size={21} />
-                  <strong>{title}</strong>
-                  <span>{text}</span>
-                </a>
-              ))}
-            </div>
           </motion.div>
 
           <motion.figure
@@ -170,6 +161,18 @@ export default function Landing() {
               aria-hidden="true"
             />
           </motion.figure>
+
+          {/* Full-width row: inside the copy column these five items got 142px each
+              and wrapped onto two lines with one orphan. */}
+          <div className="avalisa-proof-strip">
+            {proofItems.map(({ icon: Icon, title, text }) => (
+              <a href={title === 'Chrome Extension' ? CHROME_EXTENSION_URL : title === 'Backend Plan Access' ? '/login' : '#webapp'} target={title === 'Chrome Extension' ? '_blank' : undefined} rel={title === 'Chrome Extension' ? 'noreferrer' : undefined} key={title}>
+                <Icon size={21} />
+                <strong>{title}</strong>
+                <span>{text}</span>
+              </a>
+            ))}
+          </div>
         </div>
       </section>
 
