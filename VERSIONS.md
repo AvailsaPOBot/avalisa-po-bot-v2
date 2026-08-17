@@ -123,6 +123,11 @@ Fixes:
 - `WS EVENT` / `Socket.IO binary placeholder` / `WS raw msg` / close-event traces moved behind
   `debugLog` (`localStorage.avalisaDebugLogs = '1'`). These fired on every socket frame of a live
   trading page.
+- Login inputs marked `autocomplete="off"` / `"new-password"`. Verified after the wipe landed:
+  Chrome's own password manager refills the credential into the page on every load, re-creating
+  the exposure. This reduces it but is **not** a complete defence — Chrome may override the hint.
+  **Open item for the Board:** the only real fix is moving login out of po.trade's DOM into the
+  extension popup, which has its own origin. Tracked in `212-status` Known Gaps.
 
 Tests:
 - `test/extension-ai-candles-and-secrets.test.js` — static guard: fails if a candle gate is set

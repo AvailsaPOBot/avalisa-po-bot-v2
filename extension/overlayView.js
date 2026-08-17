@@ -19,8 +19,16 @@ function getOverlayHTML() {
 
       <div id="av-auth-section" class="av-section">
         <div id="av-login-form">
-          <input id="av-email" type="email" placeholder="Email" class="av-input" />
-          <input id="av-password" type="password" placeholder="Password" class="av-input" />
+          <!-- autocomplete=off / new-password: these inputs live in po.trade's own
+               DOM, so Chrome's password manager will happily refill the Avalisa
+               credential into the page on every load, re-creating the exposure
+               that handleLogin's wipe closes. Not a complete defence (Chrome's
+               heuristics can override it) — the real fix is moving login into the
+               extension popup, which has its own origin. -->
+          <input id="av-email" type="email" placeholder="Email" class="av-input"
+                 autocomplete="off" name="avalisa-account" />
+          <input id="av-password" type="password" placeholder="Password" class="av-input"
+                 autocomplete="new-password" name="avalisa-secret" />
           <button id="av-login-btn" class="av-btn av-btn-primary">Login</button>
           <button id="av-register-free-btn" class="av-btn av-btn-outline">Affiliate Pro</button>
         </div>
