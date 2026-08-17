@@ -57,6 +57,7 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
     private var loginPasswordField: NSSecureTextField!
     private var directionRow: NSStackView!
     private var timeframeRow: NSStackView!
+    private var qcTimeframeDone = false
     private var intensityRow: NSStackView!
     private var pairScanRow: NSStackView!
     private let tradeCounter = NSTextField(labelWithString: "Trades this session: 0")
@@ -162,6 +163,7 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
             row("Amount", key: "hasAmountInput"),
             row("Buttons", key: "buttons"),
             row("Layout", key: "layoutHealth"),
+            row("Ready", key: "webappReadiness"),
         ]
         rows.forEach { rowViews in
             _ = statusGrid.addRow(with: rowViews)
@@ -257,7 +259,7 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
             self?.openAvalisaWebsite()
         }
 
-        let version = NSTextField(labelWithString: "v.1.02")
+        let version = NSTextField(labelWithString: "v.1.5")
         version.font = .boldSystemFont(ofSize: 12)
         version.textColor = textColor
 
@@ -596,7 +598,7 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
     }
 
     private func settingsRows() -> NSStackView {
-        strategyPopup = popup(["Martingale", "Avalisa AI"], selected: "Martingale")
+        strategyPopup = popup(["Martingale", "Avalisa Bot"], selected: "Martingale")
         directionPopup = popup(["Alternating", "Always Buy", "Always Sell"], selected: "Alternating")
         timeframePopup = popup(["30s", "1min", "3min", "5min"], selected: "30s")
         intensityPopup = popup(["Low", "Mid", "High"], selected: "Low")
@@ -653,7 +655,7 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
 
     private func applyHelp() {
         let tips: [(NSView?, String)] = [
-            (strategyPopup, "Choose the bot logic. Martingale follows your direction rules. Avalisa AI waits for indicator-based signals."),
+            (strategyPopup, "Choose the bot logic. Martingale follows your direction rules. Avalisa Bot waits for indicator-based signals."),
             (directionPopup, "Direction used by Martingale mode."),
             (timeframePopup, "Trade expiry for Martingale mode."),
             (intensityPopup, "Low trades fastest. Mid is balanced and allows OTC. High is strict and skips OTC."),
@@ -763,7 +765,7 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
     }
 
     private func applyStrategyUI() {
-        let isAI = strategyPopup?.titleOfSelectedItem == "Avalisa AI"
+        let isAI = strategyPopup?.titleOfSelectedItem == "Avalisa Bot"
         directionRow?.isHidden = isAI
         timeframeRow?.isHidden = isAI
         intensityRow?.isHidden = !isAI
@@ -857,7 +859,7 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
     }
 
     private func sendSettings() {
-        let strategyMap = ["Martingale": "martingale", "Avalisa AI": "ai"]
+        let strategyMap = ["Martingale": "martingale", "Avalisa Bot": "ai"]
         let directionMap = ["Alternating": "alternating", "Always Buy": "call", "Always Sell": "put"]
         let timeframeMap = ["30s": "S30", "1min": "M1", "3min": "M3", "5min": "M5"]
         let intensityMap = ["Low": "low", "Mid": "mid", "High": "high"]
@@ -907,6 +909,68 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
         webView.evaluateJavaScript(script)
     }
 
+    // QC-only. Set AVALISA_QC_TIMEFRAME=S30|M1|M3|M5 to make the shell drive the
+    // runtime's expiry control against the live PO page and print the result. Places
+    // no trade and spends no licence: it only proves the expiry can be switched.
+    private func runTimeframeQCIfRequested() {
+        // AVALISA_QC_SCRIPT=<file> runs an arbitrary async JS body against the live page
+        // and prints its return value. QC only — nothing reads this in normal use.
+        if let scriptPath = ProcessInfo.processInfo.environment["AVALISA_QC_SCRIPT"],
+           let body = try? String(contentsOfFile: scriptPath, encoding: .utf8) {
+            webView.callAsyncJavaScript(body, arguments: [:], in: nil, in: .page) { outcome in
+                switch outcome {
+                case .success(let value): print("[AVALISA-QC] \(value)")
+                case .failure(let error): print("[AVALISA-QC] error: \(error)")
+                }
+                fflush(stdout)
+            }
+            return
+        }
+        if ProcessInfo.processInfo.environment["AVALISA_QC_DUMP"] != nil {
+            let dump = "const out = [];"
+                + "for (const el of Array.from(document.querySelectorAll('*'))) {"
+                + "  const r = el.getBoundingClientRect();"
+                + "  if (!(r.width > 0 && r.height > 0)) continue;"
+                + "  if (r.top < window.innerHeight * 0.25) continue;"
+                + "  if (el.children.length > 1) continue;"
+                + "  const t = String(el.value || el.textContent || '').replace(/\\s+/g, ' ').trim();"
+                + "  if (!t || t.length > 26) continue;"
+                + "  out.push(Math.round(r.top) + '|' + el.tagName + '|' + String(el.className || '').slice(0, 44) + '|' + t);"
+                + "}"
+                + "return JSON.stringify({ vh: window.innerHeight, vw: window.innerWidth, leaves: out.slice(0, 160) });"
+            webView.callAsyncJavaScript(dump, arguments: [:], in: nil, in: .page) { outcome in
+                switch outcome {
+                case .success(let value): print("[AVALISA-DUMP] \(value)")
+                case .failure(let error): print("[AVALISA-DUMP] error: \(error)")
+                }
+                fflush(stdout)
+            }
+            return
+        }
+        guard let tf = ProcessInfo.processInfo.environment["AVALISA_QC_TIMEFRAME"], !tf.isEmpty else { return }
+        let script = "const A = window.AvalisaProof;"
+            + "if (!A || !A.debug) { return JSON.stringify({ qc: 'runtime not ready' }); }"
+            // PO floats a deposit modal over the trade panel right after launch; wait
+            // for the real panel before probing, or the probe measures the wrong screen.
+            + "for (let i = 0; i < 60; i++) { A.scan(); if (A.debug.currentExpirySeconds() != null) break; await new Promise(r => setTimeout(r, 1000)); }"
+            + "A.scan();"
+            + "const before = A.debug.currentExpirySeconds();"
+            + "const el = A.debug.findDurationElement();"
+            + "const seen = el ? (el.tagName + '.' + String(el.className || '').slice(0, 60) + ' = ' + (el.value || el.textContent || '').trim().slice(0, 20)) : 'NOT FOUND';"
+            + "const result = await A.debug.applyTimeframe('" + tf + "');"
+            + "A.scan();"
+            + "return JSON.stringify({ qc: 'timeframe', requested: '" + tf + "', before, control: seen, result, after: A.debug.currentExpirySeconds() });"
+        webView.callAsyncJavaScript(script, arguments: [:], in: nil, in: .page) { outcome in
+            switch outcome {
+            case .success(let value):
+                print("[AVALISA-QC] \(value)")
+            case .failure(let error):
+                print("[AVALISA-QC] error: \(error)")
+            }
+            fflush(stdout)
+        }
+    }
+
     private func pollStatus() {
         webView.evaluateJavaScript("(window.AvalisaProof ? (window.AvalisaProof.scan(), window.AvalisaProof.snapshot()) : null)") { [weak self] result, error in
             if error != nil {
@@ -919,6 +983,15 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
                 return
             }
             self.applyStatus(body)
+            if "\(body["layoutHealth"] ?? "")" == "mobile layout ready" {
+                // The dump probe keeps sampling (PO can float a deposit modal over the
+                // trade panel right after launch); the timeframe probe runs once.
+                let repeating = ProcessInfo.processInfo.environment["AVALISA_QC_DUMP"] != nil
+                if repeating || !self.qcTimeframeDone {
+                    if !repeating { self.qcTimeframeDone = true }
+                    self.runTimeframeQCIfRequested()
+                }
+            }
         }
     }
 
@@ -969,7 +1042,13 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
         } else if lowerDemoMode.contains("blocked") || lowerDemoMode.contains("denied") || lowerDemoMode == "unknown" {
             stableAccountCanTrade = false
         }
-        let canTradeAccount = stableAccountCanTrade && licenseAllowed
+        let readiness = body["webappReadiness"] as? [String: Any]
+        let accountReady = ((readiness?["accountReady"] as? Bool) == true)
+        let layoutReady = ((readiness?["layoutReady"] as? Bool) == true)
+        let tradeControlsReady = ((readiness?["tradeControlsReady"] as? Bool) == true)
+        let readinessReady = ((readiness?["readyForLivePhoneTradeProof"] as? Bool) == true)
+        let readinessBlocker = firstReadinessBlocker(readiness)
+        let canTradeAccount = stableAccountCanTrade && licenseAllowed && accountReady && layoutReady && tradeControlsReady
         let botRunning = ((body["botRunning"] as? Bool) == true)
         setEnabled(startBotButton, canTradeAccount && !botRunning)
         setEnabled(stopBotButton, botRunning)
@@ -993,10 +1072,17 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
         let put = ((body["hasPutButton"] as? Bool) == true) ? "PUT" : "-"
         values["buttons"]?.stringValue = "\(call) / \(put)"
         values["layoutHealth"]?.stringValue = "\(body["layoutHealth"] ?? "-")"
+        values["webappReadiness"]?.stringValue = readinessReady
+            ? "live proof ready"
+            : (readinessBlocker.isEmpty ? "blocked" : readinessBlocker)
         if botRunning {
             setStatusText("Status: Running", color: NSColor(hex: 0x34D399))
         } else if canTradeAccount {
             setStatusText("Status: Ready", color: purpleColor)
+        } else if !readinessBlocker.isEmpty {
+            setStatusText("Status: Blocked: \(readinessBlocker)", color: purpleColor)
+        } else if !licenseAllowed {
+            setStatusText("Status: Locked: \(authSummary)", color: purpleColor)
         } else {
             setStatusText("Status: Stopped", color: purpleColor)
         }
@@ -1009,6 +1095,14 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
         } else {
             tradeAllowance.stringValue = "Plan: \(authPlan) · \(licenseAllowed ? "active" : "locked")"
         }
+    }
+
+    private func firstReadinessBlocker(_ readiness: [String: Any]?) -> String {
+        guard let blockers = readiness?["blockers"] as? [Any] else { return "" }
+        return blockers.compactMap { item -> String? in
+            let value = "\(item)".trimmingCharacters(in: .whitespacesAndNewlines)
+            return value.isEmpty ? nil : value
+        }.first ?? ""
     }
 
     private func setEnabled(_ button: NSButton?, _ enabled: Bool) {

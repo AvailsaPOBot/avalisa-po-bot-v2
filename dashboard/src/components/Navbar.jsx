@@ -9,7 +9,7 @@ const AFFILIATE_URL =
 const navItems = [
   { label: 'Webapp Bot', href: '/webapp' },
   { label: 'Features', href: '/#features' },
-  { label: 'Avalisa AI', href: '/#ai' },
+  { label: 'Avalisa Bot', href: '/#ai' },
   { label: 'Pricing', href: '/pricing' },
   { label: 'Support', href: '/support' },
 ];

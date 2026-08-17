@@ -43,6 +43,29 @@
       text-align: center; color: #94a3b8; font-size: 13px; padding: 10px 0;
     }
     .not-on-po a { color: #a78bfa; }
+    .field { margin-bottom: 8px; }
+    .field input {
+      width: 100%; padding: 9px 10px; border-radius: 8px;
+      border: 1px solid #2d2d5b; background: #12122a; color: #e2e8f0;
+      font-size: 13px; font-family: inherit;
+    }
+    .field input:focus { outline: none; border-color: #7c3aed; }
+    .auth-note { font-size: 11px; color: #64748b; line-height: 1.5; margin-bottom: 12px; }
+    .auth-msg { font-size: 12px; margin-bottom: 8px; min-height: 16px; }
+    .auth-msg.error { color: #f87171; }
+    .auth-msg.ok { color: #34d399; }
+    .account-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px; margin-bottom: 12px;
+    }
+    .account-email {
+      font-size: 12px; color: #e2e8f0; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap;
+    }
+    .btn-link {
+      background: none; border: none; color: #94a3b8; font-size: 11px;
+      cursor: pointer; text-decoration: underline; padding: 0; width: auto;
+    }
   </style>
 </head>
 <body>
@@ -50,6 +73,25 @@
   <div class="subtitle">Trading Strategy Tool for Pocket Option</div>
 
   <div id="main-content">
+    <!-- Sign-in lives here, not in the on-page panel: this popup runs on the
+         extension's own origin, so Pocket Option's scripts cannot read it. -->
+    <div id="auth-signed-out" style="display:none">
+      <div class="auth-note">Sign in to your Avalisa account. Your password is never entered on the Pocket Option page.</div>
+      <div class="field"><input id="login-email" type="email" placeholder="Email" autocomplete="username" /></div>
+      <div class="field"><input id="login-password" type="password" placeholder="Password" autocomplete="current-password" /></div>
+      <div class="auth-msg" id="auth-msg"></div>
+      <button class="btn btn-primary" id="login-btn">Sign in</button>
+      <a class="btn btn-outline" id="signup-link" href="#" target="_blank">Create account</a>
+      <div class="divider"></div>
+    </div>
+
+    <div id="auth-signed-in" style="display:none">
+      <div class="account-row">
+        <span class="account-email" id="account-email"></span>
+        <button class="btn-link" id="logout-btn">Sign out</button>
+      </div>
+    </div>
+
     <div class="not-on-po" id="not-on-po" style="display:none">
       <p>Open <a href="https://pocketoption.com" target="_blank">pocketoption.com</a> to use the bot.</p>
     </div>

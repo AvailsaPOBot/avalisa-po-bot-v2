@@ -9,7 +9,7 @@ export default function Hero() {
           <h1 className="landing-hero__title">Trade on <em>autopilot.</em></h1>
           <p className="landing-hero__sub">
             Avalisa is a Chrome extension that runs your Pocket Option strategy
-            from a live bot panel. Avalisa AI scans the chart, checks the setup,
+            from a live bot panel. Avalisa Bot scans the chart, checks the setup,
             and keeps the workflow visible while you stay in control.
           </p>
 
@@ -24,7 +24,7 @@ export default function Hero() {
 
           <div className="landing-proof-row" aria-label="Avalisa proof points">
             <span>PO page overlay</span>
-            <span>Avalisa AI</span>
+            <span>Avalisa Bot</span>
             <span>Demo first</span>
             <span>Pro $119</span>
           </div>
@@ -59,7 +59,7 @@ export default function Hero() {
                 <span className="landing-bot-panel__status">Ready</span>
               </div>
               <div className="landing-bot-panel__grid">
-                <span>Mode</span><strong>Avalisa AI</strong>
+                <span>Mode</span><strong>Avalisa Bot</strong>
                 <span>Pair Scan</span><strong>Auto</strong>
                 <span>Intensity</span><strong>Low</strong>
                 <span>Start Amount</span><strong>$1.00</strong>

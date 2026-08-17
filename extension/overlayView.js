@@ -5,21 +5,30 @@
 
 function getOverlayHTML() {
   const logoUrl = chrome.runtime.getURL('icons/avalisa-signature-logo-transparent.png');
+  const manifestVersion = chrome.runtime.getManifest().version;
   return `
     <div id="avalisa-panel">
       <div class="av-header">
         <span class="av-logo">
           <img src="${logoUrl}" alt="Avalisa PO Bot" class="av-logo-img" />
           <span>Avalisa PO Bot</span>
+          <span id="av-build-badge" class="av-build-badge" title="Loaded extension build">v${manifestVersion}</span>
         </span>
         <button id="av-close" class="av-icon-btn">✕</button>
       </div>
 
       <div id="av-auth-section" class="av-section">
+        <!-- No credential fields here by design.
+             This panel is injected into Pocket Option's own DOM, so any input in
+             it is readable by PO's page scripts and by every other extension the
+             user has installed — and Chrome's password manager refills it on
+             every page load. Sign-in therefore happens in the toolbar popup,
+             which runs on the extension's own origin. -->
         <div id="av-login-form">
-          <input id="av-email" type="email" placeholder="Email" class="av-input" />
-          <input id="av-password" type="password" placeholder="Password" class="av-input" />
-          <button id="av-login-btn" class="av-btn av-btn-primary">Login</button>
+          <div class="av-signin-note">
+            Sign in from the <strong>Avalisa</strong> icon in your Chrome toolbar
+            to keep your password off the Pocket Option page.
+          </div>
           <button id="av-register-free-btn" class="av-btn av-btn-outline">Affiliate Pro</button>
         </div>
         <div id="av-logged-in" style="display:none">
@@ -33,10 +42,12 @@ function getOverlayHTML() {
 
       <div class="av-section">
         <div class="av-row" id="av-row-strategy">
-          <label class="av-label" title="Choose the bot logic. Martingale follows your direction rules. Avalisa AI waits for indicator-based signals.">Strategy</label>
-          <select id="av-strategy" class="av-select" title="Choose the bot logic. Martingale follows your direction rules. Avalisa AI waits for indicator-based signals.">
+          <label class="av-label" title="Choose the bot logic. Martingale follows your direction rules. Avalisa Bot waits for indicator-based signals.">Strategy</label>
+          <select id="av-strategy" class="av-select" title="Choose the bot logic. Martingale follows your direction rules. Avalisa Bot waits for indicator-based signals.">
             <option value="martingale" title="Rule mode: trade the selected direction and increase after losses.">Martingale</option>
-            <option value="ai" title="Signal mode: Avalisa evaluates candles, RSI, Bollinger Bands, volatility, and trend.">Avalisa AI</option>
+            <!-- value stays "ai": it is persisted in every user's chrome.storage and sent
+                 to the backend on each trade. The LABEL is what changed. -->
+            <option value="ai" title="Signal mode: Avalisa checks candles, RSI, Bollinger Bands, volatility, and trend against a fixed rule set.">Avalisa Bot</option>
           </select>
         </div>
         <div class="av-row" id="av-row-direction">
@@ -57,7 +68,7 @@ function getOverlayHTML() {
           </select>
         </div>
         <div class="av-row" id="av-row-intensity" style="display:none">
-          <label class="av-label" title="How strict Avalisa AI is before placing a signal.">Intensity</label>
+          <label class="av-label" title="How many of the four rules must agree before Avalisa Bot trades.">Intensity</label>
           <select id="av-intensity" class="av-select" title="Low trades fastest. Mid is balanced and now allows OTC. High is strict and skips OTC.">
             <option value="low" title="Most active. Lower confirmation, allows OTC.">Low</option>
             <option value="mid" selected title="Balanced. More confirmation than Low, now allows OTC.">Mid</option>
@@ -65,7 +76,7 @@ function getOverlayHTML() {
           </select>
         </div>
         <div class="av-row" id="av-row-ai-pair-mode" style="display:none">
-          <label class="av-label" title="Controls whether AI can rotate through favorite pairs.">Pair Scan</label>
+          <label class="av-label" title="Controls whether Avalisa Bot can rotate through favorite pairs.">Pair Scan</label>
           <select id="av-ai-pair-mode" class="av-select" title="Auto scan checks favorite pairs. Current pair only stays on the visible chart.">
             <option value="auto" selected title="Scan PO favorite pairs and switch to a payout-qualified signal.">Auto scan favorites</option>
             <option value="current" title="Never rotate pairs; trade only the visible chart.">Current pair only</option>
@@ -128,6 +139,17 @@ function getOverlayHTML() {
 
       <div class="av-section av-status-block">
         <div id="av-status" class="av-status">Status: Stopped</div>
+        <!-- Live signal readout (Avalisa Bot only). Shows which of the four rules
+             currently agree, so a scan that is working but unconvinced is
+             visibly different from one that has stalled. -->
+        <div id="av-signal-box" class="av-signal-box" style="display:none">
+          <div class="av-signal-head">
+            <span id="av-signal-pair" class="av-signal-pair"></span>
+            <span id="av-signal-score" class="av-signal-score"></span>
+          </div>
+          <ul id="av-signal-rules" class="av-signal-rules"></ul>
+          <div id="av-signal-age" class="av-signal-age"></div>
+        </div>
         <div id="av-token-status" class="av-counter" style="display:none"></div>
         <div id="av-trade-counter" class="av-counter">Trades this session: 0</div>
       </div>
@@ -178,6 +200,10 @@ function getOverlayCSS() {
       font-size: 15px; font-weight: 700; color: #a78bfa;
     }
     .av-logo-img { height: 26px; width: 52px; object-fit: contain; display: block; flex-shrink: 0; }
+    .av-build-badge {
+      font-size: 10px; font-weight: 700; color: #15120a; background: #f4c95d;
+      border-radius: 999px; padding: 2px 6px; line-height: 1; letter-spacing: 0;
+    }
     .av-icon-btn { background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 14px; }
     .av-icon-btn:hover { color: #e2e8f0; }
     .av-section { margin-bottom: 12px; border-bottom: 1px solid #2d2d5b; padding-bottom: 12px; }
@@ -221,7 +247,33 @@ function getOverlayCSS() {
     .av-plan-badge.plan-lifetime { background: #f4c95d; color: #15120a; }
     .av-plan-badge.plan-basic { background: #059669; color: #fff; }
     .av-plan-badge.plan-free { background: #3b82f6; color: #fff; }
+    .av-signin-note {
+      font-size: 11px; line-height: 1.5; color: #8fa8c8;
+      background: #10182a; border: 1px solid #2a4060; border-radius: 6px;
+      padding: 8px; margin-bottom: 8px;
+    }
+    .av-signin-note strong { color: #f4c95d; }
     .av-status-block { }
+    .av-signal-box {
+      margin: 6px 0 4px; padding: 6px 8px; border: 1px solid #2a4060;
+      border-radius: 6px; background: #10182a;
+    }
+    .av-signal-head {
+      display: flex; justify-content: space-between; align-items: baseline;
+      gap: 6px; margin-bottom: 4px;
+    }
+    .av-signal-pair { font-size: 11px; color: #8fa8c8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .av-signal-score { font-size: 11px; font-weight: 700; color: #a78bfa; white-space: nowrap; }
+    .av-signal-score.ready { color: #34d399; }
+    .av-signal-rules { list-style: none; margin: 0; padding: 0; }
+    .av-signal-rules li {
+      font-size: 11px; line-height: 1.5; color: #64748b;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .av-signal-rules li.met { color: #cbd5e1; }
+    .av-signal-rules li .av-tick { width: 10px; flex-shrink: 0; color: #475569; }
+    .av-signal-rules li.met .av-tick { color: #34d399; }
+    .av-signal-age { font-size: 10px; color: #475569; margin-top: 4px; }
     .av-status { font-size: 12px; color: #a78bfa; margin-bottom: 4px; }
     .av-status.error { color: #f87171; }
     .av-status.running { color: #34d399; }

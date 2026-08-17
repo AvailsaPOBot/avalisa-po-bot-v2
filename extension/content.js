@@ -9,6 +9,21 @@
 // (see manifest.json content_scripts[0]). The legacy <script src=...> approach
 // was blocked by PO's CSP, which prevented the WebSocket wrapper from installing.
 
+// Verbose WS/DOM tracing is developer-only. Without this gate the bot logged every
+// socket frame and XHR body on a live trading page — hundreds of KB a minute, plus
+// whatever happened to be inside those payloads. Enable with
+// localStorage.setItem('avalisaDebugLogs','1') (same switch injected.js uses).
+function avDebugEnabled() {
+  try {
+    return window.__AVALISA_DEBUG_LOGS__ === true || window.localStorage?.getItem('avalisaDebugLogs') === '1';
+  } catch (_) {
+    return window.__AVALISA_DEBUG_LOGS__ === true;
+  }
+}
+function debugLog(...args) {
+  if (avDebugEnabled()) console.log(...args);
+}
+
 let _wsDebugCount = 0;
 let _tickLogCount = 0;
 function parseWsMessage(raw) {
@@ -16,13 +31,13 @@ function parseWsMessage(raw) {
 
   // Debug: log first 10 raw WS messages so we can see the actual format
   if (_wsDebugCount < 10) {
-    console.log('[Avalisa] WS raw msg #' + _wsDebugCount + ':', raw.substring(0, 200));
+    debugLog('[Avalisa] WS raw msg #' + _wsDebugCount + ':', raw.substring(0, 200));
     _wsDebugCount++;
   }
 
   // Socket.IO binary event placeholder (451- prefix)
   if (raw.startsWith('451-') || raw.startsWith('452-')) {
-    console.log('[Avalisa] Socket.IO binary placeholder:', raw.substring(0, 200));
+    debugLog('[Avalisa] Socket.IO binary placeholder:', raw.substring(0, 200));
     return; // actual data arrives in next binary frame, handled by AVALISA_WS_HISTORY
   }
 
@@ -38,17 +53,17 @@ function parseWsMessage(raw) {
   if (CLOSE_EVENT_PATTERNS.test(event)) {
     state.recentCloseEvents.push({ ts: Date.now(), event, payload });
     if (state.recentCloseEvents.length > 20) state.recentCloseEvents.shift();
-    console.log('[Avalisa] CLOSE EVENT CAPTURED:', event, JSON.stringify(payload).substring(0, 500));
+    debugLog('[Avalisa] CLOSE EVENT CAPTURED:', event, JSON.stringify(payload).substring(0, 500));
   }
 
   // Log ALL events — helps map PO's AI signal event names
   const skip = new Set(['updateStream', 'setTime', 'ping', 'pong']);
   if (!skip.has(event)) {
-    console.log('[Avalisa] WS EVENT:', event, JSON.stringify(payload).substring(0, 400));
+    debugLog('[Avalisa] WS EVENT:', event, JSON.stringify(payload).substring(0, 400));
   }
 
   if (event === 'updateHistoryNewFast' || event === 'successloadHistory') {
-    console.log('[Avalisa] History text frame:', event, JSON.stringify(payload).substring(0, 200));
+    debugLog('[Avalisa] History text frame:', event, JSON.stringify(payload).substring(0, 200));
   }
 }
 
@@ -180,6 +195,120 @@ function scheduleCandleCacheSave() {
   }, 1000);
 }
 
+function persistRuntimeSession(phase = 'running') {
+  if (typeof chrome === 'undefined' || !chrome.storage?.local) return Promise.resolve(false);
+  const payload = {
+    savedAt: Date.now(),
+    version: chrome.runtime?.getManifest?.().version || null,
+    phase,
+    running: state.running,
+    stopRequested: state.stopRequested,
+    currentAmount: state.currentAmount,
+    martingaleStep: state.martingaleStep,
+    tradesCount: state.tradesCount,
+    lastDirection: state.lastDirection,
+    settings: state.settings,
+    amountSetFailures: state.amountSetFailures || 0,
+    recoveryReloads: state.recoveryReloads || 0,
+    cycleErrorReloads: state.cycleErrorReloads || 0,
+  };
+  return new Promise(resolve => chrome.storage.local.set({ [RUNTIME_SESSION_KEY]: payload }, () => resolve(true)));
+}
+
+// v2.4.8: when a safety stop fires mid-ladder, keep the ladder position so the
+// next Start can resume the recovery instead of restarting at step 0 — an
+// abandoned half-ladder is realized loss for the user. Manual Stop clears it.
+function preservePausedLadder(reason) {
+  if (typeof chrome === 'undefined' || !chrome.storage?.local) return Promise.resolve(false);
+  const startAmount = parseFloat(state.settings?.startAmount) || 1.0;
+  const midLadder = (state.martingaleStep || 0) > 0 || (state.currentAmount || 0) > startAmount;
+  if (!midLadder) return Promise.resolve(false);
+  const payload = {
+    savedAt: Date.now(),
+    reason,
+    currentAmount: state.currentAmount,
+    martingaleStep: state.martingaleStep,
+    tradesCount: state.tradesCount,
+    lastDirection: state.lastDirection,
+    startAmount,
+    martingaleMultiplier: state.settings?.martingaleMultiplier,
+    martingaleSteps: state.settings?.martingaleSteps,
+  };
+  return new Promise(resolve => chrome.storage.local.set({ [PAUSED_LADDER_KEY]: payload }, () => resolve(true)));
+}
+
+function clearPausedLadder() {
+  if (typeof chrome === 'undefined' || !chrome.storage?.local) return Promise.resolve(false);
+  return new Promise(resolve => chrome.storage.local.remove([PAUSED_LADDER_KEY], () => resolve(true)));
+}
+
+function loadPausedLadder() {
+  if (typeof chrome === 'undefined' || !chrome.storage?.local) return Promise.resolve(null);
+  return new Promise(resolve => {
+    chrome.storage.local.get([PAUSED_LADDER_KEY], data => resolve(data?.[PAUSED_LADDER_KEY] || null));
+  });
+}
+
+// Consume a preserved ladder if it is fresh and the martingale settings are
+// unchanged. Returns the payload to resume, or null. Always clears the marker.
+async function consumePausedLadder(settings) {
+  const saved = await loadPausedLadder();
+  if (!saved) return null;
+  await clearPausedLadder();
+  if (Date.now() - Number(saved.savedAt || 0) > PAUSED_LADDER_MAX_AGE_MS) return null;
+  const startAmount = parseFloat(settings?.startAmount) || 1.0;
+  const sameSettings =
+    Number(saved.startAmount) === startAmount &&
+    String(saved.martingaleMultiplier) === String(settings?.martingaleMultiplier) &&
+    String(saved.martingaleSteps) === String(settings?.martingaleSteps);
+  if (!sameSettings) return null;
+  if (!Number.isFinite(Number(saved.currentAmount)) || Number(saved.currentAmount) <= 0) return null;
+  return saved;
+}
+
+function clearRuntimeSession() {
+  if (typeof chrome === 'undefined' || !chrome.storage?.local) return Promise.resolve(false);
+  return new Promise(resolve => chrome.storage.local.remove([RUNTIME_SESSION_KEY], () => resolve(true)));
+}
+
+function loadRuntimeSession() {
+  if (typeof chrome === 'undefined' || !chrome.storage?.local) return Promise.resolve(null);
+  return new Promise(resolve => {
+    chrome.storage.local.get([RUNTIME_SESSION_KEY], data => resolve(data?.[RUNTIME_SESSION_KEY] || null));
+  });
+}
+
+async function restoreRuntimeSession() {
+  const saved = await loadRuntimeSession();
+  if (!saved?.running || saved.stopRequested) return false;
+  if (Date.now() - Number(saved.savedAt || 0) > RUNTIME_SESSION_MAX_AGE_MS) {
+    await clearRuntimeSession();
+    return false;
+  }
+
+  state.settings = { ...getDefaultSettings(), ...(saved.settings || state.settings || {}) };
+  state.running = true;
+  state.stopRequested = false;
+  state.cycleGeneration += 1;
+  state.currentAmount = Math.max(1, Number(saved.currentAmount) || Number(state.settings.startAmount) || 1);
+  state.martingaleStep = Math.max(0, Number(saved.martingaleStep) || 0);
+  state.tradesCount = Math.max(0, Number(saved.tradesCount) || 0);
+  state.lastDirection = saved.lastDirection || null;
+  state.amountSetFailures = Math.max(0, Number(saved.amountSetFailures) || 0);
+  state.recoveryReloads = Math.max(0, Number(saved.recoveryReloads) || 0);
+  state.cycleErrorReloads = Math.max(0, Number(saved.cycleErrorReloads) || 0);
+  clearTradeLock();
+
+  updateUI();
+  updateTradeCounter();
+  updateStatus('running', `Recovered session — continuing $${state.currentAmount.toFixed(2)} recovery`);
+  const gen = state.cycleGeneration;
+  setTimeout(() => {
+    if (isCycleActive(gen)) runTradeCycle(gen).catch(err => console.error('[Avalisa] Recovered cycle error:', err));
+  }, 2500);
+  return true;
+}
+
 // Merge-seed the buffer from a bulk updateHistoryNewFast payload.
 // `ticks` is an array of [timestamp_seconds_float, price_float].
 // v2.3.1: MERGE existing + incoming candles by time key, NEVER shrink the buffer.
@@ -298,22 +427,29 @@ async function incrementTrade() {
   }
 }
 
-// ─── Avalisa AI Opportunity Scanner ─────────────────────────────────────────
-async function ensureAvalisaDataForCurrentPair(timeoutMs = 6000, requiredCandles = getRequiredCandles()) {
+// ─── Avalisa Bot Opportunity Scanner ────────────────────────────────────────
+// periodSec defaults to the AI analysis period rather than the chart/expiry
+// period. Reading it off the expiry (the old behaviour) meant a 60s expiry asked
+// PO for 60s candles, and PO's fixed ~11-minute tick budget only yields ~10 of
+// those — below every intensity gate, so the scan could never become ready.
+async function ensureAvalisaDataForCurrentPair(
+  timeoutMs = 6000,
+  requiredCandles = getRequiredCandles(),
+  periodSec = AI_ANALYSIS_PERIOD_SEC,
+) {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
     const asset = normalizeAssetName(getCurrentPair());
-    const periodSec = getCurrentPeriodSeconds();
     if (asset && asset !== 'UNKNOWN' && periodSec) {
       await restoreCandleCache(asset, periodSec);
-      requestCandleHistory(asset, periodSec, true);
+      requestCandleHistory(asset, periodSec);
       const activeReady = state.activePair === asset && state.activePeriod === periodSec;
       const activeCount = activeReady ? getBufferedCandlesFor(asset, periodSec).length : 0;
       if (activeCount >= requiredCandles) return true;
     }
     await sleep(500);
   }
-  return getBufferedCandles().length >= requiredCandles;
+  return getBufferedCandlesFor(normalizeAssetName(getCurrentPair()), periodSec).length >= requiredCandles;
 }
 
 function evaluateAvalisaCurrentPair(intensity, payout = null, source = 'current') {
@@ -322,6 +458,11 @@ function evaluateAvalisaCurrentPair(intensity, payout = null, source = 'current'
   if (candles.length < requiredCandles) {
     return {
       source,
+      // Carry the pair/period even on the not-ready path — without these the
+      // scan log printed "pair=undefined" for every stalled favourite, which is
+      // precisely the case you need to be able to read.
+      asset: state.activePair,
+      period: state.activePeriod,
       action: 'SKIP',
       reason: `loading_${candles.length}_${requiredCandles}`,
       candleCount: candles.length,
@@ -331,10 +472,18 @@ function evaluateAvalisaCurrentPair(intensity, payout = null, source = 'current'
   const tf = SECONDS_TO_TF[state.activePeriod] || `${state.activePeriod}s`;
   const indicators = buildIndicators(candles, state.activePair, tf);
   if (!indicators) {
-    return { source, action: 'SKIP', reason: 'missing_indicators', candleCount: candles.length };
+    return {
+      source,
+      asset: state.activePair,
+      period: state.activePeriod,
+      action: 'SKIP',
+      reason: 'missing_indicators',
+      candleCount: candles.length,
+    };
   }
 
   const sig = globalThis.AvalisaSignalEngine.evaluateSignal(indicators, intensity);
+  recordSignalSnapshot(state.activePair, sig);
   const confidence = sig.snapshot?.confidence || 0;
   const payoutBonus = Number.isFinite(payout) ? Math.max(0, payout - (state.payoutMinPercent || 0)) / 2 : 0;
   const score = confidence + payoutBonus;
@@ -355,8 +504,12 @@ function evaluateAvalisaCurrentPair(intensity, payout = null, source = 'current'
 }
 
 function isAvalisaNoProgressReason(reason) {
+  // 'otc_filter' is gone in signal engine v3 — High no longer refuses OTC pairs.
+  // 'not_enough_rules' is a normal outcome, NOT a stall: the scanner looked and
+  // the evidence simply did not line up yet, so it must not count toward the
+  // no-progress cooldown.
   return /^loading_\d+_\d+$/.test(String(reason || '')) ||
-    ['otc_filter', 'no_ready_favorite', 'no_favorite_signal', 'no_favorites_above_payout'].includes(reason);
+    ['no_ready_favorite', 'no_favorite_signal', 'no_favorites_above_payout'].includes(reason);
 }
 
 function stopAvalisaForDecision(message) {
@@ -366,6 +519,56 @@ function stopAvalisaForDecision(message) {
   clearTradeLock();
   updateUI();
   updateStatus('error', message);
+}
+
+// v2.4.8: an unexpected error no longer kills the bot on first strike — a
+// mid-ladder halt leaves the user holding the accumulated loss. Retry with
+// backoff, then self-heal with one page reload (session persists through it),
+// and only then stop — preserving the ladder for the next Start.
+async function handleTradeCycleError(err, generation) {
+  const message = err?.message || String(err || 'unknown error');
+  console.error('[Avalisa] Trade cycle error:', err);
+  state.lastTradeCycleError = {
+    at: new Date().toISOString(),
+    generation,
+    phase: state.tradeLockPhase || null,
+    name: err?.name || 'Error',
+    message,
+  };
+
+  if (generation !== state.cycleGeneration) return;
+
+  state.cycleErrorStreak = (state.cycleErrorStreak || 0) + 1;
+
+  if (!state.isTradeOpen && state.cycleErrorStreak <= MAX_CYCLE_ERROR_RETRIES) {
+    const backoffMs = 3000 * state.cycleErrorStreak;
+    clearTradeLock();
+    updateStatus('running', `Page hiccup — retrying in ${Math.round(backoffMs / 1000)}s (${state.cycleErrorStreak}/${MAX_CYCLE_ERROR_RETRIES + 1})`);
+    await persistRuntimeSession('cycle_error_retry');
+    await sleep(backoffMs);
+    if (isCycleActive(generation)) runTradeCycle(generation).catch(console.error);
+    return;
+  }
+
+  if (!state.isTradeOpen && (state.cycleErrorReloads || 0) < 1) {
+    state.cycleErrorReloads = (state.cycleErrorReloads || 0) + 1;
+    state.cycleErrorStreak = 0;
+    clearTradeLock();
+    await persistRuntimeSession('auto_reload_error');
+    updateStatus('running', 'Repeated page errors — reloading PO to recover, ladder continues');
+    setTimeout(() => window.location.reload(), 1500);
+    return;
+  }
+
+  await preservePausedLadder('cycle_error');
+  state.running = false;
+  state.stopRequested = true;
+  state.cycleErrorStreak = 0;
+  state.cycleErrorReloads = 0;
+  clearTradeLock();
+  clearRuntimeSession().catch(() => {});
+  updateUI();
+  updateStatus('error', 'Avalisa stopped safely — Pocket Option changed or page error. Press Start to resume the ladder.');
 }
 
 async function chooseAvalisaOpportunity(intensity, generation) {
@@ -432,6 +635,86 @@ function clearTradeLock() {
   state.isTradeOpen = false;
 }
 
+// v2.4.8: a single balance read is not enough evidence to kill a live ladder —
+// PO re-renders and overlays can produce one-off misreads. Require two reads,
+// a beat apart, that agree with each other before trusting the number.
+async function getConfirmedBalance() {
+  const first = await getBalance().catch(() => null);
+  if (!Number.isFinite(first) || first <= 0) return null;
+  await sleep(BALANCE_CONFIRM_DELAY_MS);
+  const second = await getBalance().catch(() => null);
+  if (!Number.isFinite(second) || second <= 0) return null;
+  if (Math.abs(first - second) > Math.max(1, first * 0.02)) {
+    console.warn(`[Avalisa] Balance reads disagree (${first} vs ${second}) — treating balance as unknown`);
+    return null;
+  }
+  return Math.max(first, second);
+}
+
+async function retryAfterAmountSetFailure(generation, safeAmount) {
+  const availableBalance = await getConfirmedBalance();
+  if (Number.isFinite(availableBalance) && availableBalance > 0 && safeAmount > availableBalance + 0.01) {
+    await pauseRecoveryAfterAmountSetFailure(generation, safeAmount, availableBalance);
+    return;
+  }
+
+  state.amountSetFailures = (state.amountSetFailures || 0) + 1;
+  state.lastTradeCycleError = {
+    at: new Date().toISOString(),
+    generation,
+    phase: 'set_amount',
+    name: 'AmountSetFailed',
+    message: `Could not set trade amount ${safeAmount}`,
+  };
+  await persistRuntimeSession('amount_retry');
+  closePOPopovers();
+
+  if (state.amountSetFailures >= 3) {
+    if ((state.recoveryReloads || 0) >= MAX_RECOVERY_RELOADS) {
+      await pauseRecoveryAfterAmountSetFailure(generation, safeAmount, availableBalance);
+      return;
+    }
+    state.recoveryReloads = (state.recoveryReloads || 0) + 1;
+    state.amountSetFailures = 0;
+    await persistRuntimeSession('auto_reload_amount');
+    updateStatus('running', `Amount control stuck — reloading PO (${state.recoveryReloads}/${MAX_RECOVERY_RELOADS}), then continuing $${safeAmount.toFixed(2)} recovery`);
+    setTimeout(() => window.location.reload(), 1500);
+    return;
+  }
+
+  const retryMs = 2500 + (state.amountSetFailures * 1000);
+  updateStatus('running', `Could not set $${safeAmount.toFixed(2)} — refreshing controls, retrying (${state.amountSetFailures}/3)`);
+  await sleep(retryMs);
+  if (isCycleActive(generation)) runTradeCycle(generation).catch(console.error);
+}
+
+async function pauseRecoveryAfterAmountSetFailure(generation, safeAmount, availableBalance = null) {
+  const hasBalance = Number.isFinite(availableBalance) && availableBalance > 0;
+  const balanceText = hasBalance ? ` above balance $${availableBalance.toFixed(2)}` : '';
+  const aboveBalance = hasBalance && safeAmount > availableBalance + 0.01;
+  state.lastTradeCycleError = {
+    at: new Date().toISOString(),
+    generation,
+    phase: aboveBalance ? 'amount_above_balance' : 'amount_control_stuck',
+    name: 'RecoveryPaused',
+    message: `Could not safely set recovery amount ${safeAmount}${balanceText}`,
+  };
+  await preservePausedLadder(aboveBalance ? 'amount_above_balance' : 'amount_control_stuck');
+  state.running = false;
+  state.stopRequested = true;
+  state.amountSetFailures = 0;
+  state.recoveryReloads = 0;
+  clearTradeLock();
+  await clearRuntimeSession();
+  updateUI();
+  updateStatus(
+    'error',
+    aboveBalance
+      ? `Recovery paused — $${safeAmount.toFixed(2)} is above balance $${availableBalance.toFixed(2)}. Top up or lower start amount, then press Start to resume the ladder.`
+      : `Recovery paused — PO would not accept $${safeAmount.toFixed(2)} after reloads. Press Start to resume the ladder.`
+  );
+}
+
 async function recoverAfterUnconfirmedOrder() {
   state.unconfirmedOrderFailures = (state.unconfirmedOrderFailures || 0) + 1;
   closePOPopovers();
@@ -472,6 +755,14 @@ function getNextDirection() {
 }
 
 async function runTradeCycle(generation) {
+  try {
+    await runTradeCycleUnsafe(generation);
+  } catch (err) {
+    await handleTradeCycleError(err, generation);
+  }
+}
+
+async function runTradeCycleUnsafe(generation) {
   if (!isCycleActive(generation)) return;
 
   if (state.tradeLock || state.isTradeOpen) {
@@ -525,14 +816,14 @@ async function runTradeCycle(generation) {
     }
   }
 
-  // AI strategy guard: Basic gets limited AI trades; Pro gets unlimited current modes.
+  // Signal-mode guard: Basic gets limited Avalisa Bot trades; Pro is unlimited.
   if (state.settings.strategy === 'ai' && !['basic', 'lifetime'].includes(license.plan)) {
     state.settings.strategy = 'martingale';
     state.settings.aiAssist = false;
     const stratEl = document.getElementById('av-strategy');
     if (stratEl) stratEl.value = 'martingale';
     updateUI();
-    updateStatus('error', 'Avalisa AI requires Basic or Pro. Switched to Martingale.');
+    updateStatus('error', 'Avalisa Bot requires Basic or Pro. Switched to Martingale.');
   }
 
   // AI mode: local rule engine — zero network calls
@@ -575,14 +866,14 @@ async function runTradeCycle(generation) {
     // Old code always fell through to 'mid' regardless of user's Low/High pick.
     const opportunity = await chooseAvalisaOpportunity(intensity, generation);
     if (!isCycleActive(generation)) return;
-    const sig = opportunity?.sig || { action: 'SKIP', reason: opportunity?.reason || 'no_signal' };
+    const sig = opportunity?.sig || { action: 'SKIP', reason: opportunity?.reason || 'not_enough_rules' };
     aiSignalSnapshot = sig.snapshot || null;
     aiSuggestedTimeframe = opportunity?.timeframe || sig.timeframe || null;
 
     console.log(`[Avalisa] Avalisa selected: action=${sig.action} pair=${opportunity?.asset || getCurrentPair()} source=${opportunity?.source || 'current'} confidence=${opportunity?.confidence || 0} tf=${aiSuggestedTimeframe || 'n/a'} reason=${sig.reason || opportunity?.reason || 'ok'} rules=${sig.snapshot?.rulesMatched}`);
 
     if (sig.action === 'SKIP') {
-      const reason = sig.reason || opportunity?.reason || 'no_signal';
+      const reason = sig.reason || opportunity?.reason || 'not_enough_rules';
       const noProgressReason = isAvalisaNoProgressReason(reason);
       if (noProgressReason) {
         state.aiNoProgressCycles = (state.aiNoProgressCycles || 0) + 1;
@@ -592,9 +883,11 @@ async function runTradeCycle(generation) {
       // SKIP: re-check soon, using the live PO duration as the retry clock.
       const candleMs = getCurrentPeriodSeconds() * 1000;
       const retryMs = noProgressReason ? 5000 : Math.min(candleMs, 30000);
-      // High intensity skips OTC by design. Low/Mid can trade OTC.
-      const skipMsg = reason === 'otc_filter'
-        ? `SKIP — OTC pair (use Low or Mid intensity) — retrying (${state.aiNoProgressCycles || 0})`
+      // Say how close it got, so a scan that is working but unconvinced does not
+      // look identical to one that is stuck.
+      const snap = sig.snapshot;
+      const skipMsg = (reason === 'not_enough_rules' && snap && Number.isFinite(snap.rulesMatched))
+        ? `SKIP — ${snap.rulesMatched}/${snap.required} rules (${snap.intensity}) — scanning again`
         : `SKIP (${reason}) — scanning again (${state.aiNoProgressCycles || 0})`;
       updateStatus('running', skipMsg);
       await sleep(retryMs);
@@ -617,7 +910,7 @@ async function runTradeCycle(generation) {
 
   updateStatus('running', `Trade #${state.tradesCount + 1} — ${direction.toUpperCase()} $${safeAmount.toFixed(2)}`);
 
-  // AI mode now executes on Avalisa AI's selected duration. Martingale still uses
+  // Signal mode now executes on Avalisa Bot's selected duration. Martingale still uses
   // the saved bot timeframe setting from the extension panel.
   let executionTimeframe = state.settings?.timeframe || 'M1';
   if (state.settings.strategy === 'ai') {
@@ -662,9 +955,14 @@ async function runTradeCycle(generation) {
 
   if (!setTradeAmount(safeAmount)) {
     if (!isCycleActive(generation)) return;
-    updateStatus('error', 'Could not set trade amount — page may have changed');
+    await retryAfterAmountSetFailure(generation, safeAmount);
     return;
   }
+  state.amountSetFailures = 0;
+  state.recoveryReloads = 0;
+  state.cycleErrorStreak = 0;
+  state.cycleErrorReloads = 0;
+  await persistRuntimeSession('amount_set');
 
   // PO can accept a favorite/timeframe click visually before its trade controls
   // are fully ready. Give pair switches a short settle window before order click.
@@ -697,6 +995,7 @@ async function runTradeCycle(generation) {
   }
 
   setTradeLock('order_pending');
+  await persistRuntimeSession('order_pending');
   updateStatus('running', 'Order sent — confirming open...');
 
   // PO can delay stake deduction under load/background throttling. Waiting
@@ -724,6 +1023,7 @@ async function runTradeCycle(generation) {
   const balanceDuringTrade = openResult.balanceDuring;
 
   setTradeLock('trade_open');
+  await persistRuntimeSession('trade_open');
   state.unconfirmedOrderFailures = 0;
   console.log('[Avalisa] Trade confirmed open. isTradeOpen = true. Balance during:', balanceDuringTrade, 'method:', openResult.method);
 
@@ -769,6 +1069,7 @@ async function runTradeCycle(generation) {
   }
 
   applyMartingaleLogic(result);
+  await persistRuntimeSession('resolved');
   clearTradeLock();
 
   if (isCycleActive(generation)) {
@@ -908,7 +1209,6 @@ function bindOverlayEvents() {
     document.getElementById('avalisa-overlay').style.display = 'none';
   });
 
-  document.getElementById('av-login-btn').addEventListener('click', handleLogin);
   document.getElementById('av-register-free-btn').addEventListener('click', () => {
     chrome.runtime.sendMessage({ type: 'OPEN_TAB', url: state.affiliateLink });
   });
@@ -974,42 +1274,12 @@ function bindOverlayEvents() {
   document.getElementById('av-claim-submit').addEventListener('click', handleClaimSubmit);
 }
 
-async function handleLogin() {
-  const email = document.getElementById('av-email').value.trim();
-  const password = document.getElementById('av-password').value;
-  if (!email || !password) return;
-
-  try {
-    updateStatus('running', '⏳ Connecting to server...');
-    const res = await withRetry(() => fetchWithTimeout(`${API_BASE}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    }));
-    const data = await res.json();
-    if (!res.ok) {
-      updateStatus('error', data.error || 'Login failed');
-      return;
-    }
-    state.jwt = data.token;
-    state.userId = data.user.id;
-    await chrome.storage.local.set({ jwt: data.token, userId: data.user.id, userEmail: email });
-    // Seed token status + license info
-    checkLicense().then(lic => { state.licenseInfo = lic; updateUI(); }).catch(() => {});
-    apiGet('/api/ai/token-status').then(ts => {
-      if (ts) {
-        if (ts.remaining !== undefined) state.aiTokensRemaining = ts.remaining;
-        if (ts.tokensLimit !== undefined) state.aiTokensLimit = ts.tokensLimit;
-        if (ts.unlimited) state.aiUnlimited = true;
-      }
-      updateBottomStatus();
-    }).catch(() => {});
-    updateUI();
-    updateStatus('running', 'Logged in!');
-  } catch (err) {
-    updateStatus('error', 'Login error — check connection');
-  }
-}
+// Sign-in moved to the toolbar popup in v2.4.9. There is deliberately no login
+// handler here: this script runs inside Pocket Option's page, so a password
+// typed here would be readable by PO's own scripts and by any other extension,
+// and Chrome's password manager would refill it on every load. The popup runs on
+// the extension's own origin, where none of that applies. This script only ever
+// sees the resulting JWT, picked up from chrome.storage below.
 
 function handleLogout() {
   state.jwt = null;
@@ -1019,6 +1289,7 @@ function handleLogout() {
 }
 
 function diagnosePOInterface() {
+  if (!avDebugEnabled()) return;
   console.log('[Avalisa] === PO INTERFACE DIAGNOSTIC ===');
 
   // Find timeframe elements by keyword
@@ -1026,7 +1297,7 @@ function diagnosePOInterface() {
   tfKeywords.forEach(kw => {
     const els = document.querySelectorAll(`[class*="${kw}"], [data-${kw}]`);
     if (els.length) {
-      els.forEach(el => console.log(`[Avalisa] TF element (${kw}):`, el.className, el.textContent.trim().substring(0, 50)));
+      els.forEach(el => debugLog(`[Avalisa] TF element (${kw}):`, el.className, el.textContent.trim().substring(0, 50)));
     }
   });
 
@@ -1034,19 +1305,26 @@ function diagnosePOInterface() {
   document.querySelectorAll('button, [role="button"], li, .item').forEach(el => {
     const text = el.textContent.trim();
     if (/^(S\d+|M\d+|H\d+|\d+[smh])$/i.test(text)) {
-      console.log('[Avalisa] Time button found:', el.tagName, el.className, text);
+      debugLog('[Avalisa] Time button found:', el.tagName, el.className, text);
     }
   });
 
-  // Find all input elements
+  // Find all input elements.
+  // Never log inp.value: this dump runs on every Start and used to print the
+  // Avalisa account password in clear text, along with whatever else happened to
+  // be in a PO field (we observed a Google OAuth authorization code). Shape only.
   const inputs = document.querySelectorAll('input');
   inputs.forEach(inp => {
-    console.log('[Avalisa] Input found:', inp.className, inp.name, inp.type, inp.value);
+    if (inp.type === 'password') {
+      debugLog('[Avalisa] Input found:', inp.className, inp.name, inp.type, '<redacted>');
+      return;
+    }
+    debugLog('[Avalisa] Input found:', inp.className, inp.name, inp.type, 'len=' + (inp.value?.length ?? 0));
   });
 
   // Find active/selected element
   const active = document.querySelector('.active, .selected, [aria-selected="true"]');
-  if (active) console.log('[Avalisa] Active element:', active.className, active.textContent.trim());
+  if (active) debugLog('[Avalisa] Active element:', active.className, active.textContent.trim());
 
   console.log('[Avalisa] === END DIAGNOSTIC ===');
 }
@@ -1067,13 +1345,14 @@ function requestCandleHistory(asset, periodSec, force = false) {
 
 async function prefillCandleHistory() {
   const asset = normalizeAssetName(getCurrentPair());
-  const periodSec = getCurrentPeriodSeconds();
+  // AI-only path: always warm the analysis period, not the expiry period.
+  const periodSec = AI_ANALYSIS_PERIOD_SEC;
   if (asset && asset !== 'UNKNOWN') {
     await restoreCandleCache(asset, periodSec);
-    requestCandleHistory(asset, periodSec, true);
-    console.log('[Avalisa] prefillCandleHistory: requested history for', asset + ':' + periodSec);
+    requestCandleHistory(asset, periodSec);
+    debugLog('[Avalisa] prefillCandleHistory: requested history for', asset + ':' + periodSec);
   } else {
-    console.log('[Avalisa] prefillCandleHistory: waiting for active pair before requesting history');
+    debugLog('[Avalisa] prefillCandleHistory: waiting for active pair before requesting history');
   }
 }
 
@@ -1090,15 +1369,92 @@ async function warmupCandleHistory(attempts = 3, delayMs = 1200) {
 async function watchPOSelectionForAvalisa() {
   if (state.settings?.strategy !== 'ai' || state.running) return;
   const asset = normalizeAssetName(getCurrentPair());
-  const periodSec = getCurrentPeriodSeconds();
-  if (!asset || asset === 'UNKNOWN' || !periodSec) return;
+  const periodSec = AI_ANALYSIS_PERIOD_SEC;
+  if (!asset || asset === 'UNKNOWN') return;
   if (state.activePair === asset && state.activePeriod === periodSec) return;
   await restoreCandleCache(asset, periodSec);
-  requestCandleHistory(asset, periodSec, true);
+  requestCandleHistory(asset, periodSec);
   updateBottomStatus();
 }
 
 // ─── Status Display ──────────────────────────────────────────────────────────
+// Latest signal verdict, for the panel readout. Kept on state so it survives
+// re-renders and can be shown while idle as well as mid-scan.
+function recordSignalSnapshot(pair, sig) {
+  const snap = sig?.snapshot;
+  if (!snap || !Array.isArray(snap.rules) || snap.rules.length === 0) return;
+  state.lastSignal = {
+    pair: pair || state.activePair || null,
+    at: Date.now(),
+    action: snap.action,
+    side: snap.side,
+    strategy: snap.strategy,
+    intensity: snap.intensity,
+    matched: snap.rulesMatched,
+    required: snap.required,
+    total: snap.totalRules,
+    rules: snap.rules.map(r => ({ label: r.label, met: !!r.met })),
+  };
+  renderSignalBox();
+}
+
+function renderSignalBox() {
+  const box = document.getElementById('av-signal-box');
+  if (!box) return;
+
+  // Only meaningful for Avalisa Bot — Martingale does not evaluate indicators.
+  if (state.settings?.strategy !== 'ai' || !state.lastSignal) {
+    box.style.display = 'none';
+    return;
+  }
+
+  const sig = state.lastSignal;
+  box.style.display = '';
+
+  const pairEl = document.getElementById('av-signal-pair');
+  if (pairEl) {
+    const dir = sig.side === 'put' ? 'PUT' : 'CALL';
+    pairEl.textContent = `${sig.pair || 'pair'} · ${sig.strategy || ''} · ${dir}`;
+  }
+
+  const scoreEl = document.getElementById('av-signal-score');
+  if (scoreEl) {
+    scoreEl.textContent = `${sig.matched}/${sig.required} rules`;
+    scoreEl.classList.toggle('ready', sig.matched >= sig.required);
+    scoreEl.title = `${sig.matched} of ${sig.total} rules met; ${sig.intensity} needs ${sig.required}`;
+  }
+
+  const list = document.getElementById('av-signal-rules');
+  if (list) {
+    list.innerHTML = '';
+    sig.rules.forEach(r => {
+      const li = document.createElement('li');
+      if (r.met) li.className = 'met';
+      const tick = document.createElement('span');
+      tick.className = 'av-tick';
+      tick.textContent = r.met ? '\u2713' : '\u00b7';
+      const label = document.createElement('span');
+      label.textContent = r.label;
+      li.appendChild(tick);
+      li.appendChild(label);
+      list.appendChild(li);
+    });
+  }
+
+  updateSignalAge();
+}
+
+// A visible heartbeat: without it a correct-but-unconvinced scan is
+// indistinguishable from a frozen panel.
+function updateSignalAge() {
+  const el = document.getElementById('av-signal-age');
+  if (!el || !state.lastSignal) return;
+  const secs = Math.max(0, Math.round((Date.now() - state.lastSignal.at) / 1000));
+  const when = secs < 2 ? 'just now' : secs < 60 ? `${secs}s ago` : `${Math.round(secs / 60)}m ago`;
+  el.textContent = `checked ${when}`;
+  el.style.color = secs > 90 ? '#f87171' : '#475569';
+}
+
 function updateBottomStatus() {
   const isAi = state.settings?.strategy === 'ai';
 
@@ -1116,6 +1472,8 @@ function updateBottomStatus() {
       updateStatus('', `Ready (${n} candles, ${intensity})`);
     }
   }
+
+  renderSignalBox();
 
   // Trade allowance — only visible when strategy=ai
   const tokenEl = document.getElementById('av-token-status');
@@ -1173,10 +1531,30 @@ async function startBot() {
   state.martingaleStep = 0;
   state.aiNoProgressCycles = 0;
   state.unconfirmedOrderFailures = 0;
+  state.amountSetFailures = 0;
+  state.recoveryReloads = 0;
+  state.cycleErrorStreak = 0;
+  state.cycleErrorReloads = 0;
+
+  // v2.4.8: if a safety pause preserved a mid-recovery ladder and the
+  // martingale settings are unchanged, resume it instead of restarting at
+  // step 0 — restarting abandons the accumulated recovery.
+  const pausedLadder = await consumePausedLadder(state.settings);
+  if (state.stopRequested || state.cycleGeneration !== startGeneration) return;
+  if (pausedLadder) {
+    state.currentAmount = Number(pausedLadder.currentAmount);
+    state.martingaleStep = Math.max(0, Number(pausedLadder.martingaleStep) || 0);
+    state.tradesCount = Math.max(state.tradesCount, Number(pausedLadder.tradesCount) || 0);
+    state.lastDirection = pausedLadder.lastDirection || state.lastDirection;
+    console.log('[Avalisa] Resuming paused ladder:', pausedLadder);
+  }
 
   const gen = startGeneration;
   updateUI();
-  updateStatus('running', 'Starting...');
+  updateStatus('running', pausedLadder
+    ? `Resuming recovery at $${state.currentAmount.toFixed(2)} (step ${state.martingaleStep})`
+    : 'Starting...');
+  await persistRuntimeSession('started');
   warmupCandleHistory().catch(console.error);
   runTradeCycle(gen);
 }
@@ -1188,6 +1566,12 @@ function stopBot() {
   clearTradeLock();
   state.aiNoProgressCycles = 0;
   state.unconfirmedOrderFailures = 0;
+  state.amountSetFailures = 0;
+  state.recoveryReloads = 0;
+  state.cycleErrorStreak = 0;
+  state.cycleErrorReloads = 0;
+  clearRuntimeSession().catch(() => {});
+  clearPausedLadder().catch(() => {}); // manual Stop = intentional reset, drop any preserved ladder
   updateUI();
   updateStatus('', 'Stopped');
   updateBottomStatus(); // re-evaluate idle AI status (Ready / Loading / Waiting)
@@ -1291,6 +1675,7 @@ function updateUI() {
     if (loginForm) loginForm.style.display = 'block';
     if (loggedIn) loggedIn.style.display = 'none';
   }
+  syncLimitReachedMessage();
 
   // Load settings into UI
   const s = state.settings;
@@ -1361,8 +1746,8 @@ function getAiAllowanceBlock(license) {
   if (used < allowance) return null;
 
   return {
-    reason: 'AI trade allowance exhausted',
-    message: `Avalisa AI allowance reached (${used}/${allowance}). Upgrade to Pro for unlimited AI.`,
+    reason: 'Avalisa Bot trade allowance exhausted',
+    message: `Avalisa Bot allowance reached (${used}/${allowance}). Upgrade to Pro for unlimited Avalisa Bot trades.`,
   };
 }
 
@@ -1370,6 +1755,19 @@ function showLimitReachedMessage(license) {
   const limitMsg = document.getElementById('av-limit-msg');
   if (limitMsg) limitMsg.style.display = 'block';
   updateStatus('error', license?.reason || 'Limit reached');
+}
+
+function hideLimitReachedMessage() {
+  const limitMsg = document.getElementById('av-limit-msg');
+  if (limitMsg) limitMsg.style.display = 'none';
+}
+
+function syncLimitReachedMessage() {
+  const license = state.licenseInfo;
+  const aiAllowanceBlock = license?.allowed ? getAiAllowanceBlock(license) : null;
+  if (license?.allowed && !aiAllowanceBlock) {
+    hideLimitReachedMessage();
+  }
 }
 
 // ─── Load affiliate link from backend ────────────────────────────────────────
@@ -1436,19 +1834,21 @@ window.addEventListener('message', (e) => {
   const t = e.data?.type;
   if (t === 'AVALISA_WS') {
     parseWsMessage(e.data.data);
+  } else if (t === 'AVALISA_DEBUG_REQUEST') {
+    emitAvalisaDebugSnapshot();
   } else if (t === 'AVALISA_WS_TICK') {
     // Binary Blob decoded: [[asset, timestamp, price], ...]
     try {
       const ticks = JSON.parse(e.data.data);
       if (Array.isArray(ticks)) {
         if (_tickLogCount < 5) {
-          console.log('[Avalisa] WS_TICK sample:', JSON.stringify(ticks).substring(0, 300));
+          debugLog('[Avalisa] WS_TICK sample:', JSON.stringify(ticks).substring(0, 300));
           _tickLogCount++;
         }
         ticks.forEach(tick => {
           if (Array.isArray(tick) && tick.length >= 3) {
             if (_tickLogCount < 10) {
-              console.log('[Avalisa] TICK ingest: asset=', JSON.stringify(tick[0]), 'ts=', tick[1], 'price=', tick[2], '→ keys: ' + tick[0] + ':30, ' + tick[0] + ':60, ...');
+              debugLog('[Avalisa] TICK ingest: asset=', JSON.stringify(tick[0]), 'ts=', tick[1], 'price=', tick[2], '→ keys: ' + tick[0] + ':30, ' + tick[0] + ':60, ...');
               _tickLogCount++;
             }
             ingestTick(tick[0], tick[1], tick[2]);
@@ -1457,15 +1857,15 @@ window.addEventListener('message', (e) => {
       }
     } catch (_) {}
   } else if (t === 'AVALISA_WS_HISTORY') {
-    console.log('[Avalisa] HISTORY binary received, length:', e.data.data.length);
+    debugLog('[Avalisa] HISTORY binary received, length:', e.data.data.length);
     try {
       const parsed = JSON.parse(e.data.data);
 
-      console.log('[Avalisa] HISTORY raw payload keys:', Object.keys(parsed || {}));
-      console.log('[Avalisa] HISTORY raw payload sample:', JSON.stringify(parsed).substring(0, 800));
+      debugLog('[Avalisa] HISTORY raw payload keys:', Object.keys(parsed || {}));
+      debugLog('[Avalisa] HISTORY raw payload sample:', JSON.stringify(parsed).substring(0, 800));
       if (parsed?.history) {
         const ticks = parsed.history;
-        console.log('[Avalisa] HISTORY ticks:', ticks.length,
+        debugLog('[Avalisa] HISTORY ticks:', ticks.length,
           'first:', JSON.stringify(ticks[0]),
           'last:', JSON.stringify(ticks[ticks.length - 1]),
           'span_seconds:', ticks.length > 1 ? Number(ticks[ticks.length-1][0]) - Number(ticks[0][0]) : 'n/a');
@@ -1478,11 +1878,17 @@ window.addEventListener('message', (e) => {
       if (parsed && !Array.isArray(parsed) && Array.isArray(parsed.history)) {
         // Format: {asset, period, history: [[ts_float, price_float], ...]}
         const histAsset = normalizeAssetName(parsed.asset) || asset;
-        // PO history can report its transport/tick granularity (often 5s),
-        // while the user-selected trade duration is shown in the page UI.
-        // Avalisa must follow the user-selected duration, not the transport
-        // period, so feature additions do not override manual PO choices.
-        const histPeriod = periodSec;
+        // Bucket the seed at the period the frame itself declares.
+        //
+        // This used to be hardcoded to the UI expiry on the theory that
+        // parsed.period was PO's transport granularity. Verified live
+        // 2026-08-17: it is not — parsed.period is exactly the period asked for
+        // in changeSymbol (confirmed at 30 / 60 / 300). Ignoring it meant a
+        // requested 30s seed (~24 candles) was filed as 60s and re-bucketed down
+        // to ~14, which is what kept the AI gates permanently unreachable.
+        // Fall back to the UI expiry only if PO omits or mangles the field.
+        const parsedPeriod = Number(parsed.period);
+        const histPeriod = Number.isFinite(parsedPeriod) && parsedPeriod > 0 ? parsedPeriod : periodSec;
 
         // Detect pair / period switch and wipe stale buffers from other pairs
         const pairChanged = state.activePair !== histAsset || state.activePeriod !== histPeriod;
@@ -1505,14 +1911,14 @@ window.addEventListener('message', (e) => {
           let candle = null;
 
           if (Array.isArray(item)) {
-            if (ingested < 3) console.log('[Avalisa] HISTORY candle raw:', JSON.stringify(item));
+            if (ingested < 3) debugLog('[Avalisa] HISTORY candle raw:', JSON.stringify(item));
             if (item.length >= 5) {
               candle = { time: item[0], open: item[1], high: item[3], low: item[4], close: item[2], asset, period: periodSec };
             } else if (item.length >= 4) {
               candle = { time: item[0], open: item[1], high: item[2], low: item[3], close: item[1], asset, period: periodSec };
             }
           } else if (item && typeof item === 'object') {
-            if (ingested < 3) console.log('[Avalisa] HISTORY candle obj:', JSON.stringify(item));
+            if (ingested < 3) debugLog('[Avalisa] HISTORY candle obj:', JSON.stringify(item));
             candle = {
               time: item.time || item.timestamp || item.t,
               open: item.open || item.o,
@@ -1544,14 +1950,14 @@ window.addEventListener('message', (e) => {
   } else if (t === 'AVALISA_WS_SEND') {
     // Log outgoing WS — helps identify what PO sends to trigger AI
     if (e.data.data && !e.data.data.startsWith('2') && !e.data.data.startsWith('3')) {
-      console.log('[Avalisa] WS SEND:', e.data.data.substring(0, 300));
+      debugLog('[Avalisa] WS SEND:', e.data.data.substring(0, 300));
     }
   } else if (t === 'AVALISA_FETCH') {
-    console.log('[Avalisa] FETCH', e.data.method, e.data.url, e.data.body ? '| body:' + e.data.body : '');
+    debugLog('[Avalisa] FETCH', e.data.method, e.data.url, e.data.body ? '| body:' + e.data.body : '');
   } else if (t === 'AVALISA_FETCH_RES') {
-    console.log('[Avalisa] FETCH_RES', e.data.url, '|', e.data.body);
+    debugLog('[Avalisa] FETCH_RES', e.data.url, '|', e.data.body);
   } else if (t === 'AVALISA_XHR') {
-    console.log('[Avalisa] XHR', e.data.method, e.data.url, '|', e.data.response);
+    debugLog('[Avalisa] XHR', e.data.method, e.data.url, '|', e.data.response);
   }
 });
 
@@ -1576,8 +1982,32 @@ async function init() {
     }).catch(() => {});
   }
   setTimeout(() => prefillCandleHistory().catch(console.error), 3000);
+  // Sign-in now happens in the toolbar popup, so the panel has to notice the JWT
+  // arriving (or being cleared) in another context rather than owning the form.
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local' || !changes.jwt) return;
+    const token = changes.jwt.newValue || null;
+    if (token === state.jwt) return;
+    state.jwt = token;
+    if (!token) {
+      state.userId = null;
+      state.licenseInfo = null;
+      updateUI();
+      return;
+    }
+    chrome.storage.local.get(['userId'], data => {
+      if (data.userId) state.userId = data.userId;
+      checkLicense().then(lic => { state.licenseInfo = lic; updateUI(); }).catch(() => {});
+      updateUI();
+      updateStatus('running', 'Signed in from the extension popup');
+    });
+  });
+
   setInterval(updateBottomStatus, 10000);
+  // Tick the "checked Ns ago" line every second so the readout is visibly live.
+  setInterval(updateSignalAge, 1000);
   setInterval(() => watchPOSelectionForAvalisa().catch(console.error), 2000);
+  setTimeout(() => restoreRuntimeSession().catch(console.error), 2500);
 
   // Wait for PO header to render before injecting button
   const headerInterval = setInterval(() => {
@@ -1603,11 +2033,17 @@ document.addEventListener('DOMContentLoaded', init);
 
 // ─── Debug helper — run window.avDebug() in PO devtools console ───────────────
 window.avDebug = function () {
+  const out = getAvalisaDebugSnapshot();
+  console.log('[Avalisa Debug]', JSON.stringify(out, null, 2));
+  return out;
+};
+
+function getAvalisaDebugSnapshot() {
   const buf = state.candleBuffer || {};
   const allKeys = Object.keys(buf);
   const durationSeconds = getDurationSecondsFromDom();
   const favoritePairs = getFavoritePairs();
-  const out = {
+  return {
     version: chrome.runtime.getManifest().version,
     modules: {
       poDom: typeof setTimeframe === 'function' && typeof getBalance === 'function',
@@ -1639,9 +2075,22 @@ window.avDebug = function () {
     tradeLockAgeMs: state.tradeLockSince ? Date.now() - state.tradeLockSince : 0,
     martingaleStep: state.martingaleStep,
     currentAmount: state.currentAmount,
+    tradesCount: state.tradesCount, // live-test/publish gate waits on this — keep exposed
+    amountSetFailures: state.amountSetFailures,
+    recoveryReloads: state.recoveryReloads,
+    cycleErrorStreak: state.cycleErrorStreak,
+    cycleErrorReloads: state.cycleErrorReloads,
     lastTradeResultDebug: state.lastTradeResultDebug,
+    lastTradeCycleError: state.lastTradeCycleError,
   };
-  console.log('[Avalisa Debug]', JSON.stringify(out, null, 2));
-  return out;
-};
+}
+
+function emitAvalisaDebugSnapshot() {
+  try {
+    window.postMessage({ type: 'AVALISA_DEBUG_RESPONSE', data: getAvalisaDebugSnapshot() }, '*');
+  } catch (_) {}
+}
+
+setInterval(emitAvalisaDebugSnapshot, 5000);
+setTimeout(emitAvalisaDebugSnapshot, 1500);
 console.log('[Avalisa] Debug helper ready — run window.avDebug() in PO console anytime');

@@ -36,6 +36,11 @@ dom.window.chrome = {
         Object.assign(storageData, values);
         if (callback) callback();
       },
+      remove(keys, callback) {
+        const list = Array.isArray(keys) ? keys : [keys];
+        list.forEach(key => delete storageData[key]);
+        if (callback) callback();
+      },
     },
     onChanged: { addListener() {} },
   },
@@ -72,12 +77,27 @@ const extensionBundle = scripts
 const testPromise = dom.window.eval(`${extensionBundle}
 
 (async () => {
+    // content.js schedules restoreRuntimeSession() at +2.5s after load (reload
+    // recovery). Let it fire on empty storage first so it cannot collide with
+    // sessions this test persists mid-run.
+    await new Promise(resolve => setTimeout(resolve, 2600));
+
     state.settings = getDefaultSettings();
     state.licenseInfo = { allowed: true, plan: 'basic', aiTradesAllowance: 10, aiTradesUsed: 0 };
     state.jwt = 'test-token';
     injectOverlay();
 
   assert.equal(document.getElementById('av-strategy').value, 'martingale');
+  // Read the expected build from the manifest rather than hardcoding it — this
+  // assertion silently turned every routine version bump into a smoke-test
+  // failure, which the AGE dispatcher treats as fail-closed.
+  assert.equal(
+    document.getElementById('av-build-badge').textContent,
+    'v' + chrome.runtime.getManifest().version,
+  );
+  assert.equal(PO_SELECTORS.tradeButtons.call[0], 'a.btn.btn-call');
+  assert.equal(PO_SELECTORS.tradeButtons.put[0], 'a.btn.btn-put');
+  assert.equal(PO_SELECTORS.balance.demo.includes('.js-balance-demo'), true);
   assert.equal(document.getElementById('av-row-direction').style.display, 'flex');
   assert.equal(document.getElementById('av-row-timeframe').style.display, 'flex');
   assert.equal(document.getElementById('av-row-intensity').style.display, 'none');
@@ -116,11 +136,32 @@ const testPromise = dom.window.eval(`${extensionBundle}
   state.settings.strategy = 'ai';
   document.body.innerHTML = '<div id="avalisa-overlay"></div><div class="js-balance-real">$100.00</div>';
   const realBlock = getAiAllowanceBlock({ allowed: true, plan: 'basic', aiTradesAllowance: 10, aiTradesUsed: 10 });
-  assert.equal(realBlock.reason, 'AI trade allowance exhausted');
+  // This string is shown to the user (showLimitReachedMessage -> status line),
+  // so assert the branding rather than the exact prose.
+  assert.ok(realBlock.reason.includes('Avalisa Bot'),
+    'allowance block should name Avalisa Bot, got: ' + realBlock.reason);
+  assert.ok(!/\bAI\b/.test(realBlock.reason),
+    'user-facing copy should not call the rule engine AI, got: ' + realBlock.reason);
 
   document.body.innerHTML = '<div id="avalisa-overlay"></div><div class="balance__label">Demo</div><div class="js-balance-demo">$10000.00</div>';
   const demoBlock = getAiAllowanceBlock({ allowed: true, plan: 'basic', aiTradesAllowance: 10, aiTradesUsed: 10 });
   assert.equal(demoBlock, null);
+
+  document.body.innerHTML = '';
+  injectOverlay();
+  showLimitReachedMessage({ reason: 'Limit reached' });
+  assert.equal(document.getElementById('av-limit-msg').style.display, 'block');
+  state.licenseInfo = { allowed: true, plan: 'lifetime' };
+  updateUI();
+  assert.equal(document.getElementById('av-limit-msg').style.display, 'none');
+
+  document.body.innerHTML = '<div>QT Demo</div><div>USD</div><div>$50,000</div><div>TOP UP</div>';
+  assert.equal(isDemoMode(), true);
+  assert.equal(await getBalance(), 50000);
+
+  document.body.innerHTML = '<div style="display:none" class="js-balance-demo">$544.84</div><div>QT Demo</div><div>USD</div><div>$32.84</div><div>TOP UP</div><div>Status: Recovery paused — $1024.00 is above balance $544.84.</div>';
+  assert.equal(isDemoMode(), true);
+  assert.equal(await getBalance(), 32.84);
 
   state.settings = {
     ...getDefaultSettings(),
@@ -151,7 +192,7 @@ const testPromise = dom.window.eval(`${extensionBundle}
   const healthyLayout = assessPOLayoutHealth();
   assert.equal(healthyLayout.ok, true);
   assert.equal(healthyLayout.message, 'PO layout ready');
-  assert.equal(healthyLayout.controls.amountSelector, '.block--bet-amount .value__val input');
+  assert.equal(healthyLayout.controls.amountSelector, PO_SELECTORS.tradeAmount[0]);
   assert.equal(healthyLayout.controls.hasCallButton, true);
   assert.equal(healthyLayout.controls.hasPutButton, true);
 
@@ -167,6 +208,131 @@ const testPromise = dom.window.eval(`${extensionBundle}
   assert.equal(document.getElementById('av-start-btn').disabled, true);
   assert.equal(document.getElementById('av-stop-btn').disabled, false);
   assert.equal(document.getElementById('av-strategy').disabled, true);
+
+  state.settings = getDefaultSettings();
+  state.running = true;
+  state.stopRequested = false;
+  state.cycleGeneration = 150;
+  state.currentAmount = 6400;
+  state.martingaleStep = 6;
+  state.tradesCount = 33;
+  state.lastDirection = 'put';
+  state.amountSetFailures = 2;
+  state.recoveryReloads = 1;
+  await persistRuntimeSession('amount_retry');
+  assert.equal(__storageData.avalisaRuntimeSession.currentAmount, 6400);
+  state.running = false;
+  state.currentAmount = 1;
+  state.martingaleStep = 0;
+  state.tradesCount = 0;
+  state.lastDirection = null;
+  state.amountSetFailures = 0;
+  state.recoveryReloads = 0;
+  assert.equal(await restoreRuntimeSession(), true);
+  assert.equal(state.running, true);
+  assert.equal(state.currentAmount, 6400);
+  assert.equal(state.martingaleStep, 6);
+  assert.equal(state.tradesCount, 33);
+  assert.equal(state.lastDirection, 'put');
+  assert.equal(state.amountSetFailures, 2);
+  assert.equal(state.recoveryReloads, 1);
+  stopBot();
+  assert.equal(__storageData.avalisaRuntimeSession, undefined);
+
+  document.body.innerHTML = '<div>QT Demo</div><div>USD</div><div>$499.28</div><div>TOP UP</div>';
+  injectOverlay();
+  state.settings = getDefaultSettings();
+  state.running = true;
+  state.stopRequested = false;
+  state.cycleGeneration = 300;
+  state.currentAmount = 640;
+  state.martingaleStep = 6;
+  state.amountSetFailures = 2;
+  state.recoveryReloads = 2;
+  await persistRuntimeSession('amount_retry');
+  await retryAfterAmountSetFailure(300, 640);
+  assert.equal(state.running, false);
+  assert.equal(state.stopRequested, true);
+  assert.equal(state.amountSetFailures, 0);
+  assert.equal(state.recoveryReloads, 0);
+  assert.equal(state.lastTradeCycleError.phase, 'amount_above_balance');
+  assert.equal(__storageData.avalisaRuntimeSession, undefined);
+  assert.match(document.getElementById('av-status').textContent, /above balance \\$499\\.28/);
+  // v2.4.8: the pause preserves the mid-recovery ladder for the next Start
+  assert.equal(__storageData.avalisaPausedLadder.currentAmount, 640);
+  assert.equal(__storageData.avalisaPausedLadder.martingaleStep, 6);
+
+  // v2.4.8: consumePausedLadder resumes fresh markers with unchanged settings…
+  const resumed = await consumePausedLadder(state.settings);
+  assert.equal(resumed.currentAmount, 640);
+  assert.equal(resumed.martingaleStep, 6);
+  assert.equal(__storageData.avalisaPausedLadder, undefined);
+  // …drops stale markers…
+  __storageData.avalisaPausedLadder = {
+    savedAt: Date.now() - (31 * 60 * 1000), currentAmount: 16, martingaleStep: 4,
+    startAmount: parseFloat(state.settings.startAmount) || 1,
+    martingaleMultiplier: state.settings.martingaleMultiplier,
+    martingaleSteps: state.settings.martingaleSteps,
+  };
+  assert.equal(await consumePausedLadder(state.settings), null);
+  assert.equal(__storageData.avalisaPausedLadder, undefined);
+  // …and drops markers whose martingale settings changed.
+  __storageData.avalisaPausedLadder = {
+    savedAt: Date.now(), currentAmount: 16, martingaleStep: 4,
+    startAmount: 999,
+    martingaleMultiplier: state.settings.martingaleMultiplier,
+    martingaleSteps: state.settings.martingaleSteps,
+  };
+  assert.equal(await consumePausedLadder(state.settings), null);
+
+  const originalCheckLicense = checkLicense;
+  document.body.innerHTML = '';
+  injectOverlay();
+
+  // v2.4.8: a first unexpected error retries with backoff instead of stopping.
+  state.settings = getDefaultSettings();
+  state.running = true;
+  state.stopRequested = false;
+  state.cycleGeneration = 201;
+  state.cycleErrorStreak = 0;
+  state.cycleErrorReloads = 1;
+  let licenseCalls = 0;
+  checkLicense = async () => {
+    licenseCalls += 1;
+    if (licenseCalls === 1) throw new Error('one-off hiccup');
+    state.cycleGeneration = 999; // invalidate so the retried cycle exits quietly
+    return { allowed: true, plan: 'lifetime' };
+  };
+  await runTradeCycle(201);
+  assert.equal(state.running, true);
+  assert.equal(state.cycleErrorStreak, 1);
+  assert.match(document.getElementById('av-status').textContent, /retrying/);
+  await new Promise(resolve => setTimeout(resolve, 150)); // retry fires before runTradeCycle resolves; small settle only
+  assert.equal(licenseCalls, 2);
+
+  // v2.4.8: after retries and the one self-heal reload are exhausted, it stops
+  // safely and preserves the ladder for the next Start.
+  state.settings = getDefaultSettings();
+  state.running = true;
+  state.stopRequested = false;
+  state.cycleGeneration = 200;
+  state.currentAmount = 8;
+  state.martingaleStep = 3;
+  state.cycleErrorStreak = 2;
+  state.cycleErrorReloads = 1;
+  checkLicense = async () => { throw new Error('simulated PO drift'); };
+  await runTradeCycle(200);
+  assert.equal(state.running, false);
+  assert.equal(state.stopRequested, true);
+  assert.equal(state.tradeLock, false);
+  assert.equal(state.isTradeOpen, false);
+  assert.equal(state.lastTradeCycleError.message, 'simulated PO drift');
+  assert.match(document.getElementById('av-status').textContent, /stopped safely/);
+  assert.equal(__storageData.avalisaPausedLadder.currentAmount, 8);
+  assert.equal(__storageData.avalisaPausedLadder.martingaleStep, 3);
+  stopBot();
+  assert.equal(__storageData.avalisaPausedLadder, undefined); // manual Stop drops the preserved ladder
+  checkLicense = originalCheckLicense;
 
   console.log('Extension settings smoke passed.');
 })().catch(err => {

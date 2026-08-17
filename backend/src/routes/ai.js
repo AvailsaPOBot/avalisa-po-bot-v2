@@ -40,7 +40,7 @@ router.get('/token-status', authMiddleware, async (req, res) => {
 router.post('/signal', authMiddleware, async (req, res) => {
   const license = await prisma.license.findUnique({ where: { userId: req.userId } });
   if (!license || !canUseStrategy(license.plan, 'ai')) {
-    return res.status(403).json({ error: 'AI trading requires a plan with Avalisa AI access' });
+    return res.status(403).json({ error: 'Avalisa Bot trading requires a plan with Avalisa Bot access' });
   }
 
   const { indicators } = req.body;

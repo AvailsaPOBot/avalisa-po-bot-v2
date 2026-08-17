@@ -91,6 +91,7 @@ find "$ROOT/extension" -maxdepth 1 -type f -name '*.js' | sort | while IFS= read
   run node --check "$file"
 done
 run check_extension_manifest
+run node "$ROOT/test/extension-manifest-safety-smoke.test.js"
 run node "$ROOT/test/extension-settings-smoke.test.js"
 run node "$ROOT/test/mobile-proof-runtime-smoke.test.js"
 

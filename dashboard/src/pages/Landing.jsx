@@ -62,11 +62,11 @@ const plans = [
     name: 'Basic',
     price: '$69',
     period: 'one-time',
-    text: 'Unlimited Martingale plus starter Avalisa AI access.',
+    text: 'Unlimited Martingale plus starter Avalisa Bot access.',
     href: '/pricing#basic',
     cta: 'View Basic',
     featured: true,
-    items: ['Unlimited Martingale', '10 Avalisa AI trades', 'Cloud settings', 'Trade history'],
+    items: ['Unlimited Martingale', '10 Avalisa Bot trades', 'Cloud settings', 'Trade history'],
   },
   {
     name: 'Pro',
@@ -75,7 +75,7 @@ const plans = [
     text: 'All current modes unlocked for the full Avalisa workflow.',
     href: '/pricing#pro',
     cta: 'View Pro',
-    items: ['Avalisa AI unlocked', 'Current modes included', 'Affiliate unlock path', 'Priority support'],
+    items: ['Avalisa Bot unlocked', 'Current modes included', 'Affiliate unlock path', 'Priority support'],
   },
 ];
 
@@ -143,7 +143,7 @@ function MascotHero() {
             <div className="mascot-hero__product-menu">
               <Link to="/webapp">Webapp Bot</Link>
               <a href={CHROME_EXTENSION_URL} target="_blank" rel="noreferrer">Chrome Extension</a>
-              <a href="#ai">Avalisa AI</a>
+              <a href="#ai">Avalisa Bot</a>
             </div>
           )}
         </div>
@@ -175,7 +175,7 @@ function MascotHero() {
           <nav className="mascot-mobile-menu" aria-label="Primary navigation">
             <Link to="/webapp" onClick={() => setMobileNavOpen(false)}>Webapp Bot</Link>
             <a href={CHROME_EXTENSION_URL} target="_blank" rel="noreferrer" onClick={() => setMobileNavOpen(false)}>Chrome Extension</a>
-            <a href="#ai" onClick={() => setMobileNavOpen(false)}>Avalisa AI</a>
+            <a href="#ai" onClick={() => setMobileNavOpen(false)}>Avalisa Bot</a>
             <Link to="/pricing" onClick={() => setMobileNavOpen(false)}>Pricing</Link>
             <Link to="/support" onClick={() => setMobileNavOpen(false)}>Support</Link>
             <Link to="/login" onClick={() => setMobileNavOpen(false)}>Log in</Link>
@@ -285,9 +285,9 @@ export default function Landing() {
       <section className="avalisa-ai-section" id="ai">
         <div className="avalisa-shell avalisa-ai-section__grid">
           <div>
-            <SectionTitle accent="Pair Scan.">Avalisa AI</SectionTitle>
+            <SectionTitle accent="Pair Scan.">Avalisa Bot</SectionTitle>
             <p>
-              Avalisa AI scans the active chart and can review eligible favorites when a setup
+              Avalisa Bot scans the active chart and can review eligible favorites when a setup
               is not clear. Signals stay visible before execution so the user can see what the
               bot is doing.
             </p>

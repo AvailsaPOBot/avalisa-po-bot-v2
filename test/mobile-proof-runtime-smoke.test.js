@@ -4,7 +4,7 @@ const path = require('path');
 const { JSDOM } = require('../dashboard/node_modules/jsdom');
 
 const root = path.resolve(__dirname, '..');
-const dom = new JSDOM('<!doctype html><html><head></head><body><div>QT Real USD 100.00</div><input type="number" value="1"><button>CALL</button><button>PUT</button></body></html>', {
+const dom = new JSDOM('<!doctype html><html><head></head><body><div>QT Real USD 100.00</div><div class="block--expiration-inputs"><div class="block__title">Time</div><div class="control__value"><div class="value__val">00:00:30</div></div></div><input type="number" value="1"><button>CALL</button><button>PUT</button></body></html>', {
   url: 'https://m.po.trade/en/cabinet/demo-quick-high-low/?source=pwa',
   runScripts: 'outside-only',
 });
@@ -60,7 +60,7 @@ const runtime = fs.readFileSync(path.join(root, 'mobile-proof/ios/AvalisaMobileP
 dom.window.eval(`${runtime}\n//# sourceURL=ProofRuntime.js`);
 
 const proof = dom.window.AvalisaProof;
-assert.equal(proof.version, '1.02-local-proof');
+assert.equal(proof.version, '1.5-expiry-confirmed');
 
 (async () => {
 let snapshot = JSON.parse(proof.snapshot());
@@ -68,6 +68,19 @@ proof.scan();
 snapshot = JSON.parse(proof.snapshot());
 assert.equal(snapshot.demoMode, 'real');
 assert.equal(snapshot.layoutHealth, 'mobile layout ready');
+assert.equal(snapshot.webappReadiness.target, 'responsive-html5-webapp-bot');
+assert.equal(snapshot.webappReadiness.hostKind, 'wkwebview-proof-shell');
+assert.equal(snapshot.webappReadiness.poSessionObserved, true);
+assert.equal(snapshot.webappReadiness.accountReady, true);
+assert.equal(snapshot.webappReadiness.layoutReady, true);
+assert.equal(snapshot.webappReadiness.tradeControlsReady, true);
+assert.equal(snapshot.webappReadiness.readyForLivePhoneTradeProof, false);
+assert.ok(snapshot.webappReadiness.blockers.some(item => /old WKWebView proof shell/.test(item)));
+assert.ok(snapshot.webappReadiness.blockers.some(item => /WebSocket\/tick stream not observed/.test(item)));
+assert.deepEqual(proof.assessWebappReadiness(), snapshot.webappReadiness);
+assert.equal(snapshot.botInTrade, false);
+assert.equal(snapshot.tradeLock, false);
+assert.equal(snapshot.lastBotError, null);
 assert.equal(await proof.placeTrade('call', 1), true);
 snapshot = JSON.parse(proof.snapshot());
 assert.match(snapshot.lastTradeStatus, /real CALL click sent/);
@@ -179,7 +192,7 @@ proof.setSettings({
 assert.equal(await proof.startDemoMartingale(), true);
 snapshot = JSON.parse(proof.snapshot());
 assert.equal(snapshot.botRunning, false);
-assert.match(snapshot.lastTradeStatus, /payout 66% below minimum 90%; no favorite available to auto-switch/);
+assert.match(snapshot.lastTradeStatus, /payout 66% below minimum 90%; no visible favorite available to auto-switch/);
 
 dom.window.document.body.innerHTML = '<div>QT Demo USD 100.00</div><button>CAD/CHF</button><div>Payout +66%</div>';
 proof.setSettings({
@@ -191,8 +204,8 @@ proof.setSettings({
 });
 assert.equal(await proof.startDemoMartingale(), true);
 snapshot = JSON.parse(proof.snapshot());
-assert.equal(snapshot.botRunning, true);
-assert.match(snapshot.lastTradeStatus, /opening pair selector to auto-switch from 66% below minimum 90%/);
+assert.equal(snapshot.botRunning, false);
+assert.match(snapshot.lastTradeStatus, /payout 66% below minimum 90%; no visible favorite available to auto-switch/);
 
 dom.window.document.body.innerHTML = '<div>QT Demo USD 100.00</div><button>CAD/CHF</button><div>Payout +66%</div><div class="favorite-list__item">AUD/CAD OTC +92%</div>';
 proof.stopBot('test reset');
@@ -207,6 +220,13 @@ assert.equal(await proof.startDemoMartingale(), true);
 snapshot = JSON.parse(proof.snapshot());
 assert.equal(snapshot.botRunning, true);
 assert.match(snapshot.lastTradeStatus, /switching to AUD\/CAD OTC \(92%\) before trade/);
+proof.debugStopSafely('simulated mobile PO drift');
+snapshot = JSON.parse(proof.snapshot());
+assert.equal(snapshot.botRunning, false);
+assert.equal(snapshot.botInTrade, false);
+assert.equal(snapshot.tradeLock, false);
+assert.equal(snapshot.lastBotError.message, 'simulated mobile PO drift');
+assert.match(snapshot.lastTradeStatus, /stopped safely/);
 
 proof.stopBot('test reset');
 licenseState = { allowed: false, plan: 'free', tradesRemaining: 0, tradesUsed: 10, tradesLimit: 10, reason: 'Trade limit reached' };

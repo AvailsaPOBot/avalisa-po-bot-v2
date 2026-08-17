@@ -12,7 +12,7 @@ function normalizeAssetName(name) {
 }
 
 function getDurationSecondsFromDom() {
-  const el = document.querySelector('.block--expiration-inputs');
+  const el = document.querySelector(PO_SELECTORS.durationBlock);
   if (!el) return null;
   const text = el.textContent || '';
   if (text.includes('UTC')) return null;
@@ -28,14 +28,16 @@ function getCurrentPeriodSeconds(fallbackTf = state.settings?.timeframe || 'M1')
 
 async function getBalance() {
   const demo = isDemoMode();
-  const selectors = demo
-    ? ['.js-balance-demo', '.js-hd.js-balance-demo', '[class*="balance-demo"]', '.balance__value', '.header-balance']
-    : ['.js-balance-real-USD', '.js-balance-real', '.js-hd.js-balance-real', '[class*="balance-real"]', '.balance__value', '.header-balance'];
+  const selectors = demo ? PO_SELECTORS.balance.demo : PO_SELECTORS.balance.real;
 
+  // v2.4.8: dedicated balance selectors are the primary source (visibility-guarded
+  // so hidden/stale account elements are skipped). Free-text parsing of the page
+  // is fallback only — it can grab an unrelated number, and a misread balance can
+  // falsely pause a live martingale ladder.
   for (let attempt = 1; attempt <= 3; attempt++) {
     for (const sel of selectors) {
       const el = document.querySelector(sel);
-      if (el) {
+      if (el && isVisibleAccountBalanceElement(el)) {
         const text = el.textContent.replace(/[^0-9.]/g, '');
         const val = parseFloat(text);
         if (val > 0) {
@@ -44,20 +46,45 @@ async function getBalance() {
         }
       }
     }
+    const activeTextBalance = getActiveAccountBalanceFromText(demo);
+    if (activeTextBalance !== null) {
+      console.log(`[Avalisa] Balance found via active account text = ${activeTextBalance} (mode=${demo ? 'demo' : 'real'}, attempt=${attempt})`);
+      return activeTextBalance;
+    }
     if (attempt < 3) await sleep(300);
   }
   console.warn('[Avalisa] Balance not found after 3 attempts — mode:', demo ? 'demo' : 'real');
   return null;
 }
 
+function isVisibleAccountBalanceElement(el) {
+  if (!(el instanceof Element)) return false;
+  if (el.closest('#avalisa-overlay') || el.closest('#avalisa-panel')) return false;
+  const style = window.getComputedStyle(el);
+  if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
+  const rect = el.getBoundingClientRect();
+  return rect.width > 0 && rect.height > 0;
+}
+
+function getActiveAccountBalanceFromText(demo) {
+  const lines = getBodyTextLines();
+  const modePattern = demo ? /\bdemo\b/i : /\breal\b/i;
+  const amountPattern = /(?:\$|USD\s*)\s*([0-9][0-9,]*(?:\.[0-9]+)?)/i;
+
+  for (let i = 0; i < lines.length; i++) {
+    if (!modePattern.test(lines[i])) continue;
+    const windowText = lines.slice(i, i + 5).join(' ');
+    const match = windowText.match(amountPattern);
+    if (!match) continue;
+    const val = parseFloat(match[1].replace(/,/g, ''));
+    if (Number.isFinite(val) && val > 0) return val;
+  }
+
+  return null;
+}
+
 function getTradeAmountInput() {
-  const selectors = [
-    '.block--bet-amount .value__val input',
-    '.value__val input',
-    'input[data-testid="trade-amount"]',
-    '.trade-amount input',
-    'input[name="amount"]',
-  ];
+  const selectors = PO_SELECTORS.tradeAmount;
 
   for (const sel of selectors) {
     const el = document.querySelector(sel);
@@ -120,7 +147,7 @@ function setTradeAmount(amount) {
 }
 
 async function ensureDurationPanel() {
-  const block = document.querySelector('.block--expiration-inputs');
+  const block = document.querySelector(PO_SELECTORS.durationBlock);
   if (!block) return;
 
   const blockText = block.textContent || '';
@@ -128,14 +155,7 @@ async function ensureDurationPanel() {
 
   console.log('[Avalisa] ensureDurationPanel: clock panel detected — switching to duration panel');
 
-  const toggleSelectors = [
-    '.block--expiration-inputs a',
-    '.block--expiration-inputs .block__icon',
-    '.block--expiration-inputs [class*="icon"]',
-    '.block--expiration-inputs [class*="switch"]',
-    '.block--expiration-inputs [class*="toggle"]',
-    '.block--expiration-inputs button',
-  ];
+  const toggleSelectors = PO_SELECTORS.durationToggle;
 
   for (const sel of toggleSelectors) {
     const el = document.querySelector(sel);
@@ -143,7 +163,7 @@ async function ensureDurationPanel() {
       console.log('[Avalisa] ensureDurationPanel: trying toggle selector:', sel);
       el.click();
       await sleep(700);
-      if (!document.querySelector('.block--expiration-inputs')?.textContent?.includes('UTC')) {
+      if (!document.querySelector(PO_SELECTORS.durationBlock)?.textContent?.includes('UTC')) {
         console.log('[Avalisa] ensureDurationPanel: switched successfully');
         return;
       }
@@ -173,7 +193,7 @@ async function setTimeframe(tf) {
 
   await ensureDurationPanel();
 
-  const valEl = document.querySelector('.block--expiration-inputs .value__val');
+  const valEl = document.querySelector(PO_SELECTORS.durationValue);
   const current = valEl?.textContent?.trim();
   if (current === targetTime) {
     console.log('[Avalisa] setTimeframe: already set to', tf);
@@ -181,19 +201,16 @@ async function setTimeframe(tf) {
   }
   console.log('[Avalisa] setTimeframe: current =', current, '→ target =', tf, '(', targetTime, ')');
 
-  const trigger = document.querySelector(
-    '.block--expiration-inputs .control__value, ' +
-    '.block--expiration-inputs .value__val'
-  );
+  const trigger = document.querySelector(PO_SELECTORS.durationTrigger);
   if (trigger) {
     trigger.click();
     for (let i = 0; i < 25; i++) {
       await sleep(100);
-      if (document.querySelectorAll('.dops__timeframes-item').length > 0) break;
+      if (document.querySelectorAll(PO_SELECTORS.timeframeItems).length > 0) break;
     }
   }
 
-  let items = document.querySelectorAll('.dops__timeframes-item');
+  let items = document.querySelectorAll(PO_SELECTORS.timeframeItems);
   const clickItem = async (item, selectedTf, reason) => {
     item.click();
     console.log('[Avalisa] setTimeframe:', reason, selectedTf);
@@ -259,7 +276,7 @@ function chooseAvailableTimeframeFallback(preferredTf, items) {
 function closePOPopovers() {
   document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
   document.body?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
-  document.querySelector('.chart-container, .trading-chart, main, body')?.click();
+  document.querySelector(PO_SELECTORS.closePopoverTarget)?.click();
 }
 
 function isUsableTradeButton(el) {
@@ -311,33 +328,11 @@ function assessPOLayoutHealth() {
 }
 
 function getCallButtonSelectors() {
-  return [
-    'a.btn.btn-call',
-    'button.btn.btn-call',
-    '.trade-action--call',
-    '.call-action',
-    '[data-test="btn-call"]',
-    '[data-action="call"]',
-    '[class*="btn-call"]',
-    '[class*="call-btn"]',
-    'button[data-direction="call"]',
-    'a[data-direction="call"]',
-  ];
+  return PO_SELECTORS.tradeButtons.call.slice();
 }
 
 function getPutButtonSelectors() {
-  return [
-    'a.btn.btn-put',
-    'button.btn.btn-put',
-    '.trade-action--put',
-    '.put-action',
-    '[data-test="btn-put"]',
-    '[data-action="put"]',
-    '[class*="btn-put"]',
-    '[class*="put-btn"]',
-    'button[data-direction="put"]',
-    'a[data-direction="put"]',
-  ];
+  return PO_SELECTORS.tradeButtons.put.slice();
 }
 
 function clickCall() {
@@ -375,12 +370,8 @@ function getExpiryMs() {
 }
 
 function countDealElements() {
-  const DEAL_SELECTORS = [
-    '.deal', '.deals-list__item', '.active-trade',
-    '[class*="deal-timer"]', '[class*="deals-list"] [class*="item"]', '.trade-result',
-  ];
   let count = 0;
-  for (const sel of DEAL_SELECTORS) {
+  for (const sel of PO_SELECTORS.deals) {
     count += document.querySelectorAll(sel).length;
   }
   return count;
@@ -430,47 +421,28 @@ function parsePayoutPercent(text) {
 }
 
 function getCurrentPayoutPercent() {
-  const directSelectors = [
-    '.asset-select .asset__profit',
-    '.current-symbol__profit',
-    '.block--payout .value__val',
-    '.block--profit .value__val',
-    '.estimated-profit__val',
-    '.profit-value',
-    '[class*="payout"] .value__val',
-    '[class*="profit"] .value__val',
-  ];
-  for (const sel of directSelectors) {
+  for (const sel of PO_SELECTORS.payoutDirect) {
     const el = document.querySelector(sel);
     const v = parsePayoutPercent(el?.textContent);
     if (v !== null) return v;
   }
-  const header = document.querySelector('.asset-select, .current-symbol, .assets-block, .header__asset');
+  const header = document.querySelector(PO_SELECTORS.payoutHeader);
   const v = parsePayoutPercent(header?.textContent);
   if (v !== null) return v;
   return null;
 }
 
 function getFavoritePairs() {
-  const containerSelectors = [
-    '.assets-favorites-list__item',
-    '.favorite-list__item',
-    '.pair-favorites__item',
-    '.assets-block .favorites-list__item',
-    '[class*="favorit"] [class*="item"]',
-  ];
   const seen = new Set();
   const seenNames = new Set();
   const results = [];
-  for (const sel of containerSelectors) {
+  for (const sel of PO_SELECTORS.favoriteContainers) {
     const nodes = document.querySelectorAll(sel);
     if (nodes.length === 0) continue;
     nodes.forEach(node => {
       if (seen.has(node)) return;
       seen.add(node);
-      const nameEl = node.querySelector(
-        '.assets-favorites-list__label, .asset__name, .pair-name, [class*="label"], [class*="name"]'
-      );
+      const nameEl = node.querySelector(PO_SELECTORS.favoriteName);
       const name = (nameEl?.textContent || node.getAttribute('data-asset') || '').trim();
       const payout = parsePayoutPercent(node.textContent);
       const key = normalizeAssetName(name);
@@ -523,7 +495,7 @@ async function checkPayoutBeforeTrade(options = {}) {
   }
 
   if (!allowSwitch) {
-    console.log('[Avalisa] Payout Monitor: auto-switch suppressed by current-pair AI mode');
+    console.log('[Avalisa] Payout Monitor: auto-switch suppressed by current-pair mode');
     return { proceed: true };
   }
 
@@ -565,21 +537,56 @@ function isDemoMode() {
   //   2. The visible active-account label ("… Demo" vs "… Real").
   if (/\bdemo\b/i.test(location.pathname)) return true;
 
-  const labels = document.querySelectorAll('[class*="balance-info-block"] [class*="label"], [class*="balance__label"]');
+  const labels = document.querySelectorAll(PO_SELECTORS.activeAccountLabels);
   for (const el of labels) {
     const t = el.textContent || '';
     if (/\bdemo\b/i.test(t)) return true;
     if (/\breal\b/i.test(t)) return false;
   }
 
+  const textMode = getActiveAccountModeFromText();
+  if (textMode === 'demo') return true;
+  if (textMode === 'real') return false;
+
   // Couldn't resolve from URL or label → assume REAL. Never silently treat a
   // real account as demo (that's the failure mode we're fixing).
   return false;
 }
 
+function getActiveAccountModeFromText() {
+  const lines = getBodyTextLines();
+
+  for (const line of lines) {
+    if (/^(QT\s+)?Demo$/i.test(line)) return 'demo';
+    if (/^(QT\s+)?Real$/i.test(line)) return 'real';
+  }
+
+  return null;
+}
+
+function getBodyTextLines() {
+  const innerText = document.body?.innerText;
+  if (innerText) {
+    return innerText.split(/\n+/).map(line => line.trim()).filter(Boolean);
+  }
+
+  const leaves = Array.from(document.body?.querySelectorAll('*') || [])
+    .filter(el => el.children.length === 0)
+    .map(el => (el.textContent || '').trim())
+    .filter(Boolean);
+  if (leaves.length) return leaves;
+
+  return (document.body?.textContent || '')
+    .split(/\n+/)
+    .map(line => line.trim())
+    .filter(Boolean);
+}
+
 function getCurrentPair() {
-  const assetEl = document.querySelector('.asset-select .asset__name') ||
-    document.querySelector('.current-symbol') ||
-    document.querySelector('[class*="asset-name"]');
-  return assetEl?.textContent?.trim() || 'UNKNOWN';
+  for (const sel of PO_SELECTORS.currentPair) {
+    const assetEl = document.querySelector(sel);
+    const pair = assetEl?.textContent?.trim();
+    if (pair) return pair;
+  }
+  return 'UNKNOWN';
 }

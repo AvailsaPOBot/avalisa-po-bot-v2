@@ -10,6 +10,36 @@
   const REQUIRED_CANDLES_BY_INTENSITY = { low: 12, mid: 20, high: 30 };
   const TF_TO_SECONDS = { S30: 30, M1: 60, M3: 180, M5: 300 };
   const SECONDS_TO_TF = { 30: 'S30', 60: 'M1', 180: 'M3', 300: 'M5' };
+  const TF_LABEL = { S30: '30s', M1: '1m', M3: '3m', M5: '5m' };
+  // Expiry control: PO must be switched to the requested expiry before the amount is
+  // set (setting the amount first can be wiped by PO's own expiry re-render).
+  // Verified against the live m.po.trade mobile DOM (2026-08-15): the expiry field is
+  // .block--expiration-inputs .value__val, and tapping it opens a modal holding the
+  // .dops__timeframes-item grid (S3 S15 S30 M1 M3 M5) — the same markup desktop PO uses.
+  const DURATION_VALUE_SELECTORS = [
+    '.block--expiration-inputs .value__val',
+    '.block--expiration-inputs .control__value',
+    '[class*="expiration"] .value__val',
+    '.value__val',
+  ];
+  const DURATION_CONTAINER_SELECTORS = [
+    '.block--expiration-inputs',
+    '[class*="expiration"]',
+    '[class*="duration"]',
+    '[class*="timeframe"]',
+  ];
+  const TIMEFRAME_ITEM_SELECTOR = '.dops__timeframes-item';
+  // While the picker is open its own option list also parses as a duration. Reading the
+  // current expiry from inside it would "confirm" whatever option is listed first.
+  const PICKER_CONTAINER_SELECTOR = '[class*="drop-down"], [class*="modal"], [class*="dops"], [role="dialog"], [role="listbox"]';
+  const DURATION_NODE_SELECTOR = 'li, a, button, span, div, p, input, [role="option"], [role="button"]';
+  const EXPIRY_OPEN_POLL_MS = 120;
+  const EXPIRY_OPEN_TRIES = 20;
+  const EXPIRY_APPLY_TRIES = 12;
+  // Result timing: never call a loss before the trade could physically have settled.
+  const RESULT_POLL_MS = 1000;
+  const RESULT_GRACE_SECONDS = 20;
+  const MAX_UNKNOWN_RESULTS = 3;
   const AI_THRESHOLDS = {
     low: { minConfidence: 35, regimeSlopeThreshold: 0.4, volLowThreshold: 0.0004, volHighThreshold: 0.0030, rsiLow: 35, rsiHigh: 65, bbK: 1.5, rulesRequiredRanging: 1, pullbackRsiLow: 40, pullbackRsiHigh: 60, pullbackBbK: 0.7, rulesRequiredTrending: 2, skipOTC: false, requireCandleConfirm: false },
     mid: { minConfidence: 68, regimeSlopeThreshold: 0.3, volLowThreshold: 0.0005, volHighThreshold: 0.0025, rsiLow: 30, rsiHigh: 70, bbK: 2.0, rulesRequiredRanging: 2, pullbackRsiLow: 40, pullbackRsiHigh: 60, pullbackBbK: 0.6, rulesRequiredTrending: 3, skipOTC: false, requireCandleConfirm: true },
@@ -32,7 +62,7 @@
     mobileAmountFallback: 'stop',
   };
   const state = {
-    version: '1.02-local-proof',
+    version: '1.5-expiry-confirmed',
     jwt: null,
     userId: null,
     userEmail: null,
@@ -52,6 +82,10 @@
     activePeriod: null,
     candleBuffer: {},
     duration: '-',
+    confirmedExpirySeconds: null,
+    lastExpiryStatus: null,
+    aiSuggestedTimeframe: null,
+    unknownResultStreak: 0,
     balance: '-',
     payout: '-',
     hasAmountInput: false,
@@ -84,6 +118,7 @@
     lastOrderDebug: 'order template: none',
     aiSkipStreak: 0,
     lastTradeStatus: 'Read-only until account mode is confirmed.',
+    lastBotError: null,
     guidance: 'Log in to PO, confirm Demo or Real account mode, then tap Scan.',
   };
   let botTimer = null;
@@ -247,7 +282,7 @@
 
   function aiAllowanceBlock(license) {
     if (state.settings.strategy !== 'ai') return null;
-    if (license?.plan === 'free') return 'Avalisa AI requires Basic or Pro.';
+    if (license?.plan === 'free') return 'Avalisa Bot requires Basic or Pro.';
     if (state.demoMode === 'real' && Number.isFinite(license?.aiTradesAllowance)) {
       const used = Number(license.aiTradesUsed || 0);
       if (used >= Number(license.aiTradesAllowance)) return 'AI trade allowance exhausted.';
@@ -375,6 +410,8 @@
       layoutHealth: state.layoutHealth,
       pairScanEnabled: state.pairScanEnabled,
       botRunning: state.botRunning,
+      botInTrade: state.botInTrade,
+      tradeLock: state.tradeLock,
       botMode: state.botMode,
       martingaleStep: state.martingaleStep,
       nextAmount: state.nextAmount,
@@ -384,8 +421,10 @@
       lastSignal: state.lastSignal,
       lastResult: state.lastResult,
       lastTradeStatus: state.lastTradeStatus,
+      lastBotError: state.lastBotError,
       lastAmountDebug: state.lastAmountDebug,
       lastOrderDebug: state.lastOrderDebug,
+      webappReadiness: assessWebappReadiness(),
       guidance: state.guidance,
     };
   }
@@ -466,25 +505,301 @@
     return bodyText ? normalizeAssetName(bodyText[0]) : state.activePair;
   }
 
-  function inferDuration() {
-    const selectors = [
-      '.block--expiration-inputs',
-      '[class*="expiration"]',
-      '[class*="duration"]',
-      '[class*="timeframe"]',
-    ];
-    for (const selector of selectors) {
-      const value = text(document.querySelector(selector));
-      const match = value.match(/\b\d{2}:\d{2}:\d{2}\b|\b(?:30s|1m|3m|5m|M1|M3|M5)\b/i);
-      if (match) return match[0];
+  function sleep(ms) {
+    return new Promise(resolve => window.setTimeout(resolve, ms));
+  }
+
+  // Reads any expiry string PO may render: 00:03:00, 3:00, "3 min", "30 sec", M3, 30s.
+  // The old parser only understood HH:MM:SS, so a "1m" reading silently fell back to
+  // the panel timeframe and the bot resolved trades that were still open.
+  function parseDurationToSeconds(value) {
+    const raw = String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
+    if (!raw) return null;
+    const hms = raw.match(/(\d{1,2}):(\d{2}):(\d{2})/);
+    if (hms) return (Number(hms[1]) * 3600) + (Number(hms[2]) * 60) + Number(hms[3]);
+    const mmss = raw.match(/(?:^|\s)(\d{1,2}):(\d{2})(?:$|\s)/);
+    if (mmss) return (Number(mmss[1]) * 60) + Number(mmss[2]);
+    const tf = raw.toUpperCase().match(/\b(S30|M1|M3|M5)\b/);
+    if (tf) return TF_TO_SECONDS[tf[1]] || null;
+    const unit = raw.match(/(\d{1,3})\s*(seconds|second|secs|sec|s|minutes|minute|mins|min|m|hours|hour|hrs|hr|h)\b/i);
+    if (unit) {
+      const n = Number(unit[1]);
+      const u = unit[2].toLowerCase();
+      if (u.charAt(0) === 's') return n;
+      if (u.charAt(0) === 'm') return n * 60;
+      return n * 3600;
     }
-    const bodyMatch = text(document.body).match(/\bTime\s+(\d{2}:\d{2}:\d{2})\b/i);
+    return null;
+  }
+
+  function formatDurationClock(seconds) {
+    const total = Math.max(0, Math.round(Number(seconds) || 0));
+    const hh = String(Math.floor(total / 3600)).padStart(2, '0');
+    const mm = String(Math.floor((total % 3600) / 60)).padStart(2, '0');
+    const ss = String(total % 60).padStart(2, '0');
+    return `${hh}:${mm}:${ss}`;
+  }
+
+  function readDurationValue(el) {
+    if (!el) return '';
+    if (el.matches && el.matches('input')) return String(el.value || '');
+    return text(el);
+  }
+
+  // The expiry control lives in the trade panel (lower part of the screen). The chart
+  // period control also renders strings like "1m", so anything found above that line
+  // is ignored on purpose — switching the chart period instead of the expiry would be
+  // worse than not switching at all.
+  function inTradePanel(el) {
+    const rect = el.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0 && rect.top > window.innerHeight * 0.35;
+  }
+
+  // Returns the element that actually HOLDS the expiry value, never its container:
+  // PO ignores a click on the wrapper, and the wrapper is not what reads back either.
+  function insidePicker(el) {
+    return !!(el && el.closest && el.closest(PICKER_CONTAINER_SELECTOR));
+  }
+
+  function nodeDepth(el) {
+    let depth = 0;
+    for (let n = el; n; n = n.parentElement) depth += 1;
+    return depth;
+  }
+
+  // Shortest label wins (a wrapper carries every option's text); on a tie the DEEPEST
+  // node wins, because .value__val is what PO re-renders and what responds to a tap.
+  function innermostDurationNode(scope, exclude) {
+    return Array.from(scope.querySelectorAll('input, span, div, a, button, p'))
+      .filter(el => el !== exclude && visible(el) && !insidePicker(el) && parseDurationToSeconds(readDurationValue(el)) != null)
+      .sort((a, b) => {
+        const byLabel = readDurationValue(a).length - readDurationValue(b).length;
+        return byLabel !== 0 ? byLabel : nodeDepth(b) - nodeDepth(a);
+      })[0] || null;
+  }
+
+  function findDurationElement() {
+    for (const selector of DURATION_VALUE_SELECTORS) {
+      const el = Array.from(document.querySelectorAll(selector))
+        .find(node => visible(node) && !insidePicker(node) && parseDurationToSeconds(readDurationValue(node)) != null);
+      if (el) return el;
+    }
+    for (const selector of DURATION_CONTAINER_SELECTORS) {
+      for (const container of Array.from(document.querySelectorAll(selector))) {
+        if (!visible(container) || insidePicker(container)) continue;
+        const inner = innermostDurationNode(container, null);
+        if (inner) return inner;
+        if (parseDurationToSeconds(readDurationValue(container)) != null) return container;
+      }
+    }
+    const labels = Array.from(document.querySelectorAll('span, div, label, p'))
+      .filter(el => visible(el) && /^time$/i.test(text(el)) && inTradePanel(el));
+    for (const label of labels) {
+      const near = innermostDurationNode(label.parentElement || label, label);
+      if (near) return near;
+    }
+    return Array.from(document.querySelectorAll('input, span, div, a, button'))
+      .filter(el => visible(el) && !insidePicker(el) && inTradePanel(el) && el.children.length <= 1)
+      .find(el => parseDurationToSeconds(readDurationValue(el)) != null) || null;
+  }
+
+  function inferDuration() {
+    const el = findDurationElement();
+    const parsed = parseDurationToSeconds(readDurationValue(el));
+    if (parsed != null) return formatDurationClock(parsed);
+    const bodyMatch = text(document.body).match(/\bTime\s+(\d{1,2}:\d{2}:\d{2})\b/i);
     if (bodyMatch) return bodyMatch[1];
     return state.duration;
   }
 
+  function currentExpirySeconds() {
+    const el = findDurationElement();
+    const parsed = parseDurationToSeconds(readDurationValue(el));
+    if (parsed != null) return parsed;
+    return parseDurationToSeconds(state.duration);
+  }
+
+  // Maps expiry-seconds → the element to click. Prefers the element with the SHORTEST
+  // label, so a list wrapper ("30 sec 1 min 3 min 5 min") never shadows the real option.
+  function durationNodeCandidates(trigger) {
+    return Array.from(document.querySelectorAll(DURATION_NODE_SELECTOR)).filter(el => {
+      if (el === trigger || !visible(el)) return false;
+      if (el.contains(trigger) || trigger.contains(el)) return false;
+      const seconds = parseDurationToSeconds(readDurationValue(el));
+      return seconds != null && seconds > 0;
+    });
+  }
+
+  // EVERY duration-looking node on screen before the picker opens is furniture — the
+  // chart period control renders "1m" in more than one node, and clicking any of them
+  // changes the chart, not the expiry.
+  function visibleDurationNodes(trigger) {
+    return new Set(durationNodeCandidates(trigger));
+  }
+
+  function timeframeGridOptions() {
+    const best = new Map();
+    for (const el of Array.from(document.querySelectorAll(TIMEFRAME_ITEM_SELECTOR))) {
+      if (!visible(el)) continue;
+      const seconds = parseDurationToSeconds(text(el));
+      if (seconds != null && seconds > 0 && !best.has(seconds)) best.set(seconds, el);
+    }
+    return best;
+  }
+
+  function durationOptionCandidates(trigger, exclude) {
+    const best = new Map();
+    for (const el of durationNodeCandidates(trigger)) {
+      if (exclude && exclude.has(el)) continue;
+      const label = readDurationValue(el);
+      const seconds = parseDurationToSeconds(label);
+      const current = best.get(seconds);
+      if (!current || label.length < readDurationValue(current).length) best.set(seconds, el);
+    }
+    return best;
+  }
+
+  // Sets PO's expiry to `tf` and CONFIRMS it by reading the control back.
+  // Returns { ok, seconds, reason } — callers must not trade when ok is false.
+  async function applyTimeframe(tf) {
+    const label = TF_LABEL[tf] || tf;
+    const target = TF_TO_SECONDS[tf];
+    if (!target) return { ok: false, seconds: null, label, reason: `unknown timeframe ${tf}` };
+
+    if (currentExpirySeconds() === target) {
+      return { ok: true, seconds: target, label, reason: 'already set' };
+    }
+
+    const trigger = findDurationElement();
+    if (!trigger) {
+      return { ok: false, seconds: null, label, reason: 'expiry control not found on page' };
+    }
+
+    // Anything already on screen before the picker opens is page furniture, not an
+    // option — the chart's own period label ("1m") lives there and clicking it would
+    // change the chart instead of the expiry.
+    const preExisting = visibleDurationNodes(trigger);
+    const buttonAncestor = trigger.closest('a, button, [role="button"]');
+    const clickTargets = buttonAncestor && buttonAncestor !== trigger ? [trigger, buttonAncestor] : [trigger];
+
+    let options = new Map();
+    let clickable = trigger;
+    for (const candidate of clickTargets) {
+      clickable = candidate;
+      try { candidate.click(); } catch (_) {}
+      for (let i = 0; i < EXPIRY_OPEN_TRIES; i += 1) {
+        await sleep(EXPIRY_OPEN_POLL_MS);
+        const grid = timeframeGridOptions();
+        const fresh = grid.size ? grid : durationOptionCandidates(trigger, preExisting);
+        if (fresh.size > options.size) options = fresh;
+        if (options.size >= 2) break;
+      }
+      if (options.size >= 2) break;
+    }
+    if (!options.size) {
+      durationOptionCandidates(trigger).forEach((el, seconds) => {
+        if (inTradePanel(el)) options.set(seconds, el);
+      });
+    }
+
+    const option = options.get(target);
+    if (!option) {
+      const found = Array.from(options.keys()).sort((a, b) => a - b).join('/');
+      await closeDurationPicker(trigger);
+      return { ok: false, seconds: null, label, reason: found ? `${label} not offered (saw ${found}s)` : 'expiry list did not open' };
+    }
+
+    try { option.click(); } catch (_) {}
+    for (let i = 0; i < EXPIRY_APPLY_TRIES; i += 1) {
+      await sleep(EXPIRY_OPEN_POLL_MS);
+      if (currentExpirySeconds() === target) {
+        closePOPopovers();
+        await closeDurationPicker(trigger);
+        state.duration = formatDurationClock(target);
+        // Re-read once the overlay is gone: this is the value the trade will use.
+        const settled = currentExpirySeconds();
+        if (settled !== target) {
+          return { ok: false, seconds: null, label, reason: `expiry read back as ${formatDurationClock(settled || 0)} after closing the picker` };
+        }
+        return { ok: true, seconds: target, label, reason: 'applied' };
+      }
+    }
+
+    const confirm = Array.from(document.querySelectorAll('button, [role="button"]'))
+      .find(el => visible(el) && /^(ok|apply|confirm|done|save)$/i.test(text(el)));
+    if (confirm) {
+      try { confirm.click(); } catch (_) {}
+      await sleep(500);
+      if (currentExpirySeconds() === target) {
+        state.duration = formatDurationClock(target);
+        return { ok: true, seconds: target, label, reason: 'applied via confirm' };
+      }
+    }
+    return { ok: false, seconds: null, label, reason: `expiry stayed at ${formatDurationClock(currentExpirySeconds() || 0)}` };
+  }
+
+  // PO leaves the expiry modal open after a selection; it overlays the panel, so close
+  // it before the amount is typed and the trade buttons are clicked.
+  async function closeDurationPicker(trigger) {
+    for (let i = 0; i < 4; i += 1) {
+      if (!timeframeGridOptions().size) return true;
+      try { (i % 2 === 0 ? trigger : document.body).click(); } catch (_) {}
+      try {
+        document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, bubbles: true }));
+      } catch (_) {}
+      await sleep(250);
+    }
+    return !timeframeGridOptions().size;
+  }
+
+  function requestedTradeTimeframe() {
+    if (state.settings.strategy === 'ai') {
+      const suggested = state.aiSuggestedTimeframe;
+      if (suggested && TF_TO_SECONDS[suggested]) return suggested;
+    }
+    return TF_TO_SECONDS[state.settings.timeframe] ? state.settings.timeframe : 'S30';
+  }
+
   function canTradeCurrentAccount() {
     return state.demoMode === 'confirmed' || state.demoMode === 'real';
+  }
+
+  function runtimeHostKind() {
+    try {
+      if (window.webkit?.messageHandlers?.avalisaProof) return 'wkwebview-proof-shell';
+    } catch (_) {}
+    return 'browser';
+  }
+
+  function assessWebappReadiness() {
+    const blockers = [];
+    const hostKind = runtimeHostKind();
+    const currentLayoutHealth = state.layoutHealth || 'not scanned';
+    const poSessionObserved = /(^|\.)po\.trade$/i.test(location.hostname) || /pocketoption/i.test(location.hostname);
+    const websocketObserved = !!(state.wsSeen || state.historySeen || state.tickSeen);
+    const layoutReady = currentLayoutHealth === 'mobile layout ready';
+    const accountReady = canTradeCurrentAccount();
+
+    if (hostKind === 'wkwebview-proof-shell') {
+      blockers.push('running in old WKWebView proof shell; final target is responsive HTML5 webapp/wrapper');
+    }
+    if (!poSessionObserved) blockers.push('Pocket Option mobile host not observed');
+    if (!accountReady) blockers.push(`account mode not confirmed (${state.demoMode})`);
+    if (!layoutReady) blockers.push(currentLayoutHealth);
+    if (!websocketObserved) blockers.push('PO WebSocket/tick stream not observed yet');
+    if (state.authStatus === 'error') blockers.push(state.licenseReason || 'Avalisa backend/license check failed');
+
+    return {
+      target: 'responsive-html5-webapp-bot',
+      hostKind,
+      poSessionObserved,
+      websocketObserved,
+      accountReady,
+      layoutReady,
+      tradeControlsReady: !!(state.hasAmountInput && state.hasCallButton && state.hasPutButton),
+      readyForLivePhoneTradeProof: blockers.length === 0,
+      blockers,
+    };
   }
 
   function accountModeLabel() {
@@ -698,14 +1013,7 @@
     const favorites = getFavoritePairs().sort((a, b) => b.payout - a.payout);
     const best = favorites[0];
     if (!best) {
-      if (!state.botPayoutSwitchOpenAttempted && openPairSelectorForAutoSwitch()) {
-        state.botPayoutSwitchOpenAttempted = true;
-        state.lastTradeStatus = `opening pair selector to auto-switch from ${current}% below minimum ${minPct}%`;
-        post();
-        botTimer = window.setTimeout(scheduleRunBotTrade, 900);
-        return { proceed: false, deferred: true };
-      }
-      return { proceed: false, reason: `payout ${current}% below minimum ${minPct}%; no favorite available to auto-switch` };
+      return { proceed: false, reason: `payout ${current}% below minimum ${minPct}%; no visible favorite available to auto-switch` };
     }
     if (best.payout < minPct) {
       return { proceed: false, reason: `payout ${current}% below minimum ${minPct}%; highest favorite ${best.payout}%` };
@@ -939,6 +1247,10 @@
     if (!state.hasAmountInput) missing.push('amount');
     if (!state.hasCallButton) missing.push('CALL');
     if (!state.hasPutButton) missing.push('PUT');
+    // PO floats deposit/promo modals over the trade panel, and their own Amount field
+    // can satisfy the checks above. The expiry field only exists on the real panel, so
+    // require it before calling the layout ready.
+    if (currentExpirySeconds() == null) missing.push('expiry');
     state.layoutHealth = missing.length
       ? `mobile layout drift: missing ${missing.join(', ')}`
       : 'mobile layout ready';
@@ -1085,8 +1397,8 @@
   }
 
   function durationSeconds() {
-    const match = String(state.duration || '').match(/(\d{2}):(\d{2}):(\d{2})/);
-    if (match) return (Number(match[1]) * 3600) + (Number(match[2]) * 60) + Number(match[3]);
+    const live = currentExpirySeconds();
+    if (live != null && live > 0) return live;
     return TF_TO_SECONDS[state.settings.timeframe] || 30;
   }
 
@@ -1232,6 +1544,7 @@
       state.lastSignal = sig.action === 'SKIP'
         ? `AI SKIP ${sig.reason || 'no_signal'}`
         : `AI ${sig.action} ${sig.confidence}%`;
+      state.aiSuggestedTimeframe = sig.action === 'SKIP' ? null : (sig.timeframe || null);
       if (sig.action === 'CALL') return 'call';
       if (sig.action === 'PUT') return 'put';
       return null;
@@ -1354,13 +1667,52 @@
     return statusPayload();
   }
 
-  function classifyResult(balanceBefore, balanceDuringTrade, balanceNow, amount, elapsedMs = 0) {
+  function handleBotError(error, phase = 'bot-cycle') {
+    const message = error?.message || String(error || 'unknown error');
+    console.error('[Avalisa Webapp] Bot stopped safely after unexpected error:', error);
+    state.lastBotError = {
+      at: new Date().toISOString(),
+      phase,
+      name: error?.name || 'Error',
+      message,
+      botMode: state.botMode,
+      botInTrade: state.botInTrade,
+      tradeLock: state.tradeLock,
+    };
+    state.botRunning = false;
+    state.botMode = 'stopped';
+    state.botInTrade = false;
+    state.tradeLock = false;
+    state.botTradesRemaining = 0;
+    state.botBalanceBeforeTrade = null;
+    state.botPendingDirection = null;
+    state.botPendingAmount = null;
+    state.botTradeStartTs = null;
+    state.botPayoutSwitchOpenAttempted = false;
+    if (botTimer) {
+      window.clearTimeout(botTimer);
+      botTimer = null;
+    }
+    if (interimTimer) {
+      window.clearTimeout(interimTimer);
+      interimTimer = null;
+    }
+    clearBotState();
+    state.lastTradeStatus = 'bot stopped safely — Pocket Option changed or page error. Reload and try again.';
+    post();
+    return statusPayload();
+  }
+
+  function classifyResult(balanceBefore, balanceDuringTrade, balanceNow, amount, elapsedMs = 0, expirySeconds = null) {
     if (balanceNow == null) return 'unknown';
     const settleTolerance = Math.max(0.15, amount * 0.15);
     const tieTolerance = Math.max(0.05, amount * 0.05);
     const tieToleranceDuring = Math.max(0.10, amount * 0.10);
+    // A trade that is still open looks exactly like a loss: the stake is gone and no
+    // payout has landed. Never call a loss before the expiry has actually elapsed.
+    const settledMs = Number(expirySeconds) > 0 ? Number(expirySeconds) * 1000 : 10000;
     const enoughTieTime = elapsedMs >= 4000;
-    const enoughLossTime = elapsedMs >= 10000;
+    const enoughLossTime = elapsedMs >= Math.max(10000, settledMs);
     if (balanceBefore != null) {
       const deltaFromBefore = balanceNow - balanceBefore;
       if (enoughTieTime && Math.abs(deltaFromBefore) <= tieTolerance) return 'tie';
@@ -1423,15 +1775,27 @@
     }
     state.lastTradeStatus = `waiting trade-open confirmation $${amount}`;
     post();
-    interimTimer = window.setTimeout(() => waitForTradeOpen(balanceBeforeTrade, amount, startedAt, timeoutMs), 750);
+    interimTimer = window.setTimeout(() => {
+      try {
+        waitForTradeOpen(balanceBeforeTrade, amount, startedAt, timeoutMs);
+      } catch (error) {
+        handleBotError(error, 'confirm-open');
+      }
+    }, 750);
   }
 
   function scheduleBotResultCheck(amountBeforeTrade, amount) {
-    const waitMs = Math.max(20, durationSeconds() + 5) * 1000;
+    // Wait for the CONFIRMED expiry of the trade we actually placed, then poll until
+    // the balance settles. Resolving on a fixed guess is what made an open trade look
+    // like a loss and stepped the martingale ladder on invented results.
+    const expirySeconds = Number(state.confirmedExpirySeconds) > 0
+      ? Number(state.confirmedExpirySeconds)
+      : durationSeconds();
+    const settleAtMs = expirySeconds * 1000;
+    const deadlineMs = settleAtMs + (RESULT_GRACE_SECONDS * 1000);
     const resolveStartTs = Date.now();
-    botTimer = window.setTimeout(() => {
-      scan();
-      const balanceAfter = parseBalanceValue(state.balance);
+
+    const finalize = (result, balanceAfter) => {
       state.botInTrade = false;
       state.tradeLock = false;
       const hasTradeLimit = state.botTradesRemaining > 0;
@@ -1439,7 +1803,6 @@
         state.botTradesRemaining = Math.max(0, state.botTradesRemaining - 1);
       }
       if (!state.botRunning) return;
-      const result = classifyResult(amountBeforeTrade, state.botBaselineBalance, balanceAfter, amount, Date.now() - resolveStartTs);
       logTradeResult({
         direction: state.botPendingDirection || state.lastDirection || 'unknown',
         amount,
@@ -1448,6 +1811,16 @@
         balanceAfter,
       });
       applyMartingale(result);
+      if (result === 'unknown') {
+        state.unknownResultStreak += 1;
+        if (state.unknownResultStreak >= MAX_UNKNOWN_RESULTS) {
+          persistBotState('resolved');
+          stopBot(`stopped: could not read the result of ${MAX_UNKNOWN_RESULTS} trades in a row`);
+          return;
+        }
+      } else {
+        state.unknownResultStreak = 0;
+      }
       state.lastTradeStatus = `bot result ${result.toUpperCase()}; next $${state.nextAmount}`;
       persistBotState('resolved');
       post();
@@ -1456,7 +1829,34 @@
         return;
       }
       botTimer = window.setTimeout(scheduleRunBotTrade, Math.max(0, Number(state.settings.delaySeconds) || 0) * 1000);
-    }, waitMs);
+    };
+
+    const poll = () => {
+      try {
+        if (!state.botRunning) {
+          state.botInTrade = false;
+          state.tradeLock = false;
+          return;
+        }
+        scan();
+        const elapsed = Date.now() - resolveStartTs;
+        const balanceAfter = parseBalanceValue(state.balance);
+        const result = classifyResult(amountBeforeTrade, state.botBaselineBalance, balanceAfter, amount, elapsed, expirySeconds);
+        if (result === 'unknown' && elapsed < deadlineMs) {
+          state.lastTradeStatus = `trade open $${amount}; settling (${Math.max(0, Math.round((deadlineMs - elapsed) / 1000))}s left)`;
+          post();
+          botTimer = window.setTimeout(poll, RESULT_POLL_MS);
+          return;
+        }
+        finalize(result, balanceAfter);
+      } catch (error) {
+        handleBotError(error, 'resolve-result');
+      }
+    };
+
+    state.lastTradeStatus = `trade open $${amount}; expiry ${formatDurationClock(expirySeconds)}`;
+    post();
+    botTimer = window.setTimeout(poll, settleAtMs + 2000);
   }
 
   async function runBotTrade() {
@@ -1476,7 +1876,6 @@
       stopBot(`stopped: ${payoutCheck.reason || 'payout check failed'}`);
       return;
     }
-    const balanceBefore = parseBalanceValue(state.balance);
     const amount = Number(state.nextAmount) || Math.max(1, Number(state.settings.startAmount) || 1);
     const direction = chooseBotDirection();
     if (!direction) {
@@ -1491,6 +1890,21 @@
       return;
     }
     state.aiSkipStreak = 0;
+
+    // Expiry first, amount second: PO re-renders the trade panel when the expiry
+    // changes and can wipe an amount that was set before it. Fail closed — trading on
+    // an unknown expiry is how the ladder ended up doubling on unresolved trades.
+    const requestedTf = requestedTradeTimeframe();
+    const expiry = await applyTimeframe(requestedTf);
+    state.lastExpiryStatus = `${expiry.label}: ${expiry.reason}`;
+    if (!expiry.ok) {
+      stopBot(`stopped: could not set ${expiry.label} expiry on Pocket Option (${expiry.reason})`);
+      return;
+    }
+    if (!state.botRunning) return;
+    state.confirmedExpirySeconds = expiry.seconds;
+    scan();
+    const balanceBefore = parseBalanceValue(state.balance);
     state.botInTrade = true;
     state.tradeLock = true;
     state.botBaselineBalance = null;
@@ -1534,6 +1948,9 @@
     state.nextAmount = Math.max(1, Number(state.settings.startAmount) || 1);
     state.tradesCount = 0;
     state.aiSkipStreak = 0;
+    state.unknownResultStreak = 0;
+    state.confirmedExpirySeconds = null;
+    state.lastBotError = null;
     state.botPayoutSwitchOpenAttempted = false;
     state.botTradesRemaining = Math.max(0, Math.min(100, Number(state.settings.maxProofTrades) || 0));
     state.lastTradeStatus = state.botTradesRemaining > 0
@@ -1541,14 +1958,21 @@
       : `bot started: ${state.settings.strategy}, running until stopped`;
     persistBotState('started');
     post();
-    await runBotTrade();
-    return true;
+    return await runBotTradeSafe('start');
+  }
+
+  async function runBotTradeSafe(phase = 'scheduled-trade') {
+    try {
+      await runBotTrade();
+      return true;
+    } catch (error) {
+      handleBotError(error, phase);
+      return false;
+    }
   }
 
   function scheduleRunBotTrade() {
-    runBotTrade().catch(error => {
-      stopBot(`stopped: ${error.message || error}`);
-    });
+    runBotTradeSafe('scheduled-trade');
   }
 
   async function placeTrade(direction, amount) {
@@ -1653,6 +2077,7 @@
     version: state.version,
     scan,
     snapshot,
+    assessWebappReadiness,
     setSettings,
     placeDemoTrade: placeTrade,
     placeTrade,
@@ -1662,6 +2087,18 @@
     logout,
     checkLicense,
     stopBot,
+    debugStopSafely: message => handleBotError(new Error(message || 'debug safe stop'), 'debug'),
+    lastBotError: () => state.lastBotError,
+    // QC surface: lets the expiry logic be exercised without placing a trade.
+    debug: {
+      state,
+      applyTimeframe,
+      parseDurationToSeconds,
+      currentExpirySeconds,
+      findDurationElement,
+      classifyResult,
+      requestedTradeTimeframe,
+    },
   };
 
   document.addEventListener('DOMContentLoaded', scan);

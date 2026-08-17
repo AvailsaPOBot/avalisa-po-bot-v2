@@ -1,6 +1,6 @@
 /**
  * Avalisa PO Bot v2 - Indicator helpers
- * Pure calculation helpers used by Avalisa AI.
+ * Pure calculation helpers used by Avalisa Bot.
  */
 
 function calcSMA(vals, period) {
