@@ -18,18 +18,17 @@ function getOverlayHTML() {
       </div>
 
       <div id="av-auth-section" class="av-section">
+        <!-- No credential fields here by design.
+             This panel is injected into Pocket Option's own DOM, so any input in
+             it is readable by PO's page scripts and by every other extension the
+             user has installed — and Chrome's password manager refills it on
+             every page load. Sign-in therefore happens in the toolbar popup,
+             which runs on the extension's own origin. -->
         <div id="av-login-form">
-          <!-- autocomplete=off / new-password: these inputs live in po.trade's own
-               DOM, so Chrome's password manager will happily refill the Avalisa
-               credential into the page on every load, re-creating the exposure
-               that handleLogin's wipe closes. Not a complete defence (Chrome's
-               heuristics can override it) — the real fix is moving login into the
-               extension popup, which has its own origin. -->
-          <input id="av-email" type="email" placeholder="Email" class="av-input"
-                 autocomplete="off" name="avalisa-account" />
-          <input id="av-password" type="password" placeholder="Password" class="av-input"
-                 autocomplete="new-password" name="avalisa-secret" />
-          <button id="av-login-btn" class="av-btn av-btn-primary">Login</button>
+          <div class="av-signin-note">
+            Sign in from the <strong>Avalisa</strong> icon in your Chrome toolbar
+            to keep your password off the Pocket Option page.
+          </div>
           <button id="av-register-free-btn" class="av-btn av-btn-outline">Affiliate Pro</button>
         </div>
         <div id="av-logged-in" style="display:none">
@@ -138,6 +137,17 @@ function getOverlayHTML() {
 
       <div class="av-section av-status-block">
         <div id="av-status" class="av-status">Status: Stopped</div>
+        <!-- Live signal readout (Avalisa AI only). Shows which of the four rules
+             currently agree, so a scan that is working but unconvinced is
+             visibly different from one that has stalled. -->
+        <div id="av-signal-box" class="av-signal-box" style="display:none">
+          <div class="av-signal-head">
+            <span id="av-signal-pair" class="av-signal-pair"></span>
+            <span id="av-signal-score" class="av-signal-score"></span>
+          </div>
+          <ul id="av-signal-rules" class="av-signal-rules"></ul>
+          <div id="av-signal-age" class="av-signal-age"></div>
+        </div>
         <div id="av-token-status" class="av-counter" style="display:none"></div>
         <div id="av-trade-counter" class="av-counter">Trades this session: 0</div>
       </div>
@@ -235,7 +245,33 @@ function getOverlayCSS() {
     .av-plan-badge.plan-lifetime { background: #f4c95d; color: #15120a; }
     .av-plan-badge.plan-basic { background: #059669; color: #fff; }
     .av-plan-badge.plan-free { background: #3b82f6; color: #fff; }
+    .av-signin-note {
+      font-size: 11px; line-height: 1.5; color: #8fa8c8;
+      background: #10182a; border: 1px solid #2a4060; border-radius: 6px;
+      padding: 8px; margin-bottom: 8px;
+    }
+    .av-signin-note strong { color: #f4c95d; }
     .av-status-block { }
+    .av-signal-box {
+      margin: 6px 0 4px; padding: 6px 8px; border: 1px solid #2a4060;
+      border-radius: 6px; background: #10182a;
+    }
+    .av-signal-head {
+      display: flex; justify-content: space-between; align-items: baseline;
+      gap: 6px; margin-bottom: 4px;
+    }
+    .av-signal-pair { font-size: 11px; color: #8fa8c8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .av-signal-score { font-size: 11px; font-weight: 700; color: #a78bfa; white-space: nowrap; }
+    .av-signal-score.ready { color: #34d399; }
+    .av-signal-rules { list-style: none; margin: 0; padding: 0; }
+    .av-signal-rules li {
+      font-size: 11px; line-height: 1.5; color: #64748b;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .av-signal-rules li.met { color: #cbd5e1; }
+    .av-signal-rules li .av-tick { width: 10px; flex-shrink: 0; color: #475569; }
+    .av-signal-rules li.met .av-tick { color: #34d399; }
+    .av-signal-age { font-size: 10px; color: #475569; margin-top: 4px; }
     .av-status { font-size: 12px; color: #a78bfa; margin-bottom: 4px; }
     .av-status.error { color: #f87171; }
     .av-status.running { color: #34d399; }

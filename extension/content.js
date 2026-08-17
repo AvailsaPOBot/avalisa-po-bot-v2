@@ -483,6 +483,7 @@ function evaluateAvalisaCurrentPair(intensity, payout = null, source = 'current'
   }
 
   const sig = globalThis.AvalisaSignalEngine.evaluateSignal(indicators, intensity);
+  recordSignalSnapshot(state.activePair, sig);
   const confidence = sig.snapshot?.confidence || 0;
   const payoutBonus = Number.isFinite(payout) ? Math.max(0, payout - (state.payoutMinPercent || 0)) / 2 : 0;
   const score = confidence + payoutBonus;
@@ -503,8 +504,12 @@ function evaluateAvalisaCurrentPair(intensity, payout = null, source = 'current'
 }
 
 function isAvalisaNoProgressReason(reason) {
+  // 'otc_filter' is gone in signal engine v3 — High no longer refuses OTC pairs.
+  // 'not_enough_rules' is a normal outcome, NOT a stall: the scanner looked and
+  // the evidence simply did not line up yet, so it must not count toward the
+  // no-progress cooldown.
   return /^loading_\d+_\d+$/.test(String(reason || '')) ||
-    ['otc_filter', 'no_ready_favorite', 'no_favorite_signal', 'no_favorites_above_payout'].includes(reason);
+    ['no_ready_favorite', 'no_favorite_signal', 'no_favorites_above_payout'].includes(reason);
 }
 
 function stopAvalisaForDecision(message) {
@@ -861,14 +866,14 @@ async function runTradeCycleUnsafe(generation) {
     // Old code always fell through to 'mid' regardless of user's Low/High pick.
     const opportunity = await chooseAvalisaOpportunity(intensity, generation);
     if (!isCycleActive(generation)) return;
-    const sig = opportunity?.sig || { action: 'SKIP', reason: opportunity?.reason || 'no_signal' };
+    const sig = opportunity?.sig || { action: 'SKIP', reason: opportunity?.reason || 'not_enough_rules' };
     aiSignalSnapshot = sig.snapshot || null;
     aiSuggestedTimeframe = opportunity?.timeframe || sig.timeframe || null;
 
     console.log(`[Avalisa] Avalisa selected: action=${sig.action} pair=${opportunity?.asset || getCurrentPair()} source=${opportunity?.source || 'current'} confidence=${opportunity?.confidence || 0} tf=${aiSuggestedTimeframe || 'n/a'} reason=${sig.reason || opportunity?.reason || 'ok'} rules=${sig.snapshot?.rulesMatched}`);
 
     if (sig.action === 'SKIP') {
-      const reason = sig.reason || opportunity?.reason || 'no_signal';
+      const reason = sig.reason || opportunity?.reason || 'not_enough_rules';
       const noProgressReason = isAvalisaNoProgressReason(reason);
       if (noProgressReason) {
         state.aiNoProgressCycles = (state.aiNoProgressCycles || 0) + 1;
@@ -878,9 +883,11 @@ async function runTradeCycleUnsafe(generation) {
       // SKIP: re-check soon, using the live PO duration as the retry clock.
       const candleMs = getCurrentPeriodSeconds() * 1000;
       const retryMs = noProgressReason ? 5000 : Math.min(candleMs, 30000);
-      // High intensity skips OTC by design. Low/Mid can trade OTC.
-      const skipMsg = reason === 'otc_filter'
-        ? `SKIP — OTC pair (use Low or Mid intensity) — retrying (${state.aiNoProgressCycles || 0})`
+      // Say how close it got, so a scan that is working but unconvinced does not
+      // look identical to one that is stuck.
+      const snap = sig.snapshot;
+      const skipMsg = (reason === 'not_enough_rules' && snap && Number.isFinite(snap.rulesMatched))
+        ? `SKIP — ${snap.rulesMatched}/${snap.required} rules (${snap.intensity}) — scanning again`
         : `SKIP (${reason}) — scanning again (${state.aiNoProgressCycles || 0})`;
       updateStatus('running', skipMsg);
       await sleep(retryMs);
@@ -1202,7 +1209,6 @@ function bindOverlayEvents() {
     document.getElementById('avalisa-overlay').style.display = 'none';
   });
 
-  document.getElementById('av-login-btn').addEventListener('click', handleLogin);
   document.getElementById('av-register-free-btn').addEventListener('click', () => {
     chrome.runtime.sendMessage({ type: 'OPEN_TAB', url: state.affiliateLink });
   });
@@ -1268,55 +1274,12 @@ function bindOverlayEvents() {
   document.getElementById('av-claim-submit').addEventListener('click', handleClaimSubmit);
 }
 
-// The overlay lives in po.trade's own DOM, so anything left in #av-password is
-// readable by Pocket Option's page scripts (and any other extension) with a
-// single getElementById call. Read it once, then wipe it — never let a
-// credential sit in a third-party page between logins.
-function consumePasswordField() {
-  const el = document.getElementById('av-password');
-  if (!el) return '';
-  const value = el.value;
-  el.value = '';
-  return value;
-}
-
-async function handleLogin() {
-  const email = document.getElementById('av-email').value.trim();
-  // Don't wipe a typed password just because the email box is empty.
-  if (!email || !document.getElementById('av-password')?.value) return;
-  const password = consumePasswordField();
-
-  try {
-    updateStatus('running', '⏳ Connecting to server...');
-    const res = await withRetry(() => fetchWithTimeout(`${API_BASE}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    }));
-    const data = await res.json();
-    if (!res.ok) {
-      updateStatus('error', data.error || 'Login failed');
-      return;
-    }
-    state.jwt = data.token;
-    state.userId = data.user.id;
-    await chrome.storage.local.set({ jwt: data.token, userId: data.user.id, userEmail: email });
-    // Seed token status + license info
-    checkLicense().then(lic => { state.licenseInfo = lic; updateUI(); }).catch(() => {});
-    apiGet('/api/ai/token-status').then(ts => {
-      if (ts) {
-        if (ts.remaining !== undefined) state.aiTokensRemaining = ts.remaining;
-        if (ts.tokensLimit !== undefined) state.aiTokensLimit = ts.tokensLimit;
-        if (ts.unlimited) state.aiUnlimited = true;
-      }
-      updateBottomStatus();
-    }).catch(() => {});
-    updateUI();
-    updateStatus('running', 'Logged in!');
-  } catch (err) {
-    updateStatus('error', 'Login error — check connection');
-  }
-}
+// Sign-in moved to the toolbar popup in v2.4.9. There is deliberately no login
+// handler here: this script runs inside Pocket Option's page, so a password
+// typed here would be readable by PO's own scripts and by any other extension,
+// and Chrome's password manager would refill it on every load. The popup runs on
+// the extension's own origin, where none of that applies. This script only ever
+// sees the resulting JWT, picked up from chrome.storage below.
 
 function handleLogout() {
   state.jwt = null;
@@ -1415,6 +1378,83 @@ async function watchPOSelectionForAvalisa() {
 }
 
 // ─── Status Display ──────────────────────────────────────────────────────────
+// Latest signal verdict, for the panel readout. Kept on state so it survives
+// re-renders and can be shown while idle as well as mid-scan.
+function recordSignalSnapshot(pair, sig) {
+  const snap = sig?.snapshot;
+  if (!snap || !Array.isArray(snap.rules) || snap.rules.length === 0) return;
+  state.lastSignal = {
+    pair: pair || state.activePair || null,
+    at: Date.now(),
+    action: snap.action,
+    side: snap.side,
+    strategy: snap.strategy,
+    intensity: snap.intensity,
+    matched: snap.rulesMatched,
+    required: snap.required,
+    total: snap.totalRules,
+    rules: snap.rules.map(r => ({ label: r.label, met: !!r.met })),
+  };
+  renderSignalBox();
+}
+
+function renderSignalBox() {
+  const box = document.getElementById('av-signal-box');
+  if (!box) return;
+
+  // Only meaningful for Avalisa AI — Martingale does not evaluate indicators.
+  if (state.settings?.strategy !== 'ai' || !state.lastSignal) {
+    box.style.display = 'none';
+    return;
+  }
+
+  const sig = state.lastSignal;
+  box.style.display = '';
+
+  const pairEl = document.getElementById('av-signal-pair');
+  if (pairEl) {
+    const dir = sig.side === 'put' ? 'PUT' : 'CALL';
+    pairEl.textContent = `${sig.pair || 'pair'} · ${sig.strategy || ''} · ${dir}`;
+  }
+
+  const scoreEl = document.getElementById('av-signal-score');
+  if (scoreEl) {
+    scoreEl.textContent = `${sig.matched}/${sig.required} rules`;
+    scoreEl.classList.toggle('ready', sig.matched >= sig.required);
+    scoreEl.title = `${sig.matched} of ${sig.total} rules met; ${sig.intensity} needs ${sig.required}`;
+  }
+
+  const list = document.getElementById('av-signal-rules');
+  if (list) {
+    list.innerHTML = '';
+    sig.rules.forEach(r => {
+      const li = document.createElement('li');
+      if (r.met) li.className = 'met';
+      const tick = document.createElement('span');
+      tick.className = 'av-tick';
+      tick.textContent = r.met ? '\u2713' : '\u00b7';
+      const label = document.createElement('span');
+      label.textContent = r.label;
+      li.appendChild(tick);
+      li.appendChild(label);
+      list.appendChild(li);
+    });
+  }
+
+  updateSignalAge();
+}
+
+// A visible heartbeat: without it a correct-but-unconvinced scan is
+// indistinguishable from a frozen panel.
+function updateSignalAge() {
+  const el = document.getElementById('av-signal-age');
+  if (!el || !state.lastSignal) return;
+  const secs = Math.max(0, Math.round((Date.now() - state.lastSignal.at) / 1000));
+  const when = secs < 2 ? 'just now' : secs < 60 ? `${secs}s ago` : `${Math.round(secs / 60)}m ago`;
+  el.textContent = `checked ${when}`;
+  el.style.color = secs > 90 ? '#f87171' : '#475569';
+}
+
 function updateBottomStatus() {
   const isAi = state.settings?.strategy === 'ai';
 
@@ -1432,6 +1472,8 @@ function updateBottomStatus() {
       updateStatus('', `Ready (${n} candles, ${intensity})`);
     }
   }
+
+  renderSignalBox();
 
   // Trade allowance — only visible when strategy=ai
   const tokenEl = document.getElementById('av-token-status');
@@ -1800,13 +1842,13 @@ window.addEventListener('message', (e) => {
       const ticks = JSON.parse(e.data.data);
       if (Array.isArray(ticks)) {
         if (_tickLogCount < 5) {
-          console.log('[Avalisa] WS_TICK sample:', JSON.stringify(ticks).substring(0, 300));
+          debugLog('[Avalisa] WS_TICK sample:', JSON.stringify(ticks).substring(0, 300));
           _tickLogCount++;
         }
         ticks.forEach(tick => {
           if (Array.isArray(tick) && tick.length >= 3) {
             if (_tickLogCount < 10) {
-              console.log('[Avalisa] TICK ingest: asset=', JSON.stringify(tick[0]), 'ts=', tick[1], 'price=', tick[2], '→ keys: ' + tick[0] + ':30, ' + tick[0] + ':60, ...');
+              debugLog('[Avalisa] TICK ingest: asset=', JSON.stringify(tick[0]), 'ts=', tick[1], 'price=', tick[2], '→ keys: ' + tick[0] + ':30, ' + tick[0] + ':60, ...');
               _tickLogCount++;
             }
             ingestTick(tick[0], tick[1], tick[2]);
@@ -1908,14 +1950,14 @@ window.addEventListener('message', (e) => {
   } else if (t === 'AVALISA_WS_SEND') {
     // Log outgoing WS — helps identify what PO sends to trigger AI
     if (e.data.data && !e.data.data.startsWith('2') && !e.data.data.startsWith('3')) {
-      console.log('[Avalisa] WS SEND:', e.data.data.substring(0, 300));
+      debugLog('[Avalisa] WS SEND:', e.data.data.substring(0, 300));
     }
   } else if (t === 'AVALISA_FETCH') {
-    console.log('[Avalisa] FETCH', e.data.method, e.data.url, e.data.body ? '| body:' + e.data.body : '');
+    debugLog('[Avalisa] FETCH', e.data.method, e.data.url, e.data.body ? '| body:' + e.data.body : '');
   } else if (t === 'AVALISA_FETCH_RES') {
-    console.log('[Avalisa] FETCH_RES', e.data.url, '|', e.data.body);
+    debugLog('[Avalisa] FETCH_RES', e.data.url, '|', e.data.body);
   } else if (t === 'AVALISA_XHR') {
-    console.log('[Avalisa] XHR', e.data.method, e.data.url, '|', e.data.response);
+    debugLog('[Avalisa] XHR', e.data.method, e.data.url, '|', e.data.response);
   }
 });
 
@@ -1940,7 +1982,30 @@ async function init() {
     }).catch(() => {});
   }
   setTimeout(() => prefillCandleHistory().catch(console.error), 3000);
+  // Sign-in now happens in the toolbar popup, so the panel has to notice the JWT
+  // arriving (or being cleared) in another context rather than owning the form.
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local' || !changes.jwt) return;
+    const token = changes.jwt.newValue || null;
+    if (token === state.jwt) return;
+    state.jwt = token;
+    if (!token) {
+      state.userId = null;
+      state.licenseInfo = null;
+      updateUI();
+      return;
+    }
+    chrome.storage.local.get(['userId'], data => {
+      if (data.userId) state.userId = data.userId;
+      checkLicense().then(lic => { state.licenseInfo = lic; updateUI(); }).catch(() => {});
+      updateUI();
+      updateStatus('running', 'Signed in from the extension popup');
+    });
+  });
+
   setInterval(updateBottomStatus, 10000);
+  // Tick the "checked Ns ago" line every second so the readout is visibly live.
+  setInterval(updateSignalAge, 1000);
   setInterval(() => watchPOSelectionForAvalisa().catch(console.error), 2000);
   setTimeout(() => restoreRuntimeSession().catch(console.error), 2500);
 

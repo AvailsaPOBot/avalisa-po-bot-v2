@@ -73,13 +73,31 @@ assert.ok(
   /if \(inp\.type === 'password'\)/.test(contentSource),
   'the diagnostic dump must special-case password inputs',
 );
+// Stronger invariant as of 2.4.9: there is no credential field in the page at
+// all. Wiping the value after login was not enough — Chrome's password manager
+// refilled it on every load, so the exposure came straight back.
+const overlaySource = read('extension/overlayView.js');
+const popupSource = read('extension/popup.js');
+
 assert.ok(
-  /function consumePasswordField/.test(contentSource),
-  'handleLogin must consume (and clear) the password field so it does not persist in po.trade DOM',
+  !/av-password|av-email/.test(contentSource),
+  'the content script must not reference any credential field — sign-in belongs in the popup',
 );
 assert.ok(
-  /const password = consumePasswordField\(\);/.test(contentSource),
-  'handleLogin must read the password via consumePasswordField',
+  !/type="password"/.test(overlaySource),
+  'the on-page overlay must not contain a password input (it lives in po.trade DOM)',
+);
+assert.ok(
+  !/type="email"/.test(overlaySource),
+  'the on-page overlay must not contain an email input',
+);
+assert.ok(
+  /api\/auth\/login/.test(popupSource),
+  'the popup must own the login request',
+);
+assert.ok(
+  /passwordEl\.value = '';/.test(popupSource),
+  'the popup must clear the password field once the value has been submitted',
 );
 
 // ── 4. Verbose socket tracing stays behind the debug flag ────────────────────

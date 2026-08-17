@@ -129,6 +129,44 @@ Fixes:
   **Open item for the Board:** the only real fix is moving login out of po.trade's DOM into the
   extension popup, which has its own origin. Tracked in `212-status` Known Gaps.
 
+**Signal engine v3 — intensity now means one thing (Board-directed 2026-08-17):**
+`signalEngine.js` rewritten. Intensity used to move the RSI bands, Bollinger width, pullback
+zone, regime and volatility thresholds, the confidence floor AND an OTC ban all at once, so
+"stricter" was several hidden things and per-rule verdicts were not comparable between levels.
+Now the bands are **identical at every intensity** and the only dial is how many of four rules
+must agree: **Low 2, Mid 3, High 4**.
+- **High no longer skips OTC.** It set `skipOTC: true`, and since most of PO's always-on
+  catalogue is OTC, High refused nearly everything even when its signals were good. The
+  `otc_filter` skip reason and its panel message are gone.
+- Rules are now explicit, named and per-direction, four in each regime:
+  trending → `trend`, `pullback`, `rsi_zone`, `confirm`;
+  ranging → `rsi_extreme`, `bb_break`, `momentum`, `confirm`.
+- `confidence` is a real proportion (`matched / 4`). It used to be
+  `(matched / required) * minConfidence`, which at the point it was tested could never fall
+  below `minConfidence` — so the `low_confidence` branch it guarded was **unreachable dead code**.
+  Removed along with `minConfidence`.
+- `no_signal` → `not_enough_rules`, and that reason no longer counts toward the no-progress
+  cooldown: looking and not being convinced is a normal outcome, not a stall.
+
+**Live rule readout in the panel (Board-directed):** a new signal box under Status shows the
+pair, regime, leading direction, an `N/M rules` score and a ticked checklist of exactly which
+rules are met, plus a `checked Ns ago` heartbeat that turns red past 90s. Without it a scan that
+is working but unconvinced looked identical to a frozen panel. Hidden outside Avalisa AI mode.
+The SKIP status line now also reports `2/4 rules (mid)` instead of a bare reason.
+
+**Sign-in moved to the toolbar popup (Board-approved, CWS-compliant):** the on-page panel no
+longer contains any credential field — `#av-email` / `#av-password` and `handleLogin` are gone
+from the content script, replaced by a note pointing at the toolbar icon. `popup.html` /
+`popup.js` now own the login request; the content script learns about the session through a
+`chrome.storage.onChanged` listener and only ever sees the JWT. Checked against Chrome Web Store
+program policy first: nothing prohibits authentication in a popup, and the policy requirement to
+"keep authentication information secure" argues for the move — a password in a third-party page's
+DOM was the riskier design. Also fixes the autofill re-exposure noted below, since Chrome's
+password manager has no PO-origin field left to refill.
+
+Remaining verbose tracing (`FETCH`, `XHR`, `WS SEND`, per-tick `WS_TICK`/`TICK ingest`) moved
+behind `debugLog` as well.
+
 Tests:
 - `test/extension-ai-candles-and-secrets.test.js` — static guard: fails if a candle gate is set
   above a real PO seed, if the analysis period is unpinned, if `loadHistoryPeriod` returns as the
@@ -138,8 +176,23 @@ Tests:
   2026-08-17) through the extension's own ingest path and asserts every intensity reaches a real
   decision instead of `loading_N_M`. On the fixed build: 26 candles → low `SKIP/conflicting_signals`,
   mid **`PUT/ok`**, high `SKIP/otc_filter`. On 2.4.8 mid and high stall forever.
+- `test/extension-signal-intensity.test.js` — proves Low/Mid/High = 2/3/4 rules, that a 4-of-4
+  **OTC** setup now fires at High, that a 2-of-4 setup fires only at Low, that every verdict
+  carries a labelled checklist, and that confidence is a true proportion.
+- `test/extension-popup-auth.test.js` — drives the real `popup.html` + `popup.js` against a
+  stubbed backend: a successful login stores the JWT and clears the password box, a rejected one
+  stores nothing and keeps the user's typing.
+- `test/extension-ai-readiness.test.js` also asserts the panel readout renders four rules, ticks
+  exactly the matched ones, shows an `N/M rules` score and a `checked …` heartbeat, and hides
+  itself outside AI mode.
 - `test/extension-settings-smoke.test.js` now reads the expected build badge from the manifest
   instead of a hardcoded `v2.4.8`, which turned every version bump into a fail-closed smoke failure.
+
+⚠️ **Browser-level smoke was NOT possible from the command line.** Chrome 151 no longer honours
+`--load-extension` (tried headless and windowed, with and without `--disable-extensions-except`);
+the extension never loaded, so nothing here has run inside a real browser. All 9 tests are jsdom
+against the real extension sources. Loading it once via `chrome://extensions` → Developer mode →
+**Load unpacked** is required before any CWS publish.
 
 Rollback tag `pre-ai-candle-fix-2026-08-17`.
 

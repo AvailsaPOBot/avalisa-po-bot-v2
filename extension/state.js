@@ -33,6 +33,7 @@ const state = {
   aiTokensLimit: null,
   aiUnlimited: false,
   recentCloseEvents: [], // [{ ts, event, payload }]
+  lastSignal: null,   // latest AvalisaSignalEngine verdict, for the panel readout
   lastTradeResultDebug: null,
   lastTradeCycleError: null,
   aiNoProgressCycles: 0,
@@ -72,9 +73,9 @@ const MAX_CANDLE_BUFFER = 50;
 // ~22 a 30s seed provides (see AI_ANALYSIS_PERIOD_SEC) and at or above the 15
 // closes RSI-14 needs to return a number at all.
 //
-// Intensity strictness lives in signalEngine.js thresholds (minConfidence
-// 35/68/95, rulesRequired, requireCandleConfirm, skipOTC) — that is what makes
-// High selective. This constant is only a data-sufficiency floor.
+// Intensity strictness lives in signalEngine.js: as of v3 it is a single dial,
+// how many of the four rules must agree (Low 2, Mid 3, High 4). This constant is
+// only a data-sufficiency floor and must not be used to make a level stricter.
 const REQUIRED_CANDLES_BY_INTENSITY = { low: 12, mid: 16, high: 20 };
 // Candle period the AI analyses on. 30s is the only period whose seed clears the
 // High gate, so scanning pins to it regardless of the expiry a signal later picks.

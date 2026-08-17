@@ -98,6 +98,46 @@ const run = dom.window.eval(`${bundle}
 
   console.log('  real PO seed ->', candles.length, 'candles @', state.activePeriod + 's');
   for (const [k, v] of Object.entries(results)) console.log('  ' + k.padEnd(5), v);
+
+  // ── Panel readout: the user must be able to see WHICH rules agree, and that
+  // the check is live. Without this a working-but-unconvinced scan is
+  // indistinguishable from a frozen panel.
+  state.licenseInfo = { allowed: true, plan: 'lifetime' };
+  state.jwt = 'test-token';
+  injectOverlay();
+  state.settings.strategy = 'ai';
+
+  evaluateAvalisaCurrentPair('high', 92, 'current');   // populates state.lastSignal
+  assert.ok(state.lastSignal, 'a verdict should have been recorded for the panel');
+  renderSignalBox();
+
+  const box = document.getElementById('av-signal-box');
+  assert.notEqual(box.style.display, 'none', 'signal box must be visible in AI mode');
+
+  const items = [...document.querySelectorAll('#av-signal-rules li')];
+  assert.equal(items.length, 4, 'the panel must list all four rules, got ' + items.length);
+  items.forEach(li => assert.ok(li.textContent.trim().length > 1, 'each rule needs a visible label'));
+
+  const metCount = items.filter(li => li.classList.contains('met')).length;
+  assert.equal(metCount, state.lastSignal.matched,
+    'ticked rules must match the recorded count');
+
+  const score = document.getElementById('av-signal-score').textContent;
+  assert.equal(score, state.lastSignal.matched + '/' + state.lastSignal.required + ' rules',
+    'score should read "matched/required rules", got ' + score);
+
+  updateSignalAge();
+  const age = document.getElementById('av-signal-age').textContent;
+  assert.ok(age.indexOf('checked ') === 0,
+    'the age line must show when the last check ran, got ' + age);
+
+  // Martingale has no indicators, so the box must disappear.
+  state.settings.strategy = 'martingale';
+  renderSignalBox();
+  assert.equal(box.style.display, 'none', 'signal box must hide outside AI mode');
+
+  console.log('  panel readout ->', score, '|', metCount, 'ticked |',
+    document.getElementById('av-signal-age').textContent);
   return true;
 })()`);
 
