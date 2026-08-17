@@ -169,7 +169,37 @@ must agree: **Low 2, Mid 3, High 4**.
    return value AND that `state.activePair` matches the pair actually on screen, skipping with an
    explicit "data not ready" line instead of evaluating stale data.
 
-**Renamed "Avalisa AI" → "Avalisa Bot (Board-directed 2026-08-17):** the strategy is a fixed
+**Test-Fix Loop 2026-08-17 — the expiry panel was three bugs, not one.** The `+S30` fix recorded
+below was itself wrong and is superseded. Root cause, from driving PO live:
+
+PO's expiry block has **two modes** and one control doing double duty.
+- `.block--expiration-inputs a` is the **MODE TOGGLE** (duration ⇄ absolute clock time), not a
+  picker opener. `setTimeframe()` clicked it to "open the picker", flipping the panel into clock
+  mode where the list becomes `+S30 / +M1 / +M2…` meaning "**add** 30s to the expiry clock".
+  Confirmed live: clicking `M1` there set the expiry to `19:20:00`.
+- So the earlier "normalise `+S30` → `S30`" change would have **armed trades of the wrong
+  length**. Reverted. A `+` item now means "wrong mode": close, `ensureDurationPanel()`, retry
+  once — never click it.
+- `.block--expiration-inputs .value` opens the real duration list
+  (`S3 S15 S30 M1 M3 M5 M30 H1 H4`) without touching the mode, and is now the primary
+  `durationTrigger`. `.value__val` toggles it *shut*, so it is ordered last.
+- The trigger **toggles**. PO often leaves the list open, so the click closed it, the code read
+  `items found: 0` and retried forever without trading. It now clicks only when the list is shut,
+  retries the open once, and on failure closes the panel instead of blind-toggling (a list left
+  open is what poisoned the next attempt).
+
+Verified live — both previously-broken paths now trade with the correct expiry:
+clock mode + `S30` → `switched successfully` → `openOrder … time:30`;
+duration `M1` → `S30` with the list already open → `clicked grid item S30` → `openOrder … time:30`
+→ WIN, ladder recovers ($1 loss → $2 → WIN +1.84).
+
+False-intent checks over a 5-order soak: **0 duplicate orders**, **0 orders after Stop** (90s
+watch), every order `isDemo:1`, every `time` matching the selected timeframe, no exceptions.
+AI mode re-verified after the poDom change: signals, favourite switching and pair attribution
+all correct.
+
+
+**Renamed "Avalisa AI" → "Avalisa Bot" (Board-directed 2026-08-17):** the strategy is a fixed
 four-rule checker evaluated locally — no model, no live analysis, no network call. Calling it AI
 oversold it, and now that the panel shows the actual rule checklist the honest name matches what
 the user sees. Renamed across the extension UI, the live dashboard (`dashboard/src`), the
