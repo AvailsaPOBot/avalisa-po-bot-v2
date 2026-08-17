@@ -86,8 +86,44 @@ function findResolvedNewDealResult(preTradeSignatures) {
   return null;
 }
 
-function readWsTradeResultSince(tradeStartTs) {
+// Pull the result for ONE specific deal id out of a close event, ignoring any
+// other deals PO batched into the same frame.
+function resultForDealId(payload, dealId) {
+  if (!payload || !dealId) return null;
+  const deals = Array.isArray(payload.deals) ? payload.deals
+    : (Array.isArray(payload) ? payload : null);
+  if (!deals) return null;
+  const deal = deals.find(d => d && d.id === dealId);
+  if (!deal || typeof deal.profit !== 'number') return null;
+  if (deal.profit > 0) return 'win';
+  if (deal.profit < 0) return 'loss';
+  return 'tie';
+}
+
+// Match PO's close event to the deal we actually opened.
+//
+// Matching on time alone attributed the WRONG trade's result: a previous
+// trade's close event can land just after the next trade opens, so the new
+// trade's resolver read the old verdict. Observed live 2026-08-17 — a stale WIN
+// was applied to a losing $1 trade, the ladder "reset" to $1 it was already on,
+// and the next trade repeated $1 instead of doubling to $2.
+//
+// successopenOrder gives us the deal id, and every closed deal carries the same
+// id, so the pairing is exact. Time-based matching stays only as a fallback for
+// the case where we never saw an open event to learn the id from.
+function readWsTradeResultSince(tradeStartTs, dealId = state.currentDealId) {
   const recentWs = state.recentCloseEvents.filter(e => e.ts >= tradeStartTs);
+
+  if (dealId) {
+    for (const ev of recentWs.slice().reverse()) {
+      const result = resultForDealId(ev.payload, dealId);
+      if (result) return { result, event: `${ev.event}#${dealId.slice(0, 8)}` };
+    }
+    // Known id but no matching close yet — do NOT fall back to another deal's
+    // verdict, just keep waiting.
+    return null;
+  }
+
   for (const ev of recentWs.slice().reverse()) {
     const result = extractResultFromCloseEvent(ev.payload);
     if (result) return { result, event: ev.event };

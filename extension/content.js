@@ -1006,6 +1006,10 @@ async function runTradeCycleUnsafe(generation) {
   }
 
   setTradeLock('order_pending');
+  // Drop the previous trade's deal id BEFORE this one can be confirmed, so the
+  // resolver can never pair this trade with the last trade's close event, and
+  // so a stale id cannot block resolution either.
+  state.currentDealId = null;
   await persistRuntimeSession('order_pending');
   updateStatus('running', 'Order sent — confirming open...');
 
