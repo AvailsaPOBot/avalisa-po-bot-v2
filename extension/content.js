@@ -1128,6 +1128,16 @@ function applyMartingaleLogic(result) {
     state.martingaleStep = 0;
     state.currentAmount = startAmount;
   }
+  // A preserved ladder is only meaningful between a safety stop and the next
+  // Start. Once the live ladder has resolved back to step 0 that snapshot is
+  // history, and leaving it in storage lets a LATER Start resurrect an old high
+  // rung: observed 2026-08-17 — a $4/step-2 snapshot was preserved mid-ladder,
+  // that ladder then WON and reset, and 22 minutes later Start restored $4 and
+  // opened there instead of $1 (PAUSED_LADDER_MAX_AGE_MS is 30 min).
+  if (state.martingaleStep === 0) {
+    clearPausedLadder().catch(() => {});
+  }
+
   console.log(`[Avalisa] Martingale: result=${result} step=${state.martingaleStep} nextAmount=${state.currentAmount} multiplier=${multiplier}`);
 }
 
@@ -1698,6 +1708,8 @@ async function startBot() {
     state.tradesCount = Math.max(state.tradesCount, Number(pausedLadder.tradesCount) || 0);
     state.lastDirection = pausedLadder.lastDirection || state.lastDirection;
     console.log('[Avalisa] Resuming paused ladder:', pausedLadder);
+    const ageMin = Math.round((Date.now() - Number(pausedLadder.savedAt || 0)) / 60000);
+    updateStatus('running', `Resuming paused ladder at $${Number(pausedLadder.currentAmount).toFixed(2)} (step ${state.martingaleStep}, saved ${ageMin}m ago)`);
   }
 
   const gen = startGeneration;

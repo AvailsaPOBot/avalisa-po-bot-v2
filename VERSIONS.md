@@ -189,6 +189,31 @@ must agree: **Low 2, Mid 3, High 4**.
   `backend/test/poEntitlement.test.js` locks the contract (no auth words, whitelisted response
   fields only, `select: { id }`, keyed off `poUserId`, UID validated). Mutation-checked.
 
+**Stale preserved ladder resurrected an old rung (2026-08-17).** Reported: after a WIN reset the
+next session opened at **$4** instead of $1.
+
+```
+22:39 $1 ✗  22:39 $2 ✗  22:40 $4 ✓   <- ladder reached $4/step 2, then WON and reset
+22:41 $1 ✓  22:42 $1 ✗  22:43 $2 ✓
+...19 minutes, no trades on ANY asset (checked PO's full closed list, not just AUD/USD)...
+23:02 $4 ✗   <- Start resurrected the stale $4/step-2 snapshot
+```
+
+`preservePausedLadder()` (v2.4.8, so a half-finished recovery is not abandoned on a safety stop)
+wrote `{currentAmount: 4, martingaleStep: 2}` during that first ladder. But `clearPausedLadder()`
+only ran on **consumption** or **manual Stop** — never when the ladder actually resolved — and
+`PAUSED_LADDER_MAX_AGE_MS` is **30 minutes**. So an already-won, 22-minute-old ladder was still
+"resumable" and the next Start opened at $4.
+
+Fix: `applyMartingaleLogic()` clears the preserved ladder whenever the live ladder returns to
+**step 0** (a win, or a max-steps reset). A mid-ladder loss still keeps it, and TIE/unknown still
+hold without touching it — those are the cases the feature exists for. A resumed ladder now also
+announces itself in the panel (`Resuming paused ladder at $X (step N, saved Nm ago)`) instead of
+silently opening on a large stake.
+
+`test/extension-paused-ladder.test.js` covers win-reset, max-steps reset, mid-ladder loss and
+TIE/unknown. Mutation-checked.
+
 **Trade open + result now come from Pocket Option's socket (2026-08-17, Board-approved).**
 Reported from live trading: the ladder repeated rungs — `$16` then `$16`, and `$64` again straight
 after a `$64` win paid +58.88, i.e. **$128 of real exposure on a "$64" rung**.
