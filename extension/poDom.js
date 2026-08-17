@@ -211,6 +211,14 @@ async function setTimeframe(tf) {
   }
 
   let items = document.querySelectorAll(PO_SELECTORS.timeframeItems);
+
+  // PO renders the quick-expiry buttons as "+S30" / "+M1" when the panel is in
+  // "add duration" mode and as plain "S30" / "M1" otherwise. Every match below
+  // used strict equality, so in the "+" mode NOTHING matched and the bot looped
+  // forever without trading — reproduced live 2026-08-17 on Martingale @ S30.
+  // Normalise before comparing; keep the raw text only for the warning.
+  const normTf = t => String(t || '').trim().replace(/^[+\-\s]+/, '').toUpperCase();
+
   const clickItem = async (item, selectedTf, reason) => {
     item.click();
     console.log('[Avalisa] setTimeframe:', reason, selectedTf);
@@ -221,15 +229,13 @@ async function setTimeframe(tf) {
   };
 
   for (const item of items) {
-    const text = item.textContent.trim();
-    if (text === tf) {
+    if (normTf(item.textContent) === normTf(tf)) {
       return clickItem(item, tf, 'clicked grid item');
     }
   }
 
   for (const item of items) {
-    const text = item.textContent.trim();
-    if (text === targetTime) {
+    if (normTf(item.textContent) === normTf(targetTime)) {
       return clickItem(item, tf, 'clicked item by time string');
     }
   }
@@ -238,8 +244,8 @@ async function setTimeframe(tf) {
   if (fallbackTf) {
     const fallbackTime = tfTimeMap[fallbackTf];
     for (const item of items) {
-      const text = item.textContent.trim();
-      if (text === fallbackTf || text === fallbackTime) {
+      const text = normTf(item.textContent);
+      if (text === normTf(fallbackTf) || text === normTf(fallbackTime)) {
         console.warn('[Avalisa] setTimeframe: requested option unavailable, falling back', tf, '→', fallbackTf);
         return clickItem(item, fallbackTf, 'clicked fallback item');
       }
@@ -268,9 +274,12 @@ function chooseAvailableTimeframeFallback(preferredTf, items) {
     M30: ['M5', 'M3', 'M1'],
     H1: ['M30', 'M5', 'M3', 'M1'],
   };
-  const texts = new Set(Array.from(items || []).map(item => item.textContent.trim()));
+  // Same "+S30" normalisation as setTimeframe — otherwise the fallback search
+  // is blind in exactly the mode where the primary match already failed.
+  const norm = t => String(t || '').trim().replace(/^[+\-\s]+/, '').toUpperCase();
+  const texts = new Set(Array.from(items || []).map(item => norm(item.textContent)));
   const choices = fallbackOrder[preferredTf] || ['M1', 'M3', 'M5', 'S30'];
-  return choices.find(candidate => texts.has(candidate) || texts.has(tfTimeMap[candidate])) || null;
+  return choices.find(candidate => texts.has(norm(candidate)) || texts.has(norm(tfTimeMap[candidate]))) || null;
 }
 
 function closePOPopovers() {

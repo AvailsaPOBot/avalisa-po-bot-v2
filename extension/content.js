@@ -605,7 +605,18 @@ async function chooseAvalisaOpportunity(intensity, generation) {
     console.log(`[Avalisa] Avalisa scan: switching to favorite ${fav.name} (${fav.payout}%)`);
     if (!clickFavoritePair(fav)) continue;
     await sleep(1800);
-    await ensureAvalisaDataForCurrentPair(7000, requiredCandles);
+    const ready = await ensureAvalisaDataForCurrentPair(7000, requiredCandles);
+    // Only evaluate once the buffer actually belongs to the pair we just
+    // switched to. Observed live 2026-08-17: 1 scan in 12 timed out mid-switch
+    // and evaluated the PREVIOUS pair's candles while labelled as the new
+    // favourite — a non-SKIP there would have traded this pair on another
+    // pair's indicators.
+    const wanted = normalizeAssetName(getCurrentPair());
+    if (!ready || !wanted || wanted === 'UNKNOWN' || state.activePair !== wanted) {
+      console.log(`[Avalisa] Avalisa scan favorite: SKIP ${fav.name} — data not ready for ${wanted || 'unknown'} (buffer holds ${state.activePair || 'nothing'})`);
+      sawLoadingCandidate = true;
+      continue;
+    }
     const candidate = evaluateAvalisaCurrentPair(intensity, fav.payout, 'favorite');
     candidate.favoriteName = fav.name;
     console.log(`[Avalisa] Avalisa scan favorite: action=${candidate.action} pair=${candidate.asset} favorite=${fav.name} payout=${fav.payout} confidence=${candidate.confidence || 0} tf=${candidate.timeframe || 'n/a'} reason=${candidate.reason}`);
