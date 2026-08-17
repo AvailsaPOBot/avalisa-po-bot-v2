@@ -436,11 +436,21 @@ async function waitForTradeOpen(balanceBefore, amount, timeoutMs = 10000, dealCo
   let sawNewDealElement = false;
   let lastBalance = balanceBefore;
   let prevSample = null;
+  const openedAtTs = Date.now();
 
   await sleep(1500);
   const start = Date.now();
 
   while (Date.now() - start < timeoutMs) {
+    // PO's own successopenOrder event is authoritative and arrives on the socket
+    // even when a throttled tab has frozen the balance DOM. Prefer it.
+    const wsOpen = state.lastWsOpen;
+    if (wsOpen && wsOpen.ts >= openedAtTs && Number(wsOpen.payload?.amount) === Number(amount)) {
+      console.log('[Avalisa] Trade confirmed via PO socket (successopenOrder):', wsOpen.payload?.asset, wsOpen.payload?.amount);
+      const bal = await getBalance();
+      return { opened: true, balanceDuring: bal ?? lastBalance ?? balanceBefore, method: 'ws-open' };
+    }
+
     const dealCountNow = countDealElements();
     if (!sawNewDealElement && dealCountNow > beforeCount) {
       sawNewDealElement = true;

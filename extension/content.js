@@ -2007,6 +2007,24 @@ window.addEventListener('message', (e) => {
         });
       }
     } catch (_) {}
+  } else if (t === 'AVALISA_WS_BINARY') {
+    // PO's authoritative trade events arrive as BINARY socket frames, named by
+    // the placeholder that precedes them. These are the source of truth for
+    // "did my order open" and "did it win" — the balance DOM is only a fallback,
+    // and a throttled background tab can delay it by 30s+.
+    try {
+      const payload = JSON.parse(e.data.data);
+      const evName = e.data.event || '';
+
+      if (/successopenOrder/i.test(evName)) {
+        state.lastWsOpen = { ts: Date.now(), payload };
+        debugLog('[Avalisa] WS open confirmed:', payload?.asset, payload?.amount, 'req', payload?.requestId);
+      } else if (/successcloseOrder|deals?Closed|closeOrder/i.test(evName)) {
+        state.recentCloseEvents.push({ ts: Date.now(), event: evName, payload });
+        if (state.recentCloseEvents.length > 20) state.recentCloseEvents.shift();
+        debugLog('[Avalisa] WS close event:', evName, JSON.stringify(payload).slice(0, 200));
+      }
+    } catch (_) {}
   } else if (t === 'AVALISA_WS_HISTORY') {
     debugLog('[Avalisa] HISTORY binary received, length:', e.data.data.length);
     try {

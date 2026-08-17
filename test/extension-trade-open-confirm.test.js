@@ -21,7 +21,7 @@ const root = path.resolve(__dirname, '..');
 const poDomSrc = fs.readFileSync(path.join(root, 'extension/poDom.js'), 'utf8');
 
 // Pull waitForTradeOpen out and run it against scripted balance/deal readings.
-function harness({ balances, dealCounts }) {
+function harness({ balances, dealCounts, wsOpen = null }) {
   const logs = [];
   const sandbox = {
     console: { log: (...a) => logs.push(a.join(' ')), warn: (...a) => logs.push('WARN ' + a.join(' ')) },
@@ -30,13 +30,14 @@ function harness({ balances, dealCounts }) {
     countDealElements: () => (dealCounts.length > 1 ? dealCounts.shift() : dealCounts[0]),
     Date,
   };
+  const state = { lastWsOpen: wsOpen };
   const fn = new Function(
-    'console', 'sleep', 'getBalance', 'countDealElements', 'Date',
+    'console', 'sleep', 'getBalance', 'countDealElements', 'Date', 'state',
     poDomSrc.slice(poDomSrc.indexOf('async function waitForTradeOpen'),
                    poDomSrc.indexOf('function parsePayoutPercent')) +
     '\nreturn waitForTradeOpen;',
-  )(sandbox.console, sandbox.sleep, sandbox.getBalance, sandbox.countDealElements, sandbox.Date);
-  return { fn, logs };
+  )(sandbox.console, sandbox.sleep, sandbox.getBalance, sandbox.countDealElements, sandbox.Date, state);
+  return { fn, logs, state };
 }
 
 // ── 1. Clean case still works: stake simply deducted ────────────────────────
@@ -83,6 +84,18 @@ function harness({ balances, dealCounts }) {
 }
 
 
+
+// ── 5. PO's socket confirms the open even with a frozen (throttled) balance ──
+{
+  const { fn } = harness({
+    balances: [1000, 1000],
+    dealCounts: [5, 5],
+    wsOpen: { ts: Date.now() + 50, payload: { asset: 'AUDUSD_otc', amount: 64 } },
+  });
+  const r = await fn(1000, 64, 3000, 5);
+  assert.equal(r.opened, true, 'successopenOrder must confirm the open on its own');
+  assert.equal(r.method, 'ws-open', 'the socket signal should win, got ' + r.method);
+}
 
 console.log('Extension trade-open confirmation passed.');
 })();

@@ -189,6 +189,47 @@ must agree: **Low 2, Mid 3, High 4**.
   `backend/test/poEntitlement.test.js` locks the contract (no auth words, whitelisted response
   fields only, `select: { id }`, keyed off `poUserId`, UID validated). Mutation-checked.
 
+**Trade open + result now come from Pocket Option's socket (2026-08-17, Board-approved).**
+Reported from live trading: the ladder repeated rungs — `$16` then `$16`, and `$64` again straight
+after a `$64` win paid +58.88, i.e. **$128 of real exposure on a "$64" rung**.
+
+Two layers, both measured live:
+1. `waitForTradeOpen()` accepted only an ABSOLUTE drop below `balanceBefore − amount×0.3`. When the
+   previous payout lands inside the window the balance goes **up**, the stake never crosses that
+   level, the order is called unconfirmed and the cycle re-fires the same rung while the first
+   order is live. It already saw PO list a new deal but used it only for a log line.
+2. Underneath that: **PO sends its authoritative events as BINARY socket frames.** `parseWsMessage`
+   only handled text `42[...]` frames, so `recentCloseEvents` was permanently empty and every
+   verdict fell through to balance heuristics. In a **backgrounded tab** Chrome throttles timers
+   and PO's balance lags — measured **31s** to see a stake (on a 30s trade) versus **1–2s** in the
+   foreground — and a $1 **win was booked as a LOSS** because the +1.92 landed after the verdict.
+   That is what drives a runaway $1→$64 ladder.
+
+Fixes:
+- `injected.js` remembers the `45x` placeholder's event name and forwards the following binary
+  frame as `AVALISA_WS_BINARY` with that name, instead of anonymising it as a price tick.
+- `content.js` consumes **`successopenOrder`** (authoritative open) and **`successcloseOrder`**
+  (authoritative result) from those frames.
+- `waitForTradeOpen()` prefers the socket open event, then a **step-down of ~the stake between
+  consecutive samples** (survives a payout mid-window because it measures the delta, not the
+  level), then a new deal in PO's list. On timeout with a deal present it returns `opened:true`:
+  the errors are asymmetric — calling it open at worst books one trade `unknown` and the ladder
+  HOLDS, calling it closed doubles real money.
+- `extractResultFromCloseEvent()` reads `deals[].profit`, not the outer `profit`. Real payload is
+  `{profit: 0, deals:[{profit: -1}]}` — a **loss** that the old order-of-checks called a "tie".
+- **Interim guard (B):** while `document.visibilityState === 'hidden'` the resolver refuses to book
+  a balance-derived **loss** (wins and ties still register). A throttled tab cannot be trusted to
+  have received the payout yet, and the cost of a wrong loss is a doubled stake.
+
+Verified live with the PO tab **backgrounded** — the exact condition that broke it:
+`Trade confirmed via PO socket (successopenOrder)` in **1–2s**, `RESULT: … via WS event:
+successcloseOrder`, rungs `1 → 2 → 1 → 2` laddering and resetting correctly, and **zero
+balance-derived loss verdicts**.
+
+Tests: `extension-trade-open-confirm.test.js` (replays the payout-masking sequence + the socket
+path) and `extension-ws-result.test.js` (real `successcloseOrder` payload shape, and the hidden-tab
+loss guard). Both mutation-checked. 11 extension + 8 backend tests pass.
+
 **Test-Fix Loop 2026-08-17 — the expiry panel was three bugs, not one.** The `+S30` fix recorded
 below was itself wrong and is superseded. Root cause, from driving PO live:
 
