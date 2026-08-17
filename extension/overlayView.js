@@ -9,7 +9,7 @@ function getOverlayHTML() {
   const manifestVersion = chrome.runtime.getManifest().version;
   return `
     <div id="avalisa-panel">
-      <div class="av-header">
+      <div class="av-header" title="Drag to move the panel · double-click to reset position">
         <span class="av-logo">
           <img src="${logoUrl}" alt="Avalisa PO Bot" class="av-logo-img" />
           <span>Avalisa PO Bot</span>
@@ -195,7 +195,13 @@ function getOverlayCSS() {
       padding: 16px; width: 280px; box-shadow: 0 8px 32px rgba(0,0,0,0.5);
       color: #e2e8f0;
     }
-    .av-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .av-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 12px; cursor: grab; user-select: none;
+    }
+    .av-header:active { cursor: grabbing; }
+    #avalisa-overlay.av-dragging { opacity: 0.92; }
+    #avalisa-overlay.av-dragging #avalisa-panel { box-shadow: 0 12px 44px rgba(0,0,0,0.65); }
     .av-logo {
       display: inline-flex; align-items: center; gap: 8px;
       font-size: 15px; font-weight: 700; color: #a78bfa;
