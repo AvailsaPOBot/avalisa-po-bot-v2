@@ -495,7 +495,7 @@ async function checkPayoutBeforeTrade(options = {}) {
   }
 
   if (!allowSwitch) {
-    console.log('[Avalisa] Payout Monitor: auto-switch suppressed by current-pair AI mode');
+    console.log('[Avalisa] Payout Monitor: auto-switch suppressed by current-pair mode');
     return { proceed: true };
   }
 

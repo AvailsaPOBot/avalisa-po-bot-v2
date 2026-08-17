@@ -68,7 +68,7 @@ const MAX_CANDLE_BUFFER = 50;
 // outright and "changeSymbol" always returns the same ~11-minute tick budget.
 //
 // The old values (mid 20, high 30) were therefore unreachable while scanning at
-// a 60s period: Mid and High never once cleared the gate, so Avalisa AI placed
+// a 60s period: Mid and High never once cleared the gate, so Avalisa Bot placed
 // zero trades at its own default intensity. Every value below is now under the
 // ~22 a 30s seed provides (see AI_ANALYSIS_PERIOD_SEC) and at or above the 15
 // closes RSI-14 needs to return a number at all.

@@ -5,7 +5,7 @@ export default function AvalisaAI({ cards }) {
         <div className="landing-ai__media landing-reveal">
           <div className="landing-engine-panel">
             <div className="landing-engine-panel__head">
-              <span>Avalisa AI</span>
+              <span>Avalisa Bot</span>
               <strong>Decision Engine</strong>
             </div>
             {[
@@ -28,7 +28,7 @@ export default function AvalisaAI({ cards }) {
           <p className="landing-eyebrow">The strategy</p>
           <h2 className="landing-heading">Three intensities. One AI.</h2>
           <p className="landing-copy">
-            Avalisa AI adapts to market regime — trending or ranging — and picks
+            Avalisa Bot adapts to market regime — trending or ranging — and picks
             the timeframe with the cleanest signal.
           </p>
 

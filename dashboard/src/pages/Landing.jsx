@@ -22,7 +22,7 @@ const CHROME_EXTENSION_URL = process.env.REACT_APP_CHROME_STORE_URL || 'https://
 const proofItems = [
   { icon: Puzzle, title: 'Chrome Extension', text: 'Desktop trading control for Pocket Option.' },
   { icon: Smartphone, title: 'Webapp Bot', text: 'Mobile-web shell for phone and tablet access.' },
-  { icon: Brain, title: 'Avalisa AI Pair Scan', text: 'Current pair or favorites scan with confidence filters.' },
+  { icon: Brain, title: 'Avalisa Bot Pair Scan', text: 'Current pair or favorites scan with confidence filters.' },
   { icon: Lock, title: 'Backend Plan Access', text: 'Same Avalisa login, paid plan, and free-tier gate.' },
   { icon: ShieldCheck, title: 'Confirmed Account Mode', text: 'Demo or Real only after PO account mode is readable.' },
 ];
@@ -62,11 +62,11 @@ const plans = [
     name: 'Basic',
     price: '$69',
     period: 'one-time',
-    text: 'Unlimited Martingale plus starter Avalisa AI access.',
+    text: 'Unlimited Martingale plus starter Avalisa Bot access.',
     href: '/pricing#basic',
     cta: 'View Basic',
     featured: true,
-    items: ['Unlimited Martingale', '10 Avalisa AI trades', 'Cloud settings', 'Trade history'],
+    items: ['Unlimited Martingale', '10 Avalisa Bot trades', 'Cloud settings', 'Trade history'],
   },
   {
     name: 'Pro',
@@ -75,7 +75,7 @@ const plans = [
     text: 'All current modes unlocked for the full Avalisa workflow.',
     href: '/pricing#pro',
     cta: 'View Pro',
-    items: ['Avalisa AI unlocked', 'Current modes included', 'Affiliate unlock path', 'Priority support'],
+    items: ['Avalisa Bot unlocked', 'Current modes included', 'Affiliate unlock path', 'Priority support'],
   },
 ];
 
@@ -213,9 +213,9 @@ export default function Landing() {
       <section className="avalisa-ai-section" id="ai">
         <div className="avalisa-shell avalisa-ai-section__grid">
           <div>
-            <SectionTitle accent="Pair Scan.">Avalisa AI</SectionTitle>
+            <SectionTitle accent="Pair Scan.">Avalisa Bot</SectionTitle>
             <p>
-              Avalisa AI scans the active chart and can review eligible favorites when a setup
+              Avalisa Bot scans the active chart and can review eligible favorites when a setup
               is not clear. Signals stay visible before execution so the user can see what the
               bot is doing.
             </p>

@@ -427,7 +427,7 @@ async function incrementTrade() {
   }
 }
 
-// ─── Avalisa AI Opportunity Scanner ─────────────────────────────────────────
+// ─── Avalisa Bot Opportunity Scanner ────────────────────────────────────────
 // periodSec defaults to the AI analysis period rather than the chart/expiry
 // period. Reading it off the expiry (the old behaviour) meant a 60s expiry asked
 // PO for 60s candles, and PO's fixed ~11-minute tick budget only yields ~10 of
@@ -816,14 +816,14 @@ async function runTradeCycleUnsafe(generation) {
     }
   }
 
-  // AI strategy guard: Basic gets limited AI trades; Pro gets unlimited current modes.
+  // Signal-mode guard: Basic gets limited Avalisa Bot trades; Pro is unlimited.
   if (state.settings.strategy === 'ai' && !['basic', 'lifetime'].includes(license.plan)) {
     state.settings.strategy = 'martingale';
     state.settings.aiAssist = false;
     const stratEl = document.getElementById('av-strategy');
     if (stratEl) stratEl.value = 'martingale';
     updateUI();
-    updateStatus('error', 'Avalisa AI requires Basic or Pro. Switched to Martingale.');
+    updateStatus('error', 'Avalisa Bot requires Basic or Pro. Switched to Martingale.');
   }
 
   // AI mode: local rule engine — zero network calls
@@ -910,7 +910,7 @@ async function runTradeCycleUnsafe(generation) {
 
   updateStatus('running', `Trade #${state.tradesCount + 1} — ${direction.toUpperCase()} $${safeAmount.toFixed(2)}`);
 
-  // AI mode now executes on Avalisa AI's selected duration. Martingale still uses
+  // Signal mode now executes on Avalisa Bot's selected duration. Martingale still uses
   // the saved bot timeframe setting from the extension panel.
   let executionTimeframe = state.settings?.timeframe || 'M1';
   if (state.settings.strategy === 'ai') {
@@ -1402,7 +1402,7 @@ function renderSignalBox() {
   const box = document.getElementById('av-signal-box');
   if (!box) return;
 
-  // Only meaningful for Avalisa AI — Martingale does not evaluate indicators.
+  // Only meaningful for Avalisa Bot — Martingale does not evaluate indicators.
   if (state.settings?.strategy !== 'ai' || !state.lastSignal) {
     box.style.display = 'none';
     return;
@@ -1746,8 +1746,8 @@ function getAiAllowanceBlock(license) {
   if (used < allowance) return null;
 
   return {
-    reason: 'AI trade allowance exhausted',
-    message: `Avalisa AI allowance reached (${used}/${allowance}). Upgrade to Pro for unlimited AI.`,
+    reason: 'Avalisa Bot trade allowance exhausted',
+    message: `Avalisa Bot allowance reached (${used}/${allowance}). Upgrade to Pro for unlimited Avalisa Bot trades.`,
   };
 }
 

@@ -8,7 +8,7 @@ const VALID_TABS = ['settings', 'history', 'bots', 'admin'];
 
 const STRATEGIES = [
   { id: 'martingale', label: 'Martingale', plans: ['free', 'basic', 'lifetime'], desc: 'Double on loss to recover' },
-  { id: 'ai', label: 'Avalisa AI', plans: ['basic', 'lifetime'], desc: 'Basic includes 10 AI trades; Pro is unlimited.' },
+  { id: 'ai', label: 'Avalisa Bot', plans: ['basic', 'lifetime'], desc: 'Basic includes 10 Avalisa Bot trades; Pro is unlimited.' },
 ];
 
 const TIMEFRAMES = ['S30', 'M1', 'M3', 'M5', 'M30', 'H1'];
@@ -19,7 +19,7 @@ const STEPS = ['infinite', 1, 2, 3, 4, 5, 6, 8, 10, 12];
 
 const STRATEGY_LABELS = {
   martingale: 'Martingale',
-  ai: 'Avalisa AI',
+  ai: 'Avalisa Bot',
 };
 
 function strategyLabel(strategy) {
@@ -512,7 +512,7 @@ export default function Dashboard() {
       {/* Admin AI configuration */}
       {activeTab === 'settings' && isAdmin && (
         <div className="card mt-6">
-          <h2 className="text-lg font-semibold text-white mb-1">Avalisa AI Configuration</h2>
+          <h2 className="text-lg font-semibold text-white mb-1">Avalisa Bot Configuration</h2>
           <p className="text-gray-400 text-sm mb-4">
             Set the internal AI prompt for supported signal workflows.
           </p>

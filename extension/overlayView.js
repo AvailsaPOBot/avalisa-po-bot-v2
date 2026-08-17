@@ -42,10 +42,12 @@ function getOverlayHTML() {
 
       <div class="av-section">
         <div class="av-row" id="av-row-strategy">
-          <label class="av-label" title="Choose the bot logic. Martingale follows your direction rules. Avalisa AI waits for indicator-based signals.">Strategy</label>
-          <select id="av-strategy" class="av-select" title="Choose the bot logic. Martingale follows your direction rules. Avalisa AI waits for indicator-based signals.">
+          <label class="av-label" title="Choose the bot logic. Martingale follows your direction rules. Avalisa Bot waits for indicator-based signals.">Strategy</label>
+          <select id="av-strategy" class="av-select" title="Choose the bot logic. Martingale follows your direction rules. Avalisa Bot waits for indicator-based signals.">
             <option value="martingale" title="Rule mode: trade the selected direction and increase after losses.">Martingale</option>
-            <option value="ai" title="Signal mode: Avalisa evaluates candles, RSI, Bollinger Bands, volatility, and trend.">Avalisa AI</option>
+            <!-- value stays "ai": it is persisted in every user's chrome.storage and sent
+                 to the backend on each trade. The LABEL is what changed. -->
+            <option value="ai" title="Signal mode: Avalisa checks candles, RSI, Bollinger Bands, volatility, and trend against a fixed rule set.">Avalisa Bot</option>
           </select>
         </div>
         <div class="av-row" id="av-row-direction">
@@ -66,7 +68,7 @@ function getOverlayHTML() {
           </select>
         </div>
         <div class="av-row" id="av-row-intensity" style="display:none">
-          <label class="av-label" title="How strict Avalisa AI is before placing a signal.">Intensity</label>
+          <label class="av-label" title="How many of the four rules must agree before Avalisa Bot trades.">Intensity</label>
           <select id="av-intensity" class="av-select" title="Low trades fastest. Mid is balanced and now allows OTC. High is strict and skips OTC.">
             <option value="low" title="Most active. Lower confirmation, allows OTC.">Low</option>
             <option value="mid" selected title="Balanced. More confirmation than Low, now allows OTC.">Mid</option>
@@ -74,7 +76,7 @@ function getOverlayHTML() {
           </select>
         </div>
         <div class="av-row" id="av-row-ai-pair-mode" style="display:none">
-          <label class="av-label" title="Controls whether AI can rotate through favorite pairs.">Pair Scan</label>
+          <label class="av-label" title="Controls whether Avalisa Bot can rotate through favorite pairs.">Pair Scan</label>
           <select id="av-ai-pair-mode" class="av-select" title="Auto scan checks favorite pairs. Current pair only stays on the visible chart.">
             <option value="auto" selected title="Scan PO favorite pairs and switch to a payout-qualified signal.">Auto scan favorites</option>
             <option value="current" title="Never rotate pairs; trade only the visible chart.">Current pair only</option>
@@ -137,7 +139,7 @@ function getOverlayHTML() {
 
       <div class="av-section av-status-block">
         <div id="av-status" class="av-status">Status: Stopped</div>
-        <!-- Live signal readout (Avalisa AI only). Shows which of the four rules
+        <!-- Live signal readout (Avalisa Bot only). Shows which of the four rules
              currently agree, so a scan that is working but unconvinced is
              visibly different from one that has stalled. -->
         <div id="av-signal-box" class="av-signal-box" style="display:none">

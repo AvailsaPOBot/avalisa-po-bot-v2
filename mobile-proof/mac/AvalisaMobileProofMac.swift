@@ -598,7 +598,7 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
     }
 
     private func settingsRows() -> NSStackView {
-        strategyPopup = popup(["Martingale", "Avalisa AI"], selected: "Martingale")
+        strategyPopup = popup(["Martingale", "Avalisa Bot"], selected: "Martingale")
         directionPopup = popup(["Alternating", "Always Buy", "Always Sell"], selected: "Alternating")
         timeframePopup = popup(["30s", "1min", "3min", "5min"], selected: "30s")
         intensityPopup = popup(["Low", "Mid", "High"], selected: "Low")
@@ -655,7 +655,7 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
 
     private func applyHelp() {
         let tips: [(NSView?, String)] = [
-            (strategyPopup, "Choose the bot logic. Martingale follows your direction rules. Avalisa AI waits for indicator-based signals."),
+            (strategyPopup, "Choose the bot logic. Martingale follows your direction rules. Avalisa Bot waits for indicator-based signals."),
             (directionPopup, "Direction used by Martingale mode."),
             (timeframePopup, "Trade expiry for Martingale mode."),
             (intensityPopup, "Low trades fastest. Mid is balanced and allows OTC. High is strict and skips OTC."),
@@ -765,7 +765,7 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
     }
 
     private func applyStrategyUI() {
-        let isAI = strategyPopup?.titleOfSelectedItem == "Avalisa AI"
+        let isAI = strategyPopup?.titleOfSelectedItem == "Avalisa Bot"
         directionRow?.isHidden = isAI
         timeframeRow?.isHidden = isAI
         intensityRow?.isHidden = !isAI
@@ -859,7 +859,7 @@ final class AvalisaMobileProofMac: NSObject, NSApplicationDelegate, WKScriptMess
     }
 
     private func sendSettings() {
-        let strategyMap = ["Martingale": "martingale", "Avalisa AI": "ai"]
+        let strategyMap = ["Martingale": "martingale", "Avalisa Bot": "ai"]
         let directionMap = ["Alternating": "alternating", "Always Buy": "call", "Always Sell": "put"]
         let timeframeMap = ["30s": "S30", "1min": "M1", "3min": "M3", "5min": "M5"]
         let intensityMap = ["Low": "low", "Mid": "mid", "High": "high"]

@@ -110,4 +110,32 @@ for (const marker of ['WS EVENT:', 'Socket.IO binary placeholder:', 'WS raw msg 
   );
 }
 
+// ── 5. Naming: the strategy is a fixed rule engine, not live model inference ──
+// Renamed to "Avalisa Bot" on 2026-08-17 (Board): calling a deterministic
+// four-rule checker "AI" oversells it, especially now that the panel shows the
+// rules. The stored value stays 'ai' on purpose — it lives in every user's
+// chrome.storage and goes to the backend with each trade, so renaming it would
+// be a migration with no user benefit.
+const overlayUi = read('extension/overlayView.js');
+assert.ok(
+  /<option value="ai"[^>]*>Avalisa Bot<\/option>/.test(overlayUi),
+  'the strategy option must be LABELLED "Avalisa Bot" while keeping value="ai"',
+);
+for (const [file, source] of [
+  ['extension/overlayView.js', overlayUi],
+  ['extension/content.js', contentSource],
+]) {
+  assert.ok(!/Avalisa AI/.test(source), `${file} still contains "Avalisa AI" branding`);
+}
+// No user-visible string may call it AI. Checks quoted strings and tag text,
+// ignoring identifiers like aiTradesAllowance and AI_ANALYSIS_PERIOD_SEC.
+const userStrings = [
+  ...overlayUi.matchAll(/title="([^"]*)"/g),
+  ...overlayUi.matchAll(/>([^<>{]*)</g),
+  ...contentSource.matchAll(/updateStatus\([^,]+,\s*[`'"]([^`'"]*)/g),
+].map(m => m[1]);
+userStrings.forEach(str => {
+  assert.ok(!/\bAI\b/.test(str), `user-facing copy still says "AI": ${str.trim().slice(0, 80)}`);
+});
+
 console.log('Extension AI-candle + secret-handling smoke passed.');

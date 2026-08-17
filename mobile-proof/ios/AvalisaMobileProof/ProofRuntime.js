@@ -282,7 +282,7 @@
 
   function aiAllowanceBlock(license) {
     if (state.settings.strategy !== 'ai') return null;
-    if (license?.plan === 'free') return 'Avalisa AI requires Basic or Pro.';
+    if (license?.plan === 'free') return 'Avalisa Bot requires Basic or Pro.';
     if (state.demoMode === 'real' && Number.isFinite(license?.aiTradesAllowance)) {
       const used = Number(license.aiTradesUsed || 0);
       if (used >= Number(license.aiTradesAllowance)) return 'AI trade allowance exhausted.';

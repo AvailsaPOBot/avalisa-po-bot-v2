@@ -136,7 +136,12 @@ const testPromise = dom.window.eval(`${extensionBundle}
   state.settings.strategy = 'ai';
   document.body.innerHTML = '<div id="avalisa-overlay"></div><div class="js-balance-real">$100.00</div>';
   const realBlock = getAiAllowanceBlock({ allowed: true, plan: 'basic', aiTradesAllowance: 10, aiTradesUsed: 10 });
-  assert.equal(realBlock.reason, 'AI trade allowance exhausted');
+  // This string is shown to the user (showLimitReachedMessage -> status line),
+  // so assert the branding rather than the exact prose.
+  assert.ok(realBlock.reason.includes('Avalisa Bot'),
+    'allowance block should name Avalisa Bot, got: ' + realBlock.reason);
+  assert.ok(!/\bAI\b/.test(realBlock.reason),
+    'user-facing copy should not call the rule engine AI, got: ' + realBlock.reason);
 
   document.body.innerHTML = '<div id="avalisa-overlay"></div><div class="balance__label">Demo</div><div class="js-balance-demo">$10000.00</div>';
   const demoBlock = getAiAllowanceBlock({ allowed: true, plan: 'basic', aiTradesAllowance: 10, aiTradesUsed: 10 });

@@ -34,7 +34,7 @@ function StepVisual({ step }) {
         <div className="landing-step-mini-window__body">
           <div>
             <small>Avalisa Bot</small>
-            <strong>Avalisa AI</strong>
+            <strong>Avalisa Bot</strong>
           </div>
           <p>Pair Scan</p>
           <p>Intensity: Medium</p>

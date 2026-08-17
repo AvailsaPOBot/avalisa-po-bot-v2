@@ -148,6 +148,25 @@ must agree: **Low 2, Mid 3, High 4**.
 - `no_signal` → `not_enough_rules`, and that reason no longer counts toward the no-progress
   cooldown: looking and not being convinced is a normal outcome, not a stall.
 
+**Renamed "Avalisa AI" → "Avalisa Bot" (Board-directed 2026-08-17):** the strategy is a fixed
+four-rule checker evaluated locally — no model, no live analysis, no network call. Calling it AI
+oversold it, and now that the panel shows the actual rule checklist the honest name matches what
+the user sees. Renamed across the extension UI, the live dashboard (`dashboard/src`), the
+public pricing/landing copy, the support-bot system prompt (`backend/src/routes/support.js`) and
+the Webapp Bot (`mobile-proof/`).
+
+⚠️ **The stored value is still `strategy: 'ai'` — deliberately.** It sits in every existing
+user's `chrome.storage.local` and is sent to the backend with each trade; the live CWS 2.3.19
+build talks to the same backend. Renaming the wire value would be a migration that resets saved
+settings and breaks the published build, for no user-visible gain. Same reasoning for the
+`/api/ai/*` routes and the `aiTradesAllowance` / `aiTradesUsed` license fields. Only labels moved.
+Guarded by a naming assertion in `test/extension-ai-candles-and-secrets.test.js`, which checks the
+option is labelled "Avalisa Bot" while `value="ai"` is preserved, and that no user-visible string
+says "AI".
+
+NOT renamed: `dashboard/public/concepts/` and `dashboard/design-spec/` (archived concept mockups
+and design history, publicly reachable but not the live product pages) — Board decision pending.
+
 **Live rule readout in the panel (Board-directed):** a new signal box under Status shows the
 pair, regime, leading direction, an `N/M rules` score and a ticked checklist of exactly which
 rules are met, plus a `checked Ns ago` heartbeat that turns red past 90s. Without it a scan that
