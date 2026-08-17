@@ -5,10 +5,11 @@
 
 function getOverlayHTML() {
   const logoUrl = chrome.runtime.getURL('icons/avalisa-signature-logo-transparent.png');
+  const loginUrl = chrome.runtime.getURL('login.html');
   const manifestVersion = chrome.runtime.getManifest().version;
   return `
     <div id="avalisa-panel">
-      <div class="av-header">
+      <div class="av-header" title="Drag to move the panel · double-click to reset position">
         <span class="av-logo">
           <img src="${logoUrl}" alt="Avalisa PO Bot" class="av-logo-img" />
           <span>Avalisa PO Bot</span>
@@ -18,17 +19,17 @@ function getOverlayHTML() {
       </div>
 
       <div id="av-auth-section" class="av-section">
-        <!-- No credential fields here by design.
-             This panel is injected into Pocket Option's own DOM, so any input in
-             it is readable by PO's page scripts and by every other extension the
-             user has installed — and Chrome's password manager refills it on
-             every page load. Sign-in therefore happens in the toolbar popup,
-             which runs on the extension's own origin. -->
+        <!-- Sign-in is right here in the panel (visible the moment PO loads, no
+             extra clicks) but the fields themselves live in an IFRAME on the
+             extension's own origin. The panel is injected into Pocket Option's
+             DOM, so a password typed directly here would be readable by PO's
+             page scripts and by every other installed extension, and Chrome's
+             password manager would refill it against po.trade on every load.
+             Cross-origin means the page cannot reach into the frame. -->
         <div id="av-login-form">
-          <div class="av-signin-note">
-            Sign in from the <strong>Avalisa</strong> icon in your Chrome toolbar
-            to keep your password off the Pocket Option page.
-          </div>
+          <div id="av-auto-note" class="av-signin-note" style="display:none"></div>
+          <iframe id="av-login-frame" class="av-login-frame"
+                  src="${loginUrl}" title="Sign in to Avalisa"></iframe>
           <button id="av-register-free-btn" class="av-btn av-btn-outline">Affiliate Pro</button>
         </div>
         <div id="av-logged-in" style="display:none">
@@ -194,7 +195,13 @@ function getOverlayCSS() {
       padding: 16px; width: 280px; box-shadow: 0 8px 32px rgba(0,0,0,0.5);
       color: #e2e8f0;
     }
-    .av-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .av-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 12px; cursor: grab; user-select: none;
+    }
+    .av-header:active { cursor: grabbing; }
+    #avalisa-overlay.av-dragging { opacity: 0.92; }
+    #avalisa-overlay.av-dragging #avalisa-panel { box-shadow: 0 12px 44px rgba(0,0,0,0.65); }
     .av-logo {
       display: inline-flex; align-items: center; gap: 8px;
       font-size: 15px; font-weight: 700; color: #a78bfa;
@@ -247,6 +254,10 @@ function getOverlayCSS() {
     .av-plan-badge.plan-lifetime { background: #f4c95d; color: #15120a; }
     .av-plan-badge.plan-basic { background: #059669; color: #fff; }
     .av-plan-badge.plan-free { background: #3b82f6; color: #fff; }
+    .av-login-frame {
+      width: 100%; height: 162px; border: 0; display: block;
+      margin-bottom: 8px; background: transparent; color-scheme: normal;
+    }
     .av-signin-note {
       font-size: 11px; line-height: 1.5; color: #8fa8c8;
       background: #10182a; border: 1px solid #2a4060; border-radius: 6px;

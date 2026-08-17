@@ -34,6 +34,7 @@ const state = {
   aiUnlimited: false,
   recentCloseEvents: [], // [{ ts, event, payload }]
   lastSignal: null,   // latest AvalisaSignalEngine verdict, for the panel readout
+  poEntitlementUid: null, // PO UID already resolved against /license/po-entitlement
   lastTradeResultDebug: null,
   lastTradeCycleError: null,
   aiNoProgressCycles: 0,

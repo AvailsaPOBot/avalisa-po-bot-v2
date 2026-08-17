@@ -1,13 +1,16 @@
 (async () => {
 /**
- * Sign-in moved from the on-page panel to the toolbar popup in 2.4.9, because
- * the panel is injected into Pocket Option's own DOM (readable by PO's scripts
- * and by every other extension, and refilled by Chrome's password manager).
+ * Sign-in lives in the panel where users can see it at launch (Board 2026-08-17),
+ * but the fields themselves are served from login.html on the EXTENSION origin
+ * and embedded as an iframe. The panel is injected into Pocket Option's DOM, so
+ * a password typed directly into it would be readable by PO's page scripts and
+ * by every other installed extension, and Chrome's password manager would refill
+ * it against po.trade. Cross-origin keeps the page out of the frame.
  *
- * This exercises the popup's real HTML and real popup.js against a stubbed
- * backend: the fields exist, a successful login stores the JWT and clears the
- * password box, and a rejected login neither stores anything nor loses the
- * user's typing.
+ * This exercises the real login.html + login.js against a stubbed backend: the
+ * fields exist, a successful login stores the JWT, clears the password box and
+ * notifies the parent panel, and a rejected login neither stores anything nor
+ * loses the user's typing.
  */
 const assert = require('assert');
 const fs = require('fs');
@@ -15,14 +18,15 @@ const path = require('path');
 const { JSDOM } = require('../dashboard/node_modules/jsdom');
 
 const root = path.resolve(__dirname, '..');
-const html = fs.readFileSync(path.join(root, 'extension/popup.html'), 'utf8');
-const popupJs = fs.readFileSync(path.join(root, 'extension/popup.js'), 'utf8');
+const html = fs.readFileSync(path.join(root, 'extension/login.html'), 'utf8');
+const loginJs = fs.readFileSync(path.join(root, 'extension/login.js'), 'utf8');
 
 function harness({ loginResponse, status = 200 } = {}) {
-  const dom = new JSDOM(html, { url: 'chrome-extension://avalisa/popup.html', runScripts: 'outside-only' });
+  const dom = new JSDOM(html, { url: 'chrome-extension://avalisa/login.html', runScripts: 'outside-only' });
   const { window } = dom;
   const store = {};
   const calls = [];
+  const posted = [];
 
   window.chrome = {
     storage: {
@@ -46,28 +50,32 @@ function harness({ loginResponse, status = 200 } = {}) {
     return { ok: status === 200, json: async () => loginResponse };
   };
   window.console = console;
-  window.eval(popupJs);
-  return { window, doc: window.document, store, calls };
+  // jsdom's window.parent is a read-only accessor, so define over it.
+  Object.defineProperty(window, 'parent', {
+    configurable: true,
+    value: { postMessage: (m) => posted.push(m) },
+  });
+  window.eval(loginJs);
+  return { window, doc: window.document, store, calls, posted };
 }
 
 // ── Fields exist and start signed out ───────────────────────────────────────
 {
   const { doc } = harness({ loginResponse: {} });
-  assert.ok(doc.getElementById('login-email'), 'popup needs an email field');
-  assert.ok(doc.getElementById('login-password'), 'popup needs a password field');
-  assert.equal(doc.getElementById('login-password').type, 'password');
-  assert.ok(doc.getElementById('login-btn'), 'popup needs a sign-in button');
-  assert.ok(doc.getElementById('logout-btn'), 'popup needs a sign-out control');
+  assert.ok(doc.getElementById('email'), 'the login frame needs an email field');
+  assert.ok(doc.getElementById('password'), 'the login frame needs a password field');
+  assert.equal(doc.getElementById('password').type, 'password');
+  assert.ok(doc.getElementById('submit'), 'the login frame needs a sign-in button');
 }
 
 // ── Successful login stores the session and clears the password ─────────────
 {
-  const { doc, store, calls, window } = harness({
+  const { doc, store, calls, window, posted } = harness({
     loginResponse: { token: 'jwt-123', user: { id: 'u1' } },
   });
-  doc.getElementById('login-email').value = '  trader@example.com  ';
-  doc.getElementById('login-password').value = 'hunter2';
-  doc.getElementById('login-btn').click();
+  doc.getElementById('email').value = '  trader@example.com  ';
+  doc.getElementById('password').value = 'hunter2';
+  doc.getElementById('submit').click();
 
   await new Promise(r => window.setTimeout(r, 50));
 
@@ -80,10 +88,10 @@ function harness({ loginResponse, status = 200 } = {}) {
   assert.equal(store.userId, 'u1');
   assert.equal(store.userEmail, 'trader@example.com');
 
-  assert.equal(doc.getElementById('login-password').value, '',
+  assert.equal(doc.getElementById('password').value, '',
     'the password field must be cleared once the value has been submitted');
-  assert.notEqual(doc.getElementById('auth-signed-in').style.display, 'none',
-    'the signed-in view should be shown after login');
+  assert.ok(posted.some(m => m.type === 'AVALISA_AUTH_OK'),
+    'the frame must notify the parent panel so the UI swaps over immediately');
 }
 
 // ── Rejected login stores nothing and keeps the user's typing ───────────────
@@ -91,21 +99,21 @@ function harness({ loginResponse, status = 200 } = {}) {
   const { doc, store, window } = harness({
     loginResponse: { error: 'Invalid credentials' }, status: 401,
   });
-  doc.getElementById('login-email').value = 'trader@example.com';
-  doc.getElementById('login-password').value = 'wrong';
-  doc.getElementById('login-btn').click();
+  doc.getElementById('email').value = 'trader@example.com';
+  doc.getElementById('password').value = 'wrong';
+  doc.getElementById('submit').click();
 
   await new Promise(r => window.setTimeout(r, 50));
 
   assert.equal(store.jwt, undefined, 'a failed login must not store a session');
-  assert.equal(doc.getElementById('auth-msg').textContent, 'Invalid credentials',
+  assert.equal(doc.getElementById('msg').textContent, 'Invalid credentials',
     'the backend error should be surfaced');
-  assert.equal(doc.getElementById('login-password').value, 'wrong',
+  assert.equal(doc.getElementById('password').value, 'wrong',
     'a failed login should not wipe what the user typed');
-  assert.ok(!doc.getElementById('login-btn').disabled, 'the button must be re-enabled after failure');
+  assert.ok(!doc.getElementById('submit').disabled, 'the button must be re-enabled after failure');
 }
 
 
 
-console.log('Extension popup auth passed.');
+console.log('Extension login-frame auth passed.');
 })();

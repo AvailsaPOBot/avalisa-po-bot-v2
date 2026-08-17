@@ -605,7 +605,18 @@ async function chooseAvalisaOpportunity(intensity, generation) {
     console.log(`[Avalisa] Avalisa scan: switching to favorite ${fav.name} (${fav.payout}%)`);
     if (!clickFavoritePair(fav)) continue;
     await sleep(1800);
-    await ensureAvalisaDataForCurrentPair(7000, requiredCandles);
+    const ready = await ensureAvalisaDataForCurrentPair(7000, requiredCandles);
+    // Only evaluate once the buffer actually belongs to the pair we just
+    // switched to. Observed live 2026-08-17: 1 scan in 12 timed out mid-switch
+    // and evaluated the PREVIOUS pair's candles while labelled as the new
+    // favourite — a non-SKIP there would have traded this pair on another
+    // pair's indicators.
+    const wanted = normalizeAssetName(getCurrentPair());
+    if (!ready || !wanted || wanted === 'UNKNOWN' || state.activePair !== wanted) {
+      console.log(`[Avalisa] Avalisa scan favorite: SKIP ${fav.name} — data not ready for ${wanted || 'unknown'} (buffer holds ${state.activePair || 'nothing'})`);
+      sawLoadingCandidate = true;
+      continue;
+    }
     const candidate = evaluateAvalisaCurrentPair(intensity, fav.payout, 'favorite');
     candidate.favoriteName = fav.name;
     console.log(`[Avalisa] Avalisa scan favorite: action=${candidate.action} pair=${candidate.asset} favorite=${fav.name} payout=${fav.payout} confidence=${candidate.confidence || 0} tf=${candidate.timeframe || 'n/a'} reason=${candidate.reason}`);
@@ -1213,6 +1224,7 @@ function bindOverlayEvents() {
     chrome.runtime.sendMessage({ type: 'OPEN_TAB', url: state.affiliateLink });
   });
   document.getElementById('av-logout-btn').addEventListener('click', handleLogout);
+  makePanelDraggable();
   document.getElementById('av-start-btn').addEventListener('click', startBot);
   document.getElementById('av-stop-btn').addEventListener('click', stopBot);
 
@@ -1378,6 +1390,145 @@ async function watchPOSelectionForAvalisa() {
 }
 
 // ─── Status Display ──────────────────────────────────────────────────────────
+// ─── PO-linked entitlement (no sign-in needed) ───────────────────────────────
+// If this Pocket Option account is already linked to a paid Avalisa account, the
+// modes unlock without the user typing anything. This is NOT a login: the server
+// hands back only the plan and allowance — never a token, an email, or history —
+// so a guessed UID buys bot modes on the guesser's own PO account and nothing
+// more. Signing in is still required for settings sync, history and support.
+async function tryPoLinkedEntitlement() {
+  if (state.jwt) return false;                 // a real session always wins
+  const uid = getPoUidFromDom();
+  if (!uid) return false;
+  if (state.poEntitlementUid === uid) return false;   // already resolved this UID
+  state.poEntitlementUid = uid;
+
+  try {
+    const res = await fetchWithTimeout(`${API_BASE}/api/license/po-entitlement`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ poUid: uid }),
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    if (!data?.linked || !data.plan || data.plan === 'free') return false;
+
+    state.licenseInfo = {
+      allowed: true,
+      plan: data.plan,
+      tradesUsed: data.tradesUsed,
+      tradesLimit: data.tradesLimit,
+      aiTradesAllowance: data.aiTradesAllowance,
+      aiTradesUsed: data.aiTradesUsed,
+      viaPoLink: true,
+    };
+    console.log('[Avalisa] Entitlement unlocked from linked PO account:', data.plan);
+    updateUI();
+    updateBottomStatus();
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
+// ─── Draggable panel ─────────────────────────────────────────────────────────
+// The panel sits over Pocket Option's chart, so it has to be movable. Drag by
+// the header; the position is remembered per browser. Double-click the header to
+// snap back to the default corner if it ever ends up somewhere awkward.
+const PANEL_POS_KEY = 'avalisaPanelPos';
+
+function clampPanelPos(left, top, el) {
+  const w = el?.offsetWidth || 280;
+  const h = el?.offsetHeight || 200;
+  // Always leave a grabbable strip on screen, even if the window is resized
+  // smaller than the stored position.
+  const maxLeft = Math.max(0, window.innerWidth - w);
+  const maxTop = Math.max(0, window.innerHeight - 40);
+  return {
+    left: Math.min(Math.max(0, left), maxLeft),
+    top: Math.min(Math.max(0, top), maxTop),
+  };
+}
+
+function applyPanelPos(pos) {
+  const el = document.getElementById('avalisa-overlay');
+  if (!el || !pos) return;
+  const { left, top } = clampPanelPos(pos.left, pos.top, el);
+  el.style.left = `${left}px`;
+  el.style.top = `${top}px`;
+  el.style.right = 'auto';
+  el.style.bottom = 'auto';
+}
+
+function resetPanelPos() {
+  const el = document.getElementById('avalisa-overlay');
+  if (!el) return;
+  el.style.left = '';
+  el.style.top = '';
+  el.style.right = '';
+  el.style.bottom = '';
+  chrome.storage.local.remove(PANEL_POS_KEY);
+}
+
+function makePanelDraggable() {
+  const el = document.getElementById('avalisa-overlay');
+  const handle = el?.querySelector('.av-header');
+  if (!el || !handle || handle.dataset.avDrag) return;
+  handle.dataset.avDrag = '1';
+
+  chrome.storage.local.get([PANEL_POS_KEY], data => {
+    if (data[PANEL_POS_KEY]) applyPanelPos(data[PANEL_POS_KEY]);
+  });
+
+  let startX = 0, startY = 0, baseLeft = 0, baseTop = 0, dragging = false;
+
+  const onMove = (e) => {
+    if (!dragging) return;
+    e.preventDefault();
+    const { left, top } = clampPanelPos(baseLeft + (e.clientX - startX), baseTop + (e.clientY - startY), el);
+    el.style.left = `${left}px`;
+    el.style.top = `${top}px`;
+    el.style.right = 'auto';
+    el.style.bottom = 'auto';
+  };
+
+  const onUp = () => {
+    if (!dragging) return;
+    dragging = false;
+    el.classList.remove('av-dragging');
+    document.removeEventListener('mousemove', onMove, true);
+    document.removeEventListener('mouseup', onUp, true);
+    chrome.storage.local.set({
+      [PANEL_POS_KEY]: { left: parseInt(el.style.left, 10) || 0, top: parseInt(el.style.top, 10) || 0 },
+    });
+  };
+
+  handle.addEventListener('mousedown', (e) => {
+    // Let the close button and anything else interactive keep working.
+    if (e.button !== 0 || e.target.closest('button, a, input, select')) return;
+    const r = el.getBoundingClientRect();
+    baseLeft = r.left; baseTop = r.top;
+    startX = e.clientX; startY = e.clientY;
+    dragging = true;
+    el.classList.add('av-dragging');
+    // Capture phase so PO's own chart handlers cannot swallow the drag.
+    document.addEventListener('mousemove', onMove, true);
+    document.addEventListener('mouseup', onUp, true);
+    e.preventDefault();
+  });
+
+  handle.addEventListener('dblclick', (e) => {
+    if (e.target.closest('button, a, input, select')) return;
+    resetPanelPos();
+  });
+
+  // Keep it on screen if the window shrinks.
+  window.addEventListener('resize', () => {
+    if (!el.style.left) return;
+    applyPanelPos({ left: parseInt(el.style.left, 10) || 0, top: parseInt(el.style.top, 10) || 0 });
+  });
+}
+
 // Latest signal verdict, for the panel readout. Kept on state so it survives
 // re-renders and can be shown while idle as well as mid-scan.
 function recordSignalSnapshot(pair, sig) {
@@ -1967,6 +2118,8 @@ async function init() {
   await loadSettingsFromBackend();
   injectOverlay();
   loadAffiliateLink(); // fire-and-forget
+  // Paid users whose PO account is already linked get unlocked without signing in.
+  tryPoLinkedEntitlement().catch(() => {});
   // Seed token status if logged in
   if (state.jwt) {
     // v2.3.3: also seed licenseInfo on init — popup reads from chrome.storage,
@@ -1982,8 +2135,21 @@ async function init() {
     }).catch(() => {});
   }
   setTimeout(() => prefillCandleHistory().catch(console.error), 3000);
-  // Sign-in now happens in the toolbar popup, so the panel has to notice the JWT
-  // arriving (or being cleared) in another context rather than owning the form.
+  // The login iframe tells us the moment it succeeds, so the panel swaps over
+  // instantly instead of waiting for the storage event.
+  window.addEventListener('message', (e) => {
+    if (e.data?.type !== 'AVALISA_AUTH_OK') return;
+    chrome.storage.local.get(['jwt', 'userId'], data => {
+      if (!data.jwt) return;
+      state.jwt = data.jwt;
+      state.userId = data.userId || null;
+      checkLicense().then(lic => { state.licenseInfo = lic; updateUI(); }).catch(() => {});
+      updateUI();
+    });
+  });
+
+  // Sign-in happens in an extension-origin iframe inside the panel, so the panel
+  // has to notice the JWT arriving (or being cleared) rather than owning the form.
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local' || !changes.jwt) return;
     const token = changes.jwt.newValue || null;
@@ -2007,6 +2173,8 @@ async function init() {
   // Tick the "checked Ns ago" line every second so the readout is visibly live.
   setInterval(updateSignalAge, 1000);
   setInterval(() => watchPOSelectionForAvalisa().catch(console.error), 2000);
+  // The UID node renders late on some PO layouts — keep looking until resolved.
+  setInterval(() => { tryPoLinkedEntitlement().catch(() => {}); }, 15000);
   setTimeout(() => restoreRuntimeSession().catch(console.error), 2500);
 
   // Wait for PO header to render before injecting button

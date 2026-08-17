@@ -145,6 +145,54 @@ router.get('/status', authMiddleware, async (req, res) => {
   }
 });
 
+// POST /api/license/po-entitlement — unlock modes for an already-linked PO account
+//
+// Deliberately returns ENTITLEMENT ONLY: plan and trade allowance. No JWT, no
+// user id, no email, no trade history, and it grants no ability to change
+// anything. That restraint is the whole design.
+//
+// The caller asserts its own PO UID and the server cannot verify it controls
+// that Pocket Option account, so this must never be treated as authentication.
+// PO UIDs are semi-public (they appear in affiliate reports), so issuing a
+// session here would let anyone who knows a UID take over that Avalisa account.
+// Worst case as written: someone who guesses a paid UID gets bot modes unlocked
+// on their OWN Pocket Option account — licence leakage, not account takeover.
+//
+// Anything that moves money, changes settings, or reveals personal data must
+// keep requiring a real login.
+router.post('/po-entitlement', async (req, res) => {
+  const { poUid } = req.body || {};
+  const uid = String(poUid || '').trim();
+  if (!uid || !/^\d{3,20}$/.test(uid)) {
+    return res.status(400).json({ error: 'A numeric poUid is required' });
+  }
+
+  try {
+    // Only an admin-verified link counts: user.poUserId is locked to an account
+    // once set. A merely "pending" claim must not unlock anything.
+    const user = await prisma.user.findUnique({
+      where: { poUserId: uid },
+      select: { id: true },
+    });
+    if (!user) return res.json({ linked: false, plan: 'free' });
+
+    const license = await prisma.license.findUnique({ where: { userId: user.id } });
+    if (!license) return res.json({ linked: false, plan: 'free' });
+
+    res.json({
+      linked: true,
+      plan: license.plan,
+      tradesUsed: license.tradesUsed,
+      tradesLimit: license.tradesLimit,
+      aiTradesAllowance: license.aiTradesAllowance,
+      aiTradesUsed: license.aiTradesUsed,
+      expiresAt: license.expiresAt,
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to resolve entitlement' });
+  }
+});
+
 // POST /api/license/claim — submit affiliate claim for Pro access
 router.post('/claim', authMiddleware, async (req, res) => {
   const { poUid } = req.body;
