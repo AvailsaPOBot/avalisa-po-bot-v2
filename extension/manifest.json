@@ -13,14 +13,36 @@
   ],
   "content_scripts": [
     {
-      "matches": ["https://pocketoption.com/*", "https://po.cash/*", "https://po.trade/*"],
-      "js": ["injected.js"],
+      "matches": [
+        "https://pocketoption.com/*",
+        "https://po.cash/*",
+        "https://po.trade/*"
+      ],
+      "js": [
+        "injected.js"
+      ],
       "run_at": "document_start",
       "world": "MAIN"
     },
     {
-      "matches": ["https://pocketoption.com/*", "https://po.cash/*", "https://po.trade/*"],
-      "js": ["signalEngine.js", "config.js", "state.js", "apiClient.js", "storage.js", "indicators.js", "poDom.js", "tradeResult.js", "overlayView.js", "claimFlow.js", "content.js"],
+      "matches": [
+        "https://pocketoption.com/*",
+        "https://po.cash/*",
+        "https://po.trade/*"
+      ],
+      "js": [
+        "signalEngine.js",
+        "config.js",
+        "state.js",
+        "apiClient.js",
+        "storage.js",
+        "indicators.js",
+        "poDom.js",
+        "tradeResult.js",
+        "overlayView.js",
+        "claimFlow.js",
+        "content.js"
+      ],
       "run_at": "document_start"
     }
   ],
@@ -44,8 +66,20 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["injected.js", "icons/AvalisaBot_Logo.png", "icons/avalisa-signature-logo-gold.png", "icons/avalisa-signature-logo-transparent.png"],
-      "matches": ["https://pocketoption.com/*", "https://po.cash/*", "https://po.trade/*"]
+      "resources": [
+        "injected.js",
+        "icons/AvalisaBot_Logo.png",
+        "icons/avalisa-signature-logo-gold.png",
+        "icons/avalisa-signature-logo-transparent.png",
+        "login.html",
+        "login.js",
+        "icons/avalisa-mascot.png"
+      ],
+      "matches": [
+        "https://pocketoption.com/*",
+        "https://po.cash/*",
+        "https://po.trade/*"
+      ]
     }
   ]
 }

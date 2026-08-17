@@ -1982,8 +1982,21 @@ async function init() {
     }).catch(() => {});
   }
   setTimeout(() => prefillCandleHistory().catch(console.error), 3000);
-  // Sign-in now happens in the toolbar popup, so the panel has to notice the JWT
-  // arriving (or being cleared) in another context rather than owning the form.
+  // The login iframe tells us the moment it succeeds, so the panel swaps over
+  // instantly instead of waiting for the storage event.
+  window.addEventListener('message', (e) => {
+    if (e.data?.type !== 'AVALISA_AUTH_OK') return;
+    chrome.storage.local.get(['jwt', 'userId'], data => {
+      if (!data.jwt) return;
+      state.jwt = data.jwt;
+      state.userId = data.userId || null;
+      checkLicense().then(lic => { state.licenseInfo = lic; updateUI(); }).catch(() => {});
+      updateUI();
+    });
+  });
+
+  // Sign-in happens in an extension-origin iframe inside the panel, so the panel
+  // has to notice the JWT arriving (or being cleared) rather than owning the form.
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local' || !changes.jwt) return;
     const token = changes.jwt.newValue || null;

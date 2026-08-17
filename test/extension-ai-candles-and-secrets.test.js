@@ -78,10 +78,12 @@ assert.ok(
 // refilled it on every load, so the exposure came straight back.
 const overlaySource = read('extension/overlayView.js');
 const popupSource = read('extension/popup.js');
+const loginSource = read('extension/login.js');
+const manifest = JSON.parse(read('extension/manifest.json'));
 
 assert.ok(
   !/av-password|av-email/.test(contentSource),
-  'the content script must not reference any credential field — sign-in belongs in the popup',
+  'the content script must not reference any credential field',
 );
 assert.ok(
   !/type="password"/.test(overlaySource),
@@ -91,13 +93,32 @@ assert.ok(
   !/type="email"/.test(overlaySource),
   'the on-page overlay must not contain an email input',
 );
+// Sign-in is in the panel for visibility, but served from the extension origin
+// in an iframe so po.trade's scripts cannot reach the fields.
 assert.ok(
-  /api\/auth\/login/.test(popupSource),
-  'the popup must own the login request',
+  /id="av-login-frame"[\s\S]*?src="\$\{loginUrl\}"/.test(overlaySource),
+  'the panel must embed the login iframe from the extension origin',
 );
 assert.ok(
-  /passwordEl\.value = '';/.test(popupSource),
-  'the popup must clear the password field once the value has been submitted',
+  /chrome\.runtime\.getURL\('login\.html'\)/.test(overlaySource),
+  'the login frame src must come from chrome.runtime.getURL, not a page-relative path',
+);
+assert.ok(
+  manifest.web_accessible_resources[0].resources.includes('login.html'),
+  'login.html must be web-accessible or the panel iframe cannot load',
+);
+assert.ok(
+  /api\/auth\/login/.test(loginSource),
+  'the extension-origin login frame must own the login request',
+);
+assert.ok(
+  /passwordEl\.value = '';/.test(loginSource),
+  'the login frame must clear the password field once the value has been submitted',
+);
+// The popup is information-only now — no credentials, no controls.
+assert.ok(
+  !/api\/auth\/login|type="password"/.test(popupSource + read('extension/popup.html')),
+  'the toolbar popup must not collect credentials',
 );
 
 // ── 4. Verbose socket tracing stays behind the debug flag ────────────────────
