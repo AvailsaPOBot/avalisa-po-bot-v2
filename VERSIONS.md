@@ -189,6 +189,35 @@ must agree: **Low 2, Mid 3, High 4**.
   `backend/test/poEntitlement.test.js` locks the contract (no auth words, whitelisted response
   fields only, `select: { id }`, keyed off `poUserId`, UID validated). Mutation-checked.
 
+**A trade could inherit a neighbouring trade's result (2026-08-17).** Reported: a LOSS that did
+not double the ladder.
+
+```
+23:34 $2 ✓   23:35 $1 ✗   23:36 $1 ✗   23:37 $2 ✓
+                  ^ this loss did not ladder — 23:36 repeated $1
+```
+
+`readWsTradeResultSince()` matched close events **by timestamp only** and took the LAST one newer
+than the trade start. PO's `successcloseOrder` for the previous trade can land just after the next
+trade opens, so the new trade read the old verdict — a stale **WIN** "reset" a ladder already at
+$1, silently swallowing the loss. Batched frames made it worse: `extractResultFromCloseEvent()`
+read `deals[deals.length - 1]`, which is not necessarily our deal.
+
+`successopenOrder` carries the deal `id` and every closed deal repeats it, so the pairing can be
+exact. Now:
+- `waitForTradeOpen()` records `state.currentDealId` from the socket open event.
+- The cycle clears `currentDealId` before each order, so a stale id can neither mis-pair nor block.
+- `readWsTradeResultSince()` looks for **our** deal id inside `deals[]` and returns nothing until it
+  appears — it will not fall back to another deal's verdict. Time-based matching remains only when
+  no open event was seen and there is no id to match on.
+
+Verified live — every verdict is now stamped with its deal:
+`deal cba4ba03… → RESULT: LOSS via successcloseOrder#cba4ba03 → $1→$2`,
+`deal 6c85e645… → RESULT: WIN via successcloseOrder#6c85e645 → reset $1`.
+
+`test/extension-deal-attribution.test.js` covers the stale-neighbour case, batched frames in either
+order, ties, the no-id fallback, and pre-trade events. Mutation-checked.
+
 **Stale preserved ladder resurrected an old rung (2026-08-17).** Reported: after a WIN reset the
 next session opened at **$4** instead of $1.
 

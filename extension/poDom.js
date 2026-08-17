@@ -446,7 +446,10 @@ async function waitForTradeOpen(balanceBefore, amount, timeoutMs = 10000, dealCo
     // even when a throttled tab has frozen the balance DOM. Prefer it.
     const wsOpen = state.lastWsOpen;
     if (wsOpen && wsOpen.ts >= openedAtTs && Number(wsOpen.payload?.amount) === Number(amount)) {
-      console.log('[Avalisa] Trade confirmed via PO socket (successopenOrder):', wsOpen.payload?.asset, wsOpen.payload?.amount);
+      console.log('[Avalisa] Trade confirmed via PO socket (successopenOrder):', wsOpen.payload?.asset, wsOpen.payload?.amount, 'deal', wsOpen.payload?.id);
+      // Remember which deal this is so the resolver cannot pick up a different
+      // trade's close event.
+      state.currentDealId = wsOpen.payload?.id || null;
       const bal = await getBalance();
       return { opened: true, balanceDuring: bal ?? lastBalance ?? balanceBefore, method: 'ws-open' };
     }

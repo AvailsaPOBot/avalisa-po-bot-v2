@@ -34,6 +34,7 @@ const state = {
   aiUnlimited: false,
   recentCloseEvents: [], // [{ ts, event, payload }] — from PO's binary successcloseOrder
   lastWsOpen: null,      // last successopenOrder payload (authoritative open confirmation)
+  currentDealId: null,   // PO deal id of the trade in flight, so results pair exactly
   lastSignal: null,   // latest AvalisaSignalEngine verdict, for the panel readout
   poEntitlementUid: null, // PO UID already resolved against /license/po-entitlement
   lastTradeResultDebug: null,
