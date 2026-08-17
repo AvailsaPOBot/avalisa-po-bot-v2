@@ -95,13 +95,24 @@
     debugWarn('[Avalisa] WebSocket interceptor fallback assignment:', e?.message);
   }
 
-  // Expose history request so content.js can call it
+  // Expose history request so content.js can call it.
+  //
+  // Verified live against demo-api-eu.po.market on 2026-08-17: PO silently
+  // IGNORES "loadHistoryPeriod" — it never answers, at any index. This function
+  // has therefore never fetched anything; the only reason the bot ever had
+  // candles is that PO pushes a history frame as a side effect of "changeSymbol"
+  // (which the favourite-scanner triggers when it clicks a pair).
+  //
+  // "changeSymbol" is the verb that actually works, and it lets us name the
+  // period, which is what we need: PO always returns a fixed ~1300-1400 raw
+  // ticks (~11 minutes), so the candle count we get is span/period —
+  // ~22 candles at 30s, but only ~10 at 60s.
   window.avalisaRequestHistory = function (asset, periodSec) {
     if (!_latestWs || _latestWs.readyState !== 1) {
-      console.warn('[Avalisa] avalisaRequestHistory: no ready WS (state:', _latestWs?.readyState, ')');
+      debugWarn('[Avalisa] avalisaRequestHistory: no ready WS (state:', _latestWs?.readyState, ')');
       return false;
     }
-    const msg = '42["loadHistoryPeriod",' + JSON.stringify({ asset, period: periodSec, index: 0 }) + ']';
+    const msg = '42["changeSymbol",' + JSON.stringify({ asset, period: periodSec }) + ']';
     _latestWs.send(msg);
     debugLog('[Avalisa] History request sent:', msg);
     return true;

@@ -88,7 +88,13 @@ const testPromise = dom.window.eval(`${extensionBundle}
     injectOverlay();
 
   assert.equal(document.getElementById('av-strategy').value, 'martingale');
-  assert.equal(document.getElementById('av-build-badge').textContent, 'v2.4.8');
+  // Read the expected build from the manifest rather than hardcoding it — this
+  // assertion silently turned every routine version bump into a smoke-test
+  // failure, which the AGE dispatcher treats as fail-closed.
+  assert.equal(
+    document.getElementById('av-build-badge').textContent,
+    'v' + chrome.runtime.getManifest().version,
+  );
   assert.equal(PO_SELECTORS.tradeButtons.call[0], 'a.btn.btn-call');
   assert.equal(PO_SELECTORS.tradeButtons.put[0], 'a.btn.btn-put');
   assert.equal(PO_SELECTORS.balance.demo.includes('.js-balance-demo'), true);

@@ -4,12 +4,12 @@
 > Update this file in the SAME commit as any version bump. Newest entries on top.
 > Rule: every behavior change = version bump + entry here + git tag when significant.
 
-## Current versions (updated 2026-07-02)
+## Current versions (updated 2026-08-17)
 
 | Component | Version | Where it runs | Source of truth |
 |---|---|---|---|
 | Extension (CWS public) | **2.3.19** | Users' Chrome via Web Store | CWS listing `mkcpdbnlofljijfjiglkodddicpgdapa` |
-| Extension (local/dev) | **2.4.8** | Mr. Oil's Chrome (unpacked from this repo `extension/`) | `extension/manifest.json` |
+| Extension (local/dev) | **2.4.9** | Mr. Oil's Chrome (unpacked from this repo `extension/`) | `extension/manifest.json` |
 | Backend | main @ `d86b591` | Render (auto-deploy from GitHub `main`) | `git log origin/main` |
 | Dashboard/site | main @ `d86b591` | Vercel (auto-deploy from GitHub `main`) | `git log origin/main` |
 | Webapp Bot (mobile proof) | v1.5-expiry-confirmed | Mac WKWebView shell / mobile webview | `mobile-proof/` |
@@ -63,6 +63,83 @@ Mac shell (`mobile-proof/mac/AvalisaMobileProofMac.swift`) gained QC-only, env-g
 shell ever ships to users.
 
 ## Extension changelog
+
+### 2.4.9 — 2026-08-17 — Avalisa AI could never trade at Mid/High + credential leak [Board-approved]
+
+Found by driving the **published 2.3.19** build live on the PO demo account. Martingale passed
+end-to-end (ladder, reset-on-win, alternating direction, 2-step recovery, payout auto-switch all
+correct). Avalisa AI did not: at Mid it scanned 7 favourites over ~2 minutes and placed **zero**
+trades, every scan reporting `loading_13_20`.
+
+**Root cause — the candle gate was set above what Pocket Option can supply.**
+Measured directly off the socket: every history frame carries a fixed **~1300-1400 raw ticks
+(~11 minutes)**, so usable candles = span ÷ period, and asking for a longer window does not work:
+
+| period | ticks | span | candles |
+|---|---|---|---|
+| 30s | 1369 | 666s | **22** |
+| 60s | 1299 | 633s | **10** |
+| 300s | 1393 | 678s | **2** |
+
+Scanning ran at the 60s expiry period, yielding ~10-14 candles against gates of mid **20** and
+high **30** — unsatisfiable. High was unreachable at *any* period the engine supports. Mid is the
+default intensity, so for most users the paid Avalisa AI feature silently did nothing forever.
+Low (12) only worked by luck and still failed on seeds that came back at 10.
+
+Fixes:
+- `AI_ANALYSIS_PERIOD_SEC = 30`. The whole AI data path (`ensureAvalisaDataForCurrentPair`,
+  `prefillCandleHistory`, `watchPOSelectionForAvalisa`) now warms and reads **30s** candles
+  instead of whatever the expiry happened to be. The expiry a signal picks is unchanged and is
+  still applied at trade time.
+- `REQUIRED_CANDLES_BY_INTENSITY` 12/20/30 → **12/16/20** — all reachable from a 30s seed, all at
+  or above the 15 closes RSI-14 needs. Intensity strictness is unchanged and still comes from
+  `signalEngine.js` (minConfidence 35/68/95, rulesRequired, requireCandleConfirm, skipOTC); the
+  candle count was only ever meant to be a data-sufficiency floor.
+- **`avalisaRequestHistory` never worked.** Verified live: PO ignores `loadHistoryPeriod`
+  completely, at every index — it returns nothing. The bot only ever received candles as a side
+  effect of `changeSymbol` when the scanner clicked a pair. It now sends `changeSymbol`, which is
+  the verb PO answers and which lets us name the period.
+- **History was filed under the wrong period.** The seed handler hardcoded
+  `histPeriod = getCurrentPeriodSeconds()` (the UI expiry) and threw away `parsed.period`, on the
+  belief that the field was PO's transport granularity. It is not — verified live, `parsed.period`
+  is exactly the period named in `changeSymbol` (confirmed at 30/60/300). So a requested 30s seed
+  was re-bucketed as 60s, collapsing ~24 candles back down to ~14 and defeating the pin above.
+  Now bucketed by the declared period, falling back to the expiry only if PO omits the field.
+  (Caught by the readiness test below, not by inspection.)
+- Scan log carries `asset`/`period` on the not-ready path — it printed `pair=undefined` on exactly
+  the failures you need to read.
+- Per-frame `HISTORY binary received` / raw-payload dumps moved behind `debugLog`; the one-line
+  `HISTORY seeded N candles` summary stays visible.
+
+**Credential handling (security):**
+- `#av-password` kept its value in **po.trade's own DOM** indefinitely after login, so PO's page
+  scripts — or any other extension — could read the Avalisa account password with one
+  `getElementById`. Confirmed by reading it from the page's main world. `handleLogin` now consumes
+  and wipes the field on read.
+- `diagnosePOInterface()` ran on **every Start** and logged every input's `value`, printing the
+  password in clear text (and a Google OAuth authorization code from a PO field). It no longer
+  logs values at all — password inputs are `<redacted>`, others report length only — and the whole
+  dump is now behind the debug flag.
+- `WS EVENT` / `Socket.IO binary placeholder` / `WS raw msg` / close-event traces moved behind
+  `debugLog` (`localStorage.avalisaDebugLogs = '1'`). These fired on every socket frame of a live
+  trading page.
+
+Tests:
+- `test/extension-ai-candles-and-secrets.test.js` — static guard: fails if a candle gate is set
+  above a real PO seed, if the analysis period is unpinned, if `loadHistoryPeriod` returns as the
+  history verb, if the password is logged or left in the DOM, or if socket tracing is un-gated.
+- `test/extension-ai-readiness.test.js` — integration proof: replays a **real** PO history frame
+  (`test/fixtures/po-history-30s.json`, AUDCAD_otc @30s, 1558 ticks/750s, captured live
+  2026-08-17) through the extension's own ingest path and asserts every intensity reaches a real
+  decision instead of `loading_N_M`. On the fixed build: 26 candles → low `SKIP/conflicting_signals`,
+  mid **`PUT/ok`**, high `SKIP/otc_filter`. On 2.4.8 mid and high stall forever.
+- `test/extension-settings-smoke.test.js` now reads the expected build badge from the manifest
+  instead of a hardcoded `v2.4.8`, which turned every version bump into a fail-closed smoke failure.
+
+Rollback tag `pre-ai-candle-fix-2026-08-17`.
+
+NOT yet verified: a live Mid/High run placing trades (see vault log — the fixed build has not been
+loaded into a browser; the profile used for testing runs the CWS 2.3.19 build).
 
 ### 2.4.8 — 2026-07-02 (tag `v2.4.8-ladder-fix`) — ladder-stability rework [Board-approved]
 - **Never abandon a live martingale ladder.** Root-cause fix for "martingale fails after a while"

@@ -9,6 +9,21 @@
 // (see manifest.json content_scripts[0]). The legacy <script src=...> approach
 // was blocked by PO's CSP, which prevented the WebSocket wrapper from installing.
 
+// Verbose WS/DOM tracing is developer-only. Without this gate the bot logged every
+// socket frame and XHR body on a live trading page — hundreds of KB a minute, plus
+// whatever happened to be inside those payloads. Enable with
+// localStorage.setItem('avalisaDebugLogs','1') (same switch injected.js uses).
+function avDebugEnabled() {
+  try {
+    return window.__AVALISA_DEBUG_LOGS__ === true || window.localStorage?.getItem('avalisaDebugLogs') === '1';
+  } catch (_) {
+    return window.__AVALISA_DEBUG_LOGS__ === true;
+  }
+}
+function debugLog(...args) {
+  if (avDebugEnabled()) console.log(...args);
+}
+
 let _wsDebugCount = 0;
 let _tickLogCount = 0;
 function parseWsMessage(raw) {
@@ -16,13 +31,13 @@ function parseWsMessage(raw) {
 
   // Debug: log first 10 raw WS messages so we can see the actual format
   if (_wsDebugCount < 10) {
-    console.log('[Avalisa] WS raw msg #' + _wsDebugCount + ':', raw.substring(0, 200));
+    debugLog('[Avalisa] WS raw msg #' + _wsDebugCount + ':', raw.substring(0, 200));
     _wsDebugCount++;
   }
 
   // Socket.IO binary event placeholder (451- prefix)
   if (raw.startsWith('451-') || raw.startsWith('452-')) {
-    console.log('[Avalisa] Socket.IO binary placeholder:', raw.substring(0, 200));
+    debugLog('[Avalisa] Socket.IO binary placeholder:', raw.substring(0, 200));
     return; // actual data arrives in next binary frame, handled by AVALISA_WS_HISTORY
   }
 
@@ -38,17 +53,17 @@ function parseWsMessage(raw) {
   if (CLOSE_EVENT_PATTERNS.test(event)) {
     state.recentCloseEvents.push({ ts: Date.now(), event, payload });
     if (state.recentCloseEvents.length > 20) state.recentCloseEvents.shift();
-    console.log('[Avalisa] CLOSE EVENT CAPTURED:', event, JSON.stringify(payload).substring(0, 500));
+    debugLog('[Avalisa] CLOSE EVENT CAPTURED:', event, JSON.stringify(payload).substring(0, 500));
   }
 
   // Log ALL events — helps map PO's AI signal event names
   const skip = new Set(['updateStream', 'setTime', 'ping', 'pong']);
   if (!skip.has(event)) {
-    console.log('[Avalisa] WS EVENT:', event, JSON.stringify(payload).substring(0, 400));
+    debugLog('[Avalisa] WS EVENT:', event, JSON.stringify(payload).substring(0, 400));
   }
 
   if (event === 'updateHistoryNewFast' || event === 'successloadHistory') {
-    console.log('[Avalisa] History text frame:', event, JSON.stringify(payload).substring(0, 200));
+    debugLog('[Avalisa] History text frame:', event, JSON.stringify(payload).substring(0, 200));
   }
 }
 
@@ -413,21 +428,28 @@ async function incrementTrade() {
 }
 
 // ─── Avalisa AI Opportunity Scanner ─────────────────────────────────────────
-async function ensureAvalisaDataForCurrentPair(timeoutMs = 6000, requiredCandles = getRequiredCandles()) {
+// periodSec defaults to the AI analysis period rather than the chart/expiry
+// period. Reading it off the expiry (the old behaviour) meant a 60s expiry asked
+// PO for 60s candles, and PO's fixed ~11-minute tick budget only yields ~10 of
+// those — below every intensity gate, so the scan could never become ready.
+async function ensureAvalisaDataForCurrentPair(
+  timeoutMs = 6000,
+  requiredCandles = getRequiredCandles(),
+  periodSec = AI_ANALYSIS_PERIOD_SEC,
+) {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
     const asset = normalizeAssetName(getCurrentPair());
-    const periodSec = getCurrentPeriodSeconds();
     if (asset && asset !== 'UNKNOWN' && periodSec) {
       await restoreCandleCache(asset, periodSec);
-      requestCandleHistory(asset, periodSec, true);
+      requestCandleHistory(asset, periodSec);
       const activeReady = state.activePair === asset && state.activePeriod === periodSec;
       const activeCount = activeReady ? getBufferedCandlesFor(asset, periodSec).length : 0;
       if (activeCount >= requiredCandles) return true;
     }
     await sleep(500);
   }
-  return getBufferedCandles().length >= requiredCandles;
+  return getBufferedCandlesFor(normalizeAssetName(getCurrentPair()), periodSec).length >= requiredCandles;
 }
 
 function evaluateAvalisaCurrentPair(intensity, payout = null, source = 'current') {
@@ -436,6 +458,11 @@ function evaluateAvalisaCurrentPair(intensity, payout = null, source = 'current'
   if (candles.length < requiredCandles) {
     return {
       source,
+      // Carry the pair/period even on the not-ready path — without these the
+      // scan log printed "pair=undefined" for every stalled favourite, which is
+      // precisely the case you need to be able to read.
+      asset: state.activePair,
+      period: state.activePeriod,
       action: 'SKIP',
       reason: `loading_${candles.length}_${requiredCandles}`,
       candleCount: candles.length,
@@ -445,7 +472,14 @@ function evaluateAvalisaCurrentPair(intensity, payout = null, source = 'current'
   const tf = SECONDS_TO_TF[state.activePeriod] || `${state.activePeriod}s`;
   const indicators = buildIndicators(candles, state.activePair, tf);
   if (!indicators) {
-    return { source, action: 'SKIP', reason: 'missing_indicators', candleCount: candles.length };
+    return {
+      source,
+      asset: state.activePair,
+      period: state.activePeriod,
+      action: 'SKIP',
+      reason: 'missing_indicators',
+      candleCount: candles.length,
+    };
   }
 
   const sig = globalThis.AvalisaSignalEngine.evaluateSignal(indicators, intensity);
@@ -1234,10 +1268,23 @@ function bindOverlayEvents() {
   document.getElementById('av-claim-submit').addEventListener('click', handleClaimSubmit);
 }
 
+// The overlay lives in po.trade's own DOM, so anything left in #av-password is
+// readable by Pocket Option's page scripts (and any other extension) with a
+// single getElementById call. Read it once, then wipe it — never let a
+// credential sit in a third-party page between logins.
+function consumePasswordField() {
+  const el = document.getElementById('av-password');
+  if (!el) return '';
+  const value = el.value;
+  el.value = '';
+  return value;
+}
+
 async function handleLogin() {
   const email = document.getElementById('av-email').value.trim();
-  const password = document.getElementById('av-password').value;
-  if (!email || !password) return;
+  // Don't wipe a typed password just because the email box is empty.
+  if (!email || !document.getElementById('av-password')?.value) return;
+  const password = consumePasswordField();
 
   try {
     updateStatus('running', '⏳ Connecting to server...');
@@ -1279,6 +1326,7 @@ function handleLogout() {
 }
 
 function diagnosePOInterface() {
+  if (!avDebugEnabled()) return;
   console.log('[Avalisa] === PO INTERFACE DIAGNOSTIC ===');
 
   // Find timeframe elements by keyword
@@ -1286,7 +1334,7 @@ function diagnosePOInterface() {
   tfKeywords.forEach(kw => {
     const els = document.querySelectorAll(`[class*="${kw}"], [data-${kw}]`);
     if (els.length) {
-      els.forEach(el => console.log(`[Avalisa] TF element (${kw}):`, el.className, el.textContent.trim().substring(0, 50)));
+      els.forEach(el => debugLog(`[Avalisa] TF element (${kw}):`, el.className, el.textContent.trim().substring(0, 50)));
     }
   });
 
@@ -1294,19 +1342,26 @@ function diagnosePOInterface() {
   document.querySelectorAll('button, [role="button"], li, .item').forEach(el => {
     const text = el.textContent.trim();
     if (/^(S\d+|M\d+|H\d+|\d+[smh])$/i.test(text)) {
-      console.log('[Avalisa] Time button found:', el.tagName, el.className, text);
+      debugLog('[Avalisa] Time button found:', el.tagName, el.className, text);
     }
   });
 
-  // Find all input elements
+  // Find all input elements.
+  // Never log inp.value: this dump runs on every Start and used to print the
+  // Avalisa account password in clear text, along with whatever else happened to
+  // be in a PO field (we observed a Google OAuth authorization code). Shape only.
   const inputs = document.querySelectorAll('input');
   inputs.forEach(inp => {
-    console.log('[Avalisa] Input found:', inp.className, inp.name, inp.type, inp.value);
+    if (inp.type === 'password') {
+      debugLog('[Avalisa] Input found:', inp.className, inp.name, inp.type, '<redacted>');
+      return;
+    }
+    debugLog('[Avalisa] Input found:', inp.className, inp.name, inp.type, 'len=' + (inp.value?.length ?? 0));
   });
 
   // Find active/selected element
   const active = document.querySelector('.active, .selected, [aria-selected="true"]');
-  if (active) console.log('[Avalisa] Active element:', active.className, active.textContent.trim());
+  if (active) debugLog('[Avalisa] Active element:', active.className, active.textContent.trim());
 
   console.log('[Avalisa] === END DIAGNOSTIC ===');
 }
@@ -1327,13 +1382,14 @@ function requestCandleHistory(asset, periodSec, force = false) {
 
 async function prefillCandleHistory() {
   const asset = normalizeAssetName(getCurrentPair());
-  const periodSec = getCurrentPeriodSeconds();
+  // AI-only path: always warm the analysis period, not the expiry period.
+  const periodSec = AI_ANALYSIS_PERIOD_SEC;
   if (asset && asset !== 'UNKNOWN') {
     await restoreCandleCache(asset, periodSec);
-    requestCandleHistory(asset, periodSec, true);
-    console.log('[Avalisa] prefillCandleHistory: requested history for', asset + ':' + periodSec);
+    requestCandleHistory(asset, periodSec);
+    debugLog('[Avalisa] prefillCandleHistory: requested history for', asset + ':' + periodSec);
   } else {
-    console.log('[Avalisa] prefillCandleHistory: waiting for active pair before requesting history');
+    debugLog('[Avalisa] prefillCandleHistory: waiting for active pair before requesting history');
   }
 }
 
@@ -1350,11 +1406,11 @@ async function warmupCandleHistory(attempts = 3, delayMs = 1200) {
 async function watchPOSelectionForAvalisa() {
   if (state.settings?.strategy !== 'ai' || state.running) return;
   const asset = normalizeAssetName(getCurrentPair());
-  const periodSec = getCurrentPeriodSeconds();
-  if (!asset || asset === 'UNKNOWN' || !periodSec) return;
+  const periodSec = AI_ANALYSIS_PERIOD_SEC;
+  if (!asset || asset === 'UNKNOWN') return;
   if (state.activePair === asset && state.activePeriod === periodSec) return;
   await restoreCandleCache(asset, periodSec);
-  requestCandleHistory(asset, periodSec, true);
+  requestCandleHistory(asset, periodSec);
   updateBottomStatus();
 }
 
@@ -1759,15 +1815,15 @@ window.addEventListener('message', (e) => {
       }
     } catch (_) {}
   } else if (t === 'AVALISA_WS_HISTORY') {
-    console.log('[Avalisa] HISTORY binary received, length:', e.data.data.length);
+    debugLog('[Avalisa] HISTORY binary received, length:', e.data.data.length);
     try {
       const parsed = JSON.parse(e.data.data);
 
-      console.log('[Avalisa] HISTORY raw payload keys:', Object.keys(parsed || {}));
-      console.log('[Avalisa] HISTORY raw payload sample:', JSON.stringify(parsed).substring(0, 800));
+      debugLog('[Avalisa] HISTORY raw payload keys:', Object.keys(parsed || {}));
+      debugLog('[Avalisa] HISTORY raw payload sample:', JSON.stringify(parsed).substring(0, 800));
       if (parsed?.history) {
         const ticks = parsed.history;
-        console.log('[Avalisa] HISTORY ticks:', ticks.length,
+        debugLog('[Avalisa] HISTORY ticks:', ticks.length,
           'first:', JSON.stringify(ticks[0]),
           'last:', JSON.stringify(ticks[ticks.length - 1]),
           'span_seconds:', ticks.length > 1 ? Number(ticks[ticks.length-1][0]) - Number(ticks[0][0]) : 'n/a');
@@ -1780,11 +1836,17 @@ window.addEventListener('message', (e) => {
       if (parsed && !Array.isArray(parsed) && Array.isArray(parsed.history)) {
         // Format: {asset, period, history: [[ts_float, price_float], ...]}
         const histAsset = normalizeAssetName(parsed.asset) || asset;
-        // PO history can report its transport/tick granularity (often 5s),
-        // while the user-selected trade duration is shown in the page UI.
-        // Avalisa must follow the user-selected duration, not the transport
-        // period, so feature additions do not override manual PO choices.
-        const histPeriod = periodSec;
+        // Bucket the seed at the period the frame itself declares.
+        //
+        // This used to be hardcoded to the UI expiry on the theory that
+        // parsed.period was PO's transport granularity. Verified live
+        // 2026-08-17: it is not — parsed.period is exactly the period asked for
+        // in changeSymbol (confirmed at 30 / 60 / 300). Ignoring it meant a
+        // requested 30s seed (~24 candles) was filed as 60s and re-bucketed down
+        // to ~14, which is what kept the AI gates permanently unreachable.
+        // Fall back to the UI expiry only if PO omits or mangles the field.
+        const parsedPeriod = Number(parsed.period);
+        const histPeriod = Number.isFinite(parsedPeriod) && parsedPeriod > 0 ? parsedPeriod : periodSec;
 
         // Detect pair / period switch and wipe stale buffers from other pairs
         const pairChanged = state.activePair !== histAsset || state.activePeriod !== histPeriod;
@@ -1807,14 +1869,14 @@ window.addEventListener('message', (e) => {
           let candle = null;
 
           if (Array.isArray(item)) {
-            if (ingested < 3) console.log('[Avalisa] HISTORY candle raw:', JSON.stringify(item));
+            if (ingested < 3) debugLog('[Avalisa] HISTORY candle raw:', JSON.stringify(item));
             if (item.length >= 5) {
               candle = { time: item[0], open: item[1], high: item[3], low: item[4], close: item[2], asset, period: periodSec };
             } else if (item.length >= 4) {
               candle = { time: item[0], open: item[1], high: item[2], low: item[3], close: item[1], asset, period: periodSec };
             }
           } else if (item && typeof item === 'object') {
-            if (ingested < 3) console.log('[Avalisa] HISTORY candle obj:', JSON.stringify(item));
+            if (ingested < 3) debugLog('[Avalisa] HISTORY candle obj:', JSON.stringify(item));
             candle = {
               time: item.time || item.timestamp || item.t,
               open: item.open || item.o,

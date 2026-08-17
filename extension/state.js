@@ -59,11 +59,26 @@ function getDefaultSettings() {
 }
 
 const MAX_CANDLE_BUFFER = 50;
-// PO's updateHistoryNewFast seed commonly gives only 12-15 trade-duration
-// candles right after page load. Gate by intensity: Low starts quickly, while
-// Mid/High wait for more evidence. All modes keep/use up to 50 when available.
-// Mid now allows OTC; High remains the strict OTC-filtered mode.
-const REQUIRED_CANDLES_BY_INTENSITY = { low: 12, mid: 20, high: 30 };
+// How many candles PO can actually give us (measured live 2026-08-17):
+// every history frame carries a fixed ~1300-1400 raw ticks (~11 minutes), so the
+// candle count is span/period, NOT something we can ask for more of:
+//   30s period -> ~22 candles   60s -> ~10   300s -> ~2
+// Requesting a deeper window does not work; "loadHistoryPeriod" is ignored
+// outright and "changeSymbol" always returns the same ~11-minute tick budget.
+//
+// The old values (mid 20, high 30) were therefore unreachable while scanning at
+// a 60s period: Mid and High never once cleared the gate, so Avalisa AI placed
+// zero trades at its own default intensity. Every value below is now under the
+// ~22 a 30s seed provides (see AI_ANALYSIS_PERIOD_SEC) and at or above the 15
+// closes RSI-14 needs to return a number at all.
+//
+// Intensity strictness lives in signalEngine.js thresholds (minConfidence
+// 35/68/95, rulesRequired, requireCandleConfirm, skipOTC) — that is what makes
+// High selective. This constant is only a data-sufficiency floor.
+const REQUIRED_CANDLES_BY_INTENSITY = { low: 12, mid: 16, high: 20 };
+// Candle period the AI analyses on. 30s is the only period whose seed clears the
+// High gate, so scanning pins to it regardless of the expiry a signal later picks.
+const AI_ANALYSIS_PERIOD_SEC = 30;
 const IDEAL_CANDLES = 50;
 const AI_MAX_NO_PROGRESS_CYCLES = 3;
 const AI_NO_PROGRESS_RETRY_MS = 5000;
