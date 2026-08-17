@@ -169,6 +169,26 @@ must agree: **Low 2, Mid 3, High 4**.
    return value AND that `state.activePair` matches the pair actually on screen, skipping with an
    explicit "data not ready" line instead of evaluating stale data.
 
+**Panel is draggable, popup mascot corrected, PO-linked entitlement (2026-08-17):**
+- The on-page panel drags by its header — grab cursor, position remembered per browser,
+  double-click the header to snap back, clamped so it can never be dragged off-screen. Verified
+  live: dragged −320/+180, survived a page reload, reset worked. **The Chrome toolbar popup
+  cannot be made movable** — the browser anchors it to the toolbar — so the movable surface is
+  the panel that actually covers the chart.
+- Popup mascot now uses the official champagne-dress cutout (`avalisa-hero-girl-gemini.png`,
+  git-tracked). The previous image was
+  `dashboard/public/images/landing/generated/avalisa-girl-cutout-highres.png` — **gitignored,
+  referenced nowhere**, a leftover from an image-generation run; deleted at the Board's request.
+- **`POST /api/license/po-entitlement`** — a linked PO account unlocks the modes with no typing.
+  Deliberately **not** a login: the caller asserts its own UID and the server cannot verify it
+  controls that PO account, and UIDs are semi-public, so the route returns entitlement only
+  (plan + allowance), never a token/id/email/history, and grants no ability to change anything.
+  Worst case is bot modes unlocked on the guesser's own PO account — licence leakage, not account
+  takeover. Only the admin-locked `poUserId` counts; a pending claim unlocks nothing. A real
+  session still wins and remains required for settings sync, history and support.
+  `backend/test/poEntitlement.test.js` locks the contract (no auth words, whitelisted response
+  fields only, `select: { id }`, keyed off `poUserId`, UID validated). Mutation-checked.
+
 **Test-Fix Loop 2026-08-17 — the expiry panel was three bugs, not one.** The `+S30` fix recorded
 below was itself wrong and is superseded. Root cause, from driving PO live:
 
