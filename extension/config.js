@@ -33,7 +33,14 @@ const PO_SELECTORS = {
     '.block--expiration-inputs button',
   ],
   durationValue: '.block--expiration-inputs .value__val',
-  durationTrigger: '.block--expiration-inputs .control__value, .block--expiration-inputs .value__val',
+  // Opens the DURATION picker (S3/S15/S30/M1/...) without changing panel mode.
+  // Verified live 2026-08-17: '.block--expiration-inputs a' is the MODE TOGGLE,
+  // not a picker opener — clicking it flips the panel into absolute-time mode,
+  // where the list becomes "+S30"/"+M1" ("add 30s to the expiry clock"). Using
+  // it to open the picker is what made the bot pick wrong or no expiry.
+  // '.value' opens the list and leaves the mode alone. '.value__val' TOGGLES it
+  // shut, so it must come last.
+  durationTrigger: '.block--expiration-inputs .value, .block--expiration-inputs .control__value, .block--expiration-inputs .value__val',
   timeframeItems: '.dops__timeframes-item',
   closePopoverTarget: '.chart-container, .trading-chart, main, body',
   tradeButtons: {

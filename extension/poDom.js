@@ -178,7 +178,7 @@ async function ensureDurationPanel() {
   });
 }
 
-async function setTimeframe(tf) {
+async function setTimeframe(tf, retried = false) {
   const tfTimeMap = {
     S30: '00:00:30',
     M1:  '00:01:00', M3:  '00:03:00',
@@ -201,23 +201,37 @@ async function setTimeframe(tf) {
   }
   console.log('[Avalisa] setTimeframe: current =', current, '→ target =', tf, '(', targetTime, ')');
 
+  // The trigger TOGGLES the list. If it is already open (PO often leaves it open
+  // after a manual change) clicking would close it and we would then read zero
+  // options — observed live 2026-08-17 as an endless
+  // "could not find option ... items found: 0" retry that never traded.
   const trigger = document.querySelector(PO_SELECTORS.durationTrigger);
-  if (trigger) {
+  const listOpen = () => document.querySelectorAll(PO_SELECTORS.timeframeItems).length > 0;
+  if (trigger && !listOpen()) {
     trigger.click();
     for (let i = 0; i < 25; i++) {
       await sleep(100);
-      if (document.querySelectorAll(PO_SELECTORS.timeframeItems).length > 0) break;
+      if (listOpen()) break;
+    }
+    // One retry: a stray click elsewhere can swallow the first open.
+    if (!listOpen()) {
+      trigger.click();
+      for (let i = 0; i < 15; i++) {
+        await sleep(100);
+        if (listOpen()) break;
+      }
     }
   }
 
   let items = document.querySelectorAll(PO_SELECTORS.timeframeItems);
 
-  // PO renders the quick-expiry buttons as "+S30" / "+M1" when the panel is in
-  // "add duration" mode and as plain "S30" / "M1" otherwise. Every match below
-  // used strict equality, so in the "+" mode NOTHING matched and the bot looped
-  // forever without trading — reproduced live 2026-08-17 on Martingale @ S30.
-  // Normalise before comparing; keep the raw text only for the warning.
-  const normTf = t => String(t || '').trim().replace(/^[+\-\s]+/, '').toUpperCase();
+  // A "+"-prefixed item ("+S30", "+M1") means the panel is in ABSOLUTE-TIME mode,
+  // where that button ADDS 30s/1m to the expiry clock rather than selecting a
+  // 30s/1m trade. Clicking one would arm a trade of the wrong length, so these
+  // are never selectable — seeing them means we must switch panels and retry.
+  // (An earlier fix treated "+S30" as equivalent to "S30"; that was wrong.)
+  const isAddButton = t => /^\s*\+/.test(String(t || ''));
+  const normTf = t => String(t || '').trim().toUpperCase();
 
   const clickItem = async (item, selectedTf, reason) => {
     item.click();
@@ -228,22 +242,34 @@ async function setTimeframe(tf) {
     return selectedTf;
   };
 
-  for (const item of items) {
+  const selectable = Array.from(items).filter(i => !isAddButton(i.textContent));
+
+  // Only "+" items on offer → we are in absolute-time mode. Switch and retry once.
+  if (items.length > 0 && selectable.length === 0) {
+    console.warn('[Avalisa] setTimeframe: expiry panel is in absolute-time mode ("+" buttons) — switching to duration and retrying');
+    closePOPopovers();
+    await sleep(400);
+    await ensureDurationPanel();
+    await sleep(400);
+    return retried ? null : setTimeframe(tf, true);
+  }
+
+  for (const item of selectable) {
     if (normTf(item.textContent) === normTf(tf)) {
       return clickItem(item, tf, 'clicked grid item');
     }
   }
 
-  for (const item of items) {
+  for (const item of selectable) {
     if (normTf(item.textContent) === normTf(targetTime)) {
       return clickItem(item, tf, 'clicked item by time string');
     }
   }
 
-  const fallbackTf = chooseAvailableTimeframeFallback(tf, items);
+  const fallbackTf = chooseAvailableTimeframeFallback(tf, selectable);
   if (fallbackTf) {
     const fallbackTime = tfTimeMap[fallbackTf];
-    for (const item of items) {
+    for (const item of selectable) {
       const text = normTf(item.textContent);
       if (text === normTf(fallbackTf) || text === normTf(fallbackTime)) {
         console.warn('[Avalisa] setTimeframe: requested option unavailable, falling back', tf, '→', fallbackTf);
@@ -255,7 +281,9 @@ async function setTimeframe(tf) {
   console.warn('[Avalisa] setTimeframe: could not find option for', tf,
     '| items found:', items.length,
     '| texts:', Array.from(items).map(i => i.textContent.trim()));
-  if (trigger) trigger.click();
+  // Leave the panel closed rather than toggling blindly — a list left open is
+  // exactly what makes the NEXT attempt read zero options.
+  closePOPopovers();
   return null;
 }
 
@@ -274,9 +302,9 @@ function chooseAvailableTimeframeFallback(preferredTf, items) {
     M30: ['M5', 'M3', 'M1'],
     H1: ['M30', 'M5', 'M3', 'M1'],
   };
-  // Same "+S30" normalisation as setTimeframe — otherwise the fallback search
-  // is blind in exactly the mode where the primary match already failed.
-  const norm = t => String(t || '').trim().replace(/^[+\-\s]+/, '').toUpperCase();
+  // "+" items are absolute-time add-buttons, never valid durations; callers
+  // pass an already-filtered list, so a plain upper-case compare is right here.
+  const norm = t => String(t || '').trim().toUpperCase();
   const texts = new Set(Array.from(items || []).map(item => norm(item.textContent)));
   const choices = fallbackOrder[preferredTf] || ['M1', 'M3', 'M5', 'S30'];
   return choices.find(candidate => texts.has(norm(candidate)) || texts.has(norm(tfTimeMap[candidate]))) || null;
