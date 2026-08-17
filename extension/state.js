@@ -32,7 +32,8 @@ const state = {
   aiTokensRemaining: null,
   aiTokensLimit: null,
   aiUnlimited: false,
-  recentCloseEvents: [], // [{ ts, event, payload }]
+  recentCloseEvents: [], // [{ ts, event, payload }] — from PO's binary successcloseOrder
+  lastWsOpen: null,      // last successopenOrder payload (authoritative open confirmation)
   lastSignal: null,   // latest AvalisaSignalEngine verdict, for the panel readout
   poEntitlementUid: null, // PO UID already resolved against /license/po-entitlement
   lastTradeResultDebug: null,

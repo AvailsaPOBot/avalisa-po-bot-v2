@@ -415,37 +415,87 @@ function countDealElements() {
 }
 
 async function waitForTradeOpen(balanceBefore, amount, timeoutMs = 10000, dealCountBefore = null) {
+  // Confirming an open used to require an ABSOLUTE drop below
+  // balanceBefore - amount*0.3. That silently fails whenever the PREVIOUS
+  // trade's payout lands inside this window: the payout pushes the balance UP,
+  // so the new stake never crosses the threshold, the order is declared
+  // unconfirmed, and the cycle re-fires THE SAME MARTINGALE RUNG — while the
+  // first order is in fact live. Observed on 2026-08-17: $16 then $16 again,
+  // and $64 immediately after a $64 win paid +122.88, i.e. $128 of real
+  // exposure on a rung the user believed was $64.
+  //
+  // Three signals now, cheapest first, and any one of them counts as open:
+  //   1. absolute drop below the threshold  (clean case, no payout interference)
+  //   2. a step-down of ~the stake between consecutive samples (survives a
+  //      payout landing mid-window, because it measures the delta not the level)
+  //   3. a new deal element in PO's own list — direct evidence PO accepted the
+  //      order, previously logged as a "hint" and then thrown away
   const threshold = balanceBefore - (amount * 0.3);
+  const stepDrop = amount * 0.7;
   const beforeCount = Number.isFinite(dealCountBefore) ? dealCountBefore : countDealElements();
   let sawNewDealElement = false;
   let lastBalance = balanceBefore;
+  let prevSample = null;
+  const openedAtTs = Date.now();
 
   await sleep(1500);
   const start = Date.now();
 
   while (Date.now() - start < timeoutMs) {
+    // PO's own successopenOrder event is authoritative and arrives on the socket
+    // even when a throttled tab has frozen the balance DOM. Prefer it.
+    const wsOpen = state.lastWsOpen;
+    if (wsOpen && wsOpen.ts >= openedAtTs && Number(wsOpen.payload?.amount) === Number(amount)) {
+      console.log('[Avalisa] Trade confirmed via PO socket (successopenOrder):', wsOpen.payload?.asset, wsOpen.payload?.amount);
+      const bal = await getBalance();
+      return { opened: true, balanceDuring: bal ?? lastBalance ?? balanceBefore, method: 'ws-open' };
+    }
+
     const dealCountNow = countDealElements();
     if (!sawNewDealElement && dealCountNow > beforeCount) {
       sawNewDealElement = true;
-      console.log('[Avalisa] Trade DOM hint (count:', beforeCount, '→', dealCountNow, ') — waiting for balance deduction');
+      console.log('[Avalisa] New deal appeared in PO list (count:', beforeCount, '→', dealCountNow, ')');
     }
 
     const bal = await getBalance();
     if (bal !== null) lastBalance = bal;
+
     if (bal !== null && bal <= threshold) {
       console.log('[Avalisa] Trade confirmed via balance drop:', balanceBefore, '→', bal);
       return { opened: true, balanceDuring: bal, method: 'balance-drop' };
     }
 
+    // Stake deduction seen as a step down, even if a payout raised the level.
+    if (bal !== null && prevSample !== null && (prevSample - bal) >= stepDrop) {
+      console.log('[Avalisa] Trade confirmed via balance step-down:', prevSample, '→', bal, '(stake ~', amount, ')');
+      return { opened: true, balanceDuring: bal, method: 'balance-step-drop' };
+    }
+    if (bal !== null) prevSample = bal;
+
     await sleep(250);
   }
 
   const finalBal = await getBalance();
-  console.warn('[Avalisa] waitForTradeOpen: no balance deduction — not counting trade. balance:', finalBal, 'was:', balanceBefore, 'domHint:', sawNewDealElement);
+
+  // PO showed a new deal but the balance never gave us a clean reading. The
+  // order is far more likely live than lost, and the costs are asymmetric:
+  // calling it open risks one unresolved trade (the resolver books it 'unknown'
+  // and the ladder HOLDS), while calling it closed re-fires the same rung and
+  // doubles real money at risk. Take the safe error.
+  if (sawNewDealElement) {
+    console.warn('[Avalisa] No clean balance confirmation, but PO listed a new deal — treating as OPEN to avoid re-firing the same rung. balance:', finalBal, 'was:', balanceBefore);
+    return {
+      opened: true,
+      balanceDuring: finalBal ?? lastBalance ?? balanceBefore,
+      method: 'dom-deal-no-balance-drop',
+    };
+  }
+
+  console.warn('[Avalisa] waitForTradeOpen: no balance deduction and no new deal — not counting trade. balance:', finalBal, 'was:', balanceBefore);
   return {
     opened: false,
     balanceDuring: finalBal ?? lastBalance ?? balanceBefore,
-    method: sawNewDealElement ? 'dom-no-balance-drop' : 'timeout-no-balance-drop',
+    method: 'timeout-no-balance-drop',
   };
 }
 

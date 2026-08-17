@@ -5,6 +5,20 @@
 
 function extractResultFromCloseEvent(payload) {
   if (!payload) return null;
+
+  // PO's successcloseOrder looks like { profit: 0, deals: [ { profit: -1, ... } ] }
+  // where the OUTER profit is a batch total and the per-deal profit is the real
+  // result. Reading the outer field first turned a real loss into a "tie" and
+  // froze the martingale ladder, so the deal list always wins.
+  if (Array.isArray(payload.deals) && payload.deals.length > 0) {
+    const deal = payload.deals[payload.deals.length - 1];
+    if (deal && typeof deal.profit === 'number') {
+      if (deal.profit > 0) return 'win';
+      if (deal.profit < 0) return 'loss';
+      return 'tie';
+    }
+  }
+
   if (typeof payload.profit === 'number') {
     if (payload.profit === 0) return 'tie';
     return payload.profit > 0 ? 'win' : 'loss';
@@ -81,6 +95,12 @@ function readWsTradeResultSince(tradeStartTs) {
   return null;
 }
 
+// True when the page is backgrounded, where Chrome throttles timers and PO's
+// balance DOM updates lazily — balance-derived verdicts cannot be trusted.
+function isDocumentThrottled() {
+  try { return document.visibilityState === 'hidden'; } catch (_) { return false; }
+}
+
 function classifyResultFromBalance(balanceBefore, balanceDuringTrade, balanceNow, amount, iteration, elapsedMs = iteration * 500) {
   if (balanceNow === null) return null;
 
@@ -102,6 +122,12 @@ function classifyResultFromBalance(balanceBefore, balanceDuringTrade, balanceNow
     }
 
     if (enoughLossTime && deltaFromBefore < -(amount * 0.5)) {
+      // Interim guard: a hidden tab is throttled, so PO's balance can lag 30s+
+      // and a WIN's payout may simply not have landed yet. Measured live:
+      // 31s to see a stake in a background tab vs 1-2s in the foreground, and a
+      // $1 win booked as a LOSS because the +1.92 arrived after the verdict.
+      // Never ladder on that; keep waiting for the socket event instead.
+      if (isDocumentThrottled()) return null;
       return { result: 'loss', detail: `balance vs before ${deltaFromBefore.toFixed(2)}` };
     }
   }
@@ -118,6 +144,7 @@ function classifyResultFromBalance(balanceBefore, balanceDuringTrade, balanceNow
     }
 
     if (enoughLossTime && Math.abs(deltaFromDuring) <= settleTolerance) {
+      if (isDocumentThrottled()) return null;   // same guard as above
       return { result: 'loss', detail: `balance stayed near trade-open balance (${deltaFromDuring.toFixed(2)})` };
     }
   }

@@ -24,6 +24,7 @@
   const _WS = window.WebSocket;
   let _latestWs = null;
   let _expectHistoryBinary = false;
+  let _pendingBinaryEvent = null;
 
   function AvalisaWS(url, proto) {
     const ws = proto ? new _WS(url, proto) : new _WS(url);
@@ -39,6 +40,14 @@
         if (/^45\d/.test(e.data) && (e.data.includes('updateHistoryNewFast') || e.data.includes('updateCharts'))) {
           _expectHistoryBinary = true;
           debugLog('[Avalisa] History binary expected next frame');
+        } else if (/^45\d/.test(e.data)) {
+          // Remember which event the NEXT binary frame belongs to. PO sends
+          // nearly everything as binary — including successopenOrder and
+          // successcloseOrder, the authoritative trade open/result events — and
+          // without this the payload arrives anonymously and gets treated as a
+          // price tick.
+          const m = e.data.match(/\["([^"]+)"/);
+          _pendingBinaryEvent = m ? m[1] : null;
         }
         // Text frame — forward as-is
         try { window.postMessage({ type: 'AVALISA_WS', data: e.data }, '*'); } catch (_) {}
@@ -48,6 +57,9 @@
           if (_expectHistoryBinary) {
             _expectHistoryBinary = false;
             try { window.postMessage({ type: 'AVALISA_WS_HISTORY', data: text }, '*'); } catch (_) {}
+          } else if (_pendingBinaryEvent) {
+            const ev = _pendingBinaryEvent; _pendingBinaryEvent = null;
+            try { window.postMessage({ type: 'AVALISA_WS_BINARY', event: ev, data: text }, '*'); } catch (_) {}
           } else {
             try { window.postMessage({ type: 'AVALISA_WS_TICK', data: text }, '*'); } catch (_) {}
           }
@@ -59,6 +71,9 @@
           if (_expectHistoryBinary) {
             _expectHistoryBinary = false;
             window.postMessage({ type: 'AVALISA_WS_HISTORY', data: text }, '*');
+          } else if (_pendingBinaryEvent) {
+            const ev = _pendingBinaryEvent; _pendingBinaryEvent = null;
+            window.postMessage({ type: 'AVALISA_WS_BINARY', event: ev, data: text }, '*');
           } else {
             window.postMessage({ type: 'AVALISA_WS_TICK', data: text }, '*');
           }
