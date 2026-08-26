@@ -183,7 +183,18 @@
     };
     xhr.addEventListener('load', function () {
       if (!_url.includes('avalisa') && !_url.includes('onrender')) {
-        postDebugMessage({ type: 'AVALISA_XHR', url: _url, method: _method, response: (xhr.responseText || '').substring(0, 500) });
+        // `responseText` THROWS InvalidStateError unless responseType is '' or 'text'.
+        // Pocket Option issues arraybuffer XHRs, so the old unguarded read raised an
+        // uncaught error on every one of them (11 in a single one-trade test run) and
+        // spammed the console of every user on po.trade. `|| ''` never helped — the
+        // getter itself throws. Found by the first working live run, 2026-08-26.
+        let body = '';
+        try {
+          if (xhr.responseType === '' || xhr.responseType === 'text') {
+            body = (xhr.responseText || '').substring(0, 500);
+          }
+        } catch (_) { /* non-text response — nothing to trace */ }
+        postDebugMessage({ type: 'AVALISA_XHR', url: _url, method: _method, response: body });
       }
     });
     return xhr;
