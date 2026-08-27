@@ -56,6 +56,7 @@ export default function Navbar() {
           {user ? (
             <>
               <Link to="/dashboard">Dashboard</Link>
+              {user.isAdmin && <Link to="/admin">Admin</Link>}
               <span>{planLabel}</span>
               <button type="button" onClick={handleLogout}>Logout</button>
             </>
@@ -86,6 +87,7 @@ export default function Navbar() {
           {user ? (
             <>
               <Link to="/dashboard" onClick={() => setMenuOpen(false)}>Dashboard</Link>
+              {user.isAdmin && <Link to="/admin" onClick={() => setMenuOpen(false)}>Admin</Link>}
               <button type="button" onClick={handleLogout}>Logout</button>
             </>
           ) : (

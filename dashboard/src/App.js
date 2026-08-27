@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './hooks/useAuth';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
 
 import Landing from './pages/Landing';
 import FloatingChat from './components/FloatingChat';
@@ -18,6 +19,7 @@ import Support from './pages/Support';
 import Privacy from './pages/Privacy';
 import NotFound from './pages/NotFound';
 import Webapp from './pages/Webapp';
+import Admin from './pages/Admin';
 
 function AppShell() {
   const location = useLocation();
@@ -68,6 +70,9 @@ function AppShell() {
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/dashboard" element={
           <ProtectedRoute><Dashboard /></ProtectedRoute>
+        } />
+        <Route path="/admin" element={
+          <AdminRoute><Admin /></AdminRoute>
         } />
         <Route path="/webapp" element={<Webapp />} />
         <Route path="*" element={<NotFound />} />
