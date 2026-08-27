@@ -5,6 +5,8 @@ import { useAuth } from '../hooks/useAuth';
 import toast from 'react-hot-toast';
 
 const VALID_TABS = ['settings', 'history', 'bots', 'admin'];
+const REVIEW_ASK_STORAGE_KEY = 'avalisa-review-ask-complete';
+const CHROME_WEB_STORE_REVIEW_URL = 'https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa/reviews';
 
 const STRATEGIES = [
   { id: 'martingale', label: 'Martingale', plans: ['free', 'basic', 'lifetime'], desc: 'Double on loss to recover' },
@@ -32,6 +34,14 @@ function planDisplayName(plan) {
   return plan || 'demo';
 }
 
+function hasCompletedReviewAsk() {
+  try {
+    return window.localStorage.getItem(REVIEW_ASK_STORAGE_KEY) === 'true';
+  } catch (err) {
+    return false;
+  }
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const plan = user?.license?.plan || 'free';
@@ -43,6 +53,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState(null);
   const [historyType, setHistoryType] = useState('real');
   const [saving, setSaving] = useState(false);
+  const [reviewAskCompleted, setReviewAskCompleted] = useState(hasCompletedReviewAsk);
   const [searchParams] = useSearchParams();
   const initialTab = VALID_TABS.includes(searchParams.get('tab')) ? searchParams.get('tab') : 'settings';
   const [activeTab, setActiveTab] = useState(initialTab);
@@ -357,7 +368,21 @@ export default function Dashboard() {
     setSettings(s => ({ ...s, [key]: value }));
   }
 
+  function completeReviewAsk() {
+    setReviewAskCompleted(true);
+    try {
+      window.localStorage.setItem(REVIEW_ASK_STORAGE_KEY, 'true');
+    } catch (err) {
+      // Storage can be unavailable in privacy-restricted browsers. The current
+      // dashboard session should still dismiss the card without failing.
+    }
+  }
+
   if (!settings) return <div className="dashboard-page flex items-center justify-center min-h-screen text-brand-400">Loading dashboard...</div>;
+
+  const completedTrades = ['wins', 'losses', 'ties']
+    .reduce((total, result) => total + (Number(stats?.[result]) || 0), 0);
+  const shouldShowReviewAsk = completedTrades >= 20 && !reviewAskCompleted;
 
   return (
     <div className="dashboard-page max-w-6xl mx-auto px-4 py-10">
@@ -413,6 +438,38 @@ export default function Dashboard() {
             </div>
           ))}
         </div>
+      )}
+
+      {shouldShowReviewAsk && (
+        <section className="card mb-8" aria-labelledby="review-ask-heading" data-testid="review-ask-card">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 id="review-ask-heading" className="text-lg font-semibold text-white mb-1">Share your experience with Avalisa</h2>
+              <p className="text-gray-400 text-sm">Reviews help other traders find the bot. If something is not working, our support team can help.</p>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:min-w-[25rem]">
+              <a
+                href={CHROME_WEB_STORE_REVIEW_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={completeReviewAsk}
+                className="btn-outline flex-1 text-center text-sm py-2"
+              >
+                Rate Avalisa on the Chrome Web Store
+              </a>
+              <Link
+                to="/support"
+                onClick={completeReviewAsk}
+                className="btn-outline flex-1 text-center text-sm py-2"
+              >
+                Something is not working
+              </Link>
+            </div>
+          </div>
+          <button type="button" onClick={completeReviewAsk} className="text-gray-400 hover:text-white text-xs mt-4 transition-colors">
+            Dismiss
+          </button>
+        </section>
       )}
 
       {/* Tabs */}
