@@ -47,6 +47,22 @@ function formatDate(value, includeTime = false) {
   return includeTime ? date.toLocaleString() : date.toLocaleDateString();
 }
 
+function activityStatus(user) {
+  const lastActive = user.lastActiveAt ? formatDate(user.lastActiveAt, true) : 'never recorded';
+  if (user.online) {
+    return { className: 'bg-green-400', label: `Online now. Last active: ${lastActive}. In-memory, since last backend restart.` };
+  }
+  if (user.lastActiveAt && Date.now() - new Date(user.lastActiveAt).getTime() <= 7 * 24 * 60 * 60 * 1000) {
+    return { className: 'bg-amber-400', label: `Active in the last 7 days. Last active: ${lastActive}.` };
+  }
+  return { className: 'bg-gray-500', label: `Dormant or never active. Last active: ${lastActive}.` };
+}
+
+function UserActivityDot({ user }) {
+  const status = activityStatus(user);
+  return <span role="img" aria-label={status.label} title={status.label} className={`inline-block h-2.5 w-2.5 rounded-full ${status.className}`} />;
+}
+
 function ErrorState({ message, onRetry }) {
   return (
     <div className="rounded-lg border border-red-800/70 bg-red-950/20 px-4 py-3 text-sm text-red-300">
@@ -61,9 +77,10 @@ function ErrorState({ message, onRetry }) {
 export default function Admin() {
   const [claims, setClaims] = useState([]);
   const [users, setUsers] = useState([]);
+  const [activity, setActivity] = useState(null);
   const [tokenUsage, setTokenUsage] = useState(null);
   const [funnel, setFunnel] = useState([]);
-  const [loading, setLoading] = useState({ claims: true, users: true, tokenUsage: true, funnel: true });
+  const [loading, setLoading] = useState({ claims: true, users: true, activity: true, tokenUsage: true, funnel: true });
   const [errors, setErrors] = useState({});
   const [actingClaimId, setActingClaimId] = useState(null);
   const [rejectingClaimId, setRejectingClaimId] = useState(null);
@@ -100,6 +117,19 @@ export default function Admin() {
     }
   }, []);
 
+  const loadActivity = useCallback(async () => {
+    setLoading(current => ({ ...current, activity: true }));
+    setErrors(current => ({ ...current, activity: '' }));
+    try {
+      const response = await api.get('/api/admin/activity');
+      setActivity(response.data || null);
+    } catch (error) {
+      setErrors(current => ({ ...current, activity: displayError(error, 'Could not load user activity.') }));
+    } finally {
+      setLoading(current => ({ ...current, activity: false }));
+    }
+  }, []);
+
   const loadTokenUsage = useCallback(async () => {
     setLoading(current => ({ ...current, tokenUsage: true }));
     setErrors(current => ({ ...current, tokenUsage: '' }));
@@ -127,8 +157,8 @@ export default function Admin() {
   }, []);
 
   const refreshAll = useCallback(() => {
-    Promise.all([loadClaims(), loadUsers(), loadTokenUsage(), loadFunnel()]);
-  }, [loadClaims, loadFunnel, loadTokenUsage, loadUsers]);
+    Promise.all([loadClaims(), loadUsers(), loadActivity(), loadTokenUsage(), loadFunnel()]);
+  }, [loadActivity, loadClaims, loadFunnel, loadTokenUsage, loadUsers]);
 
   useEffect(() => {
     refreshAll();
@@ -222,6 +252,26 @@ export default function Admin() {
         </button>
       </header>
 
+      <section className="mb-6" aria-labelledby="activity-heading">
+        <div className="mb-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-400">Product activity</p>
+          <h2 id="activity-heading" className="mt-1 text-xl font-semibold text-white">Real user activity</h2>
+        </div>
+        {loading.activity ? <p className="card py-5 text-sm text-gray-400">Loading activity...</p>
+          : errors.activity ? <ErrorState message={errors.activity} onRetry={loadActivity} />
+          : <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+            {[
+              ['Online now', activity?.onlineNow, activity?.onlineNowCaveat || 'In-memory, since last backend restart; reflects this backend instance only.'],
+              ['Active 24h', activity?.active24h],
+              ['Active 7d', activity?.active7d],
+              ['Active 30d', activity?.active30d],
+              ['Dormant', activity?.dormant],
+              ['Never active', activity?.neverActive],
+              ['Total', activity?.totalUsers],
+            ].map(([label, value, caveat]) => <div key={label} className="card px-4 py-4"><p className="text-xs font-semibold uppercase tracking-[0.12em] text-gray-400">{label}</p><p className="mt-2 text-2xl font-bold text-white">{value ?? 0}</p>{caveat && <p className="mt-2 text-xs leading-4 text-gray-500">{caveat}</p>}</div>)}
+          </div>}
+      </section>
+
       <section className="card mb-6" aria-labelledby="claims-heading">
         <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -266,7 +316,7 @@ export default function Admin() {
           : users.length === 0 ? <div className="rounded-lg border border-dark-600 bg-dark-900/60 px-4 py-7 text-center text-sm text-gray-400">No users returned by the admin endpoint.</div>
           : visibleUsers.length === 0 ? <div className="rounded-lg border border-dark-600 bg-dark-900/60 px-4 py-7 text-center text-sm text-gray-400">No users match “{query}”.</div>
           : (
-            <div className="overflow-x-auto"><p className="mb-3 text-xs text-gray-500">Showing {visibleUsers.length} of {users.length} loaded users</p><table className="w-full min-w-[900px] text-sm"><thead><tr className="border-b border-dark-600 text-left">{COLUMNS.map(column => <th key={column.key} className="py-2 pr-4"><button type="button" onClick={() => changeSort(column.key)} className="inline-flex items-center gap-1 hover:text-brand-400">{column.label}{sort.key === column.key && <span aria-label={sort.direction === 'asc' ? 'sorted ascending' : 'sorted descending'}>{sort.direction === 'asc' ? '↑' : '↓'}</span>}</button></th>)}<th className="py-2 text-right">Trades</th></tr></thead><tbody>{visibleUsers.map(user => <tr key={user.id} className="border-b border-dark-600/50"><td className="py-3 pr-4 text-xs text-gray-200">{user.email}</td><td className="py-3 pr-4 font-mono text-xs text-gray-400">{user.poUserId || '—'}</td><td className="py-3 pr-4"><span className={`badge-${user.license?.plan || 'free'}`}>{planName(user.license?.plan)}</span></td><td className="py-3 pr-4 text-xs text-gray-300">{licenseState(user)}</td><td className="py-3 pr-4 text-xs text-gray-300">{user.license?.tradesUsed ?? 0}{user.license?.tradesLimit != null ? ` / ${user.license.tradesLimit}` : ''}</td><td className="py-3 pr-4 text-xs text-gray-400">{formatDate(user.createdAt)}</td><td className="py-3 text-right"><button type="button" onClick={() => openTrades(user)} className="text-xs font-semibold text-brand-400 hover:text-brand-100">View trades</button></td></tr>)}</tbody></table></div>
+            <div className="overflow-x-auto"><p className="mb-3 text-xs text-gray-500">Showing {visibleUsers.length} of {users.length} loaded users</p><table className="w-full min-w-[900px] text-sm"><thead><tr className="border-b border-dark-600 text-left"><th className="py-2 pr-3"><span className="sr-only">Activity status</span></th>{COLUMNS.map(column => <th key={column.key} className="py-2 pr-4"><button type="button" onClick={() => changeSort(column.key)} className="inline-flex items-center gap-1 hover:text-brand-400">{column.label}{sort.key === column.key && <span aria-label={sort.direction === 'asc' ? 'sorted ascending' : 'sorted descending'}>{sort.direction === 'asc' ? '↑' : '↓'}</span>}</button></th>)}<th className="py-2 text-right">Trades</th></tr></thead><tbody>{visibleUsers.map(user => <tr key={user.id} className="border-b border-dark-600/50"><td className="py-3 pr-3"><UserActivityDot user={user} /></td><td className="py-3 pr-4 text-xs text-gray-200">{user.email}</td><td className="py-3 pr-4 font-mono text-xs text-gray-400">{user.poUserId || '—'}</td><td className="py-3 pr-4"><span className={`badge-${user.license?.plan || 'free'}`}>{planName(user.license?.plan)}</span></td><td className="py-3 pr-4 text-xs text-gray-300">{licenseState(user)}</td><td className="py-3 pr-4 text-xs text-gray-300">{user.license?.tradesUsed ?? 0}{user.license?.tradesLimit != null ? ` / ${user.license.tradesLimit}` : ''}</td><td className="py-3 pr-4 text-xs text-gray-400">{formatDate(user.createdAt)}</td><td className="py-3 text-right"><button type="button" onClick={() => openTrades(user)} className="text-xs font-semibold text-brand-400 hover:text-brand-100">View trades</button></td></tr>)}</tbody></table></div>
           )}
       </section>
 

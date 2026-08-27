@@ -5,6 +5,8 @@ const { PLAN_IDS, getPlanEntitlements, getAiTradesAllowanceForPlan } = require('
 const { buildUserSearchWhere } = require('../lib/adminUsers');
 const { getClaimRejectionMessage, normalizeClaimRejectionReason } = require('../lib/claimGuidance');
 const { getFunnelSummary } = require('../lib/funnel');
+const presence = require('../lib/presence');
+const { getActivitySummary, getLastActiveByUser } = require('../lib/adminActivity');
 
 const router = express.Router();
 
@@ -240,6 +242,22 @@ router.delete('/users/:id', async (req, res) => {
   }
 });
 
+// GET /api/admin/activity — durable product activity plus best-effort process-local presence.
+router.get('/activity', async (req, res) => {
+  try {
+    const activity = await getActivitySummary(prisma);
+    return res.json({
+      ...activity,
+      onlineNow: presence.onlineCount(),
+      onlineNowIsInMemory: true,
+      onlineNowCaveat: 'In-memory, since last backend restart; reflects this backend instance only.',
+    });
+  } catch (err) {
+    console.error('[Admin] activity error:', err);
+    return res.status(500).json({ error: 'Failed to fetch activity' });
+  }
+});
+
 // GET /api/admin/users — list recent users with plan + win rate + latest balance.
 // Optional ?search= filters by email or poUserId (case-insensitive contains), so
 // older paying customers outside the recent-50 window are still findable.
@@ -268,11 +286,14 @@ router.get('/users', async (req, res) => {
 
     // Fetch real closed trades for all users in one query
     const userIds = users.map(u => u.id);
-    const trades = await prisma.trade.findMany({
-      where: { userId: { in: userIds }, isDemo: false, result: { not: 'pending' }, createdAt: { gte: new Date('2026-04-15T00:00:00Z') } },
-      select: { userId: true, result: true, balanceAfter: true, strategy: true, createdAt: true },
-      orderBy: { createdAt: 'desc' },
-    });
+    const [trades, activity] = await Promise.all([
+      prisma.trade.findMany({
+        where: { userId: { in: userIds }, isDemo: false, result: { not: 'pending' }, createdAt: { gte: new Date('2026-04-15T00:00:00Z') } },
+        select: { userId: true, result: true, balanceAfter: true, strategy: true, createdAt: true },
+        orderBy: { createdAt: 'desc' },
+      }),
+      getLastActiveByUser(prisma, userIds),
+    ]);
 
     // Build stats map per user — UAI tracked overall + since last prompt reset
     const resetMap = {};
@@ -308,6 +329,8 @@ router.get('/users', async (req, res) => {
       const s = statsMap[u.id];
       return {
         ...u,
+        lastActiveAt: activity.lastActiveByUser.get(u.id) || null,
+        online: presence.isOnline(u.id),
         latestBalance: s?.latestBalance ?? null,
         currentStrategy: u.settings?.strategy || 'martingale',
         winRateByMode: s ? (() => {
