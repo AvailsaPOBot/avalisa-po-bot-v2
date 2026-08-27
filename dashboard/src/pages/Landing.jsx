@@ -223,6 +223,12 @@ function MascotHero() {
   );
 }
 
+// The promo code advertised to customers MUST be the one the affiliate link carries.
+// Until 2026-08-27 this page said "50START" while every affiliate link in the product
+// sent code=WELCOME50 — so anyone who typed what they were told lost the first-deposit
+// bonus, and we lost the FTD behind it. Derive it from the link; never write it twice.
+export const AFFILIATE_PROMO_CODE = 'WELCOME50';
+
 export default function Landing() {
   useLenis();
 
@@ -335,7 +341,7 @@ export default function Landing() {
           <aside>
             <Gift size={28} />
             <strong>New to Pocket Option?</strong>
-            <p>Register through Avalisa and request Pro unlock. Use code 50START when the Pocket Option first-deposit bonus is available.</p>
+            <p>Register through Avalisa and request Pro unlock. The first-deposit bonus code is applied by the link automatically — if Pocket Option asks for it, it&apos;s {AFFILIATE_PROMO_CODE}.</p>
             <SmartLink href={AFFILIATE_URL} external className="avalisa-button avalisa-button--gold">
               Open Pocket Option <ArrowRight size={17} />
             </SmartLink>
