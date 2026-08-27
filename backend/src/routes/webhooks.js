@@ -4,6 +4,7 @@ const prisma = require('../lib/prisma');
 const { PLAN_IDS, getPaidPlanFromWhop, getPlanEntitlements, getAiTradesAllowanceForPlan, shouldRevokeLicense } = require('../lib/plans');
 const { activatePaidLicense } = require('../lib/licenseActivation');
 const { decodeCustomId, normalizeCheckoutPlan, verifyPayPalWebhook } = require('../lib/paypal');
+const { recordUnmappedPurchase } = require('../lib/purchaseAlert');
 
 const router = express.Router();
 
@@ -72,7 +73,7 @@ router.post('/whop', express.raw({ type: 'application/json' }), async (req, res)
 
   if (activationEvents.has(action)) {
     try {
-      await handleWhopMembership(data);
+      await handleWhopMembership(data, action);
     } catch (err) {
       console.error('[Whop] Error processing membership:', err);
       return res.status(500).json({ error: 'Failed to process membership' });
@@ -121,20 +122,36 @@ router.post('/paypal', express.raw({ type: 'application/json' }), async (req, re
 });
 
 async function handlePayPalCaptureCompleted(resource) {
+  if (resource?.status !== 'COMPLETED') {
+    console.warn('[PayPal] Capture not completed:', resource?.id, resource?.status);
+    return;
+  }
+
   const custom = decodeCustomId(resource?.custom_id || resource?.supplementary_data?.related_ids?.custom_id);
   if (!custom) {
+    recordUnmappedPurchase(prisma, {
+      reason: 'paypal_missing_custom_id',
+      paypalCaptureId: resource?.id,
+      amount: resource?.amount?.value,
+      currency: resource?.amount?.currency_code,
+      eventType: 'PAYMENT.CAPTURE.COMPLETED',
+    });
     console.warn('[PayPal] Capture missing Avalisa custom_id:', resource?.id);
     return;
   }
 
   const plan = normalizeCheckoutPlan(custom.plan);
   if (!plan) {
+    recordUnmappedPurchase(prisma, {
+      reason: 'paypal_unsupported_plan',
+      userId: custom.userId,
+      planId: custom.plan,
+      paypalCaptureId: resource?.id,
+      amount: resource?.amount?.value,
+      currency: resource?.amount?.currency_code,
+      eventType: 'PAYMENT.CAPTURE.COMPLETED',
+    });
     console.warn('[PayPal] Capture has unsupported plan:', custom.plan);
-    return;
-  }
-
-  if (resource?.status !== 'COMPLETED') {
-    console.warn('[PayPal] Capture not completed:', resource?.id, resource?.status);
     return;
   }
 
@@ -239,7 +256,7 @@ async function handleWhopDeactivation(data) {
   console.log(`[Whop] Recurring membership ${membershipId} ended — licence ${license.id} downgraded to demo.`);
 }
 
-async function handleWhopMembership(data) {
+async function handleWhopMembership(data, eventType) {
   const membershipId = data?.membership?.id || data?.membership_id || data?.id || data?.payment_id;
   const customerEmail =
     data?.user?.email ||
@@ -253,26 +270,9 @@ async function handleWhopMembership(data) {
   // Log full payload on first receipt so we can verify structure
   console.log('[Whop] Membership payload:', JSON.stringify(data, null, 2));
 
-  if (!customerEmail) {
-    console.warn(`[Whop] No email for membership ${membershipId}`);
-    return;
-  }
-
-  const user = await prisma.user.findUnique({ where: { email: customerEmail }, include: { license: true } });
-  if (!user) {
-    console.warn(`[Whop] No user found for email: ${customerEmail}`);
-    return;
-  }
-
-  const whopOrderId = `whop_${membershipId}`;
-
-  // Replay protection: if license already exists with this orderId, skip reset
-  if (user.license && user.license.lemonsqueezyOrderId === whopOrderId) {
-    console.log(`[Whop] Membership ${membershipId} already processed for user ${user.id}. Skipping reset.`);
-    return;
-  }
-
-  // Match by configured Whop plan ID, current price, or plan name fallback.
+  // These raw purchase identifiers are available even when the customer cannot
+  // be identified. Keep their extraction above the early returns so every paid
+  // but unactivated outcome can be surfaced for manual action.
   const priceInCents = Number(
     data?.plan?.price_cents ??
     data?.checkout?.plan?.price_cents ??
@@ -295,11 +295,59 @@ async function handleWhopMembership(data) {
     data?.product?.name ||
     data?.membership?.plan?.name ||
     ''
-  ).toLowerCase();
+  );
 
+  if (!customerEmail) {
+    console.warn(`[Whop] No email for membership ${membershipId}`);
+    recordUnmappedPurchase(prisma, {
+      reason: 'no_customer_email',
+      membershipId,
+      priceInCents,
+      planName,
+      planId,
+      eventType,
+    });
+    return;
+  }
+
+  const user = await prisma.user.findUnique({ where: { email: customerEmail }, include: { license: true } });
+  if (!user) {
+    console.warn(`[Whop] No user found for email: ${customerEmail}`);
+    recordUnmappedPurchase(prisma, {
+      reason: 'no_matching_account',
+      userId: null,
+      customerEmail,
+      membershipId,
+      priceInCents,
+      planName,
+      planId,
+      eventType,
+    });
+    return;
+  }
+
+  const whopOrderId = `whop_${membershipId}`;
+
+  // Replay protection: if license already exists with this orderId, skip reset
+  if (user.license && user.license.lemonsqueezyOrderId === whopOrderId) {
+    console.log(`[Whop] Membership ${membershipId} already processed for user ${user.id}. Skipping reset.`);
+    return;
+  }
+
+  // Match by configured Whop plan ID, current price, or plan name fallback.
   const plan = getPaidPlanFromWhop({ planId, priceInCents, planName });
   if (!plan) {
     console.warn(`[Whop] Cannot determine plan. Price: ${priceInCents}, Name: ${planName}`);
+    recordUnmappedPurchase(prisma, {
+      reason: 'no_plan_match',
+      userId: user.id,
+      customerEmail,
+      priceInCents,
+      planName,
+      planId,
+      membershipId,
+      eventType,
+    });
     return;
   }
   const tradesLimit = getPlanEntitlements(plan).tradesLimit;
