@@ -21,6 +21,7 @@ function mockPrisma({ throws = false, user = { id: 'user_123', email: 'customer@
       findUnique: async () => user,
     },
     license: {
+      findUnique: async () => null,
       create: async (args) => {
         creates.push(args);
         return args;
@@ -56,13 +57,19 @@ function loadPurchaseAlert(email) {
   };
 }
 
-function loadWebhooksRouter(prisma, purchaseAlert) {
+function loadWebhooksRouter(prisma, purchaseAlert, paypal = {}) {
   const prismaPath = require.resolve('../src/lib/prisma');
   const alertPath = require.resolve('../src/lib/purchaseAlert');
+  const paypalPath = require.resolve('../src/lib/paypal');
+  const licenseActivationPath = require.resolve('../src/lib/licenseActivation');
   const webhooksPath = require.resolve('../src/routes/webhooks');
   const originalPrisma = require.cache[prismaPath];
   const originalAlert = require.cache[alertPath];
+  const originalPayPal = require.cache[paypalPath];
+  const originalLicenseActivation = require.cache[licenseActivationPath];
+  const paypalExports = originalPayPal?.exports || require(paypalPath);
   delete require.cache[webhooksPath];
+  delete require.cache[licenseActivationPath];
   require.cache[prismaPath] = {
     id: prismaPath,
     filename: prismaPath,
@@ -75,6 +82,12 @@ function loadWebhooksRouter(prisma, purchaseAlert) {
     loaded: true,
     exports: purchaseAlert,
   };
+  require.cache[paypalPath] = {
+    id: paypalPath,
+    filename: paypalPath,
+    loaded: true,
+    exports: { ...paypalExports, ...paypal },
+  };
   const router = require('../src/routes/webhooks');
 
   return {
@@ -85,6 +98,10 @@ function loadWebhooksRouter(prisma, purchaseAlert) {
       else delete require.cache[prismaPath];
       if (originalAlert) require.cache[alertPath] = originalAlert;
       else delete require.cache[alertPath];
+      if (originalPayPal) require.cache[paypalPath] = originalPayPal;
+      else delete require.cache[paypalPath];
+      if (originalLicenseActivation) require.cache[licenseActivationPath] = originalLicenseActivation;
+      else delete require.cache[licenseActivationPath];
     },
   };
 }
@@ -129,6 +146,25 @@ async function postWhop(router, data, type = 'membership.activated') {
     if (previousSecret === undefined) delete process.env.WHOP_WEBHOOK_SECRET;
     else process.env.WHOP_WEBHOOK_SECRET = previousSecret;
   }
+}
+
+async function postPayPal(router, resource, eventType = 'PAYMENT.CAPTURE.COMPLETED') {
+  const body = Buffer.from(JSON.stringify({ event_type: eventType, resource }));
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(bodyJson) {
+      this.body = bodyJson;
+      return bodyJson;
+    },
+  };
+  const route = router.stack.find((layer) => layer.route?.path === '/paypal').route;
+  await route.stack.at(-1).handle({ headers: {}, body }, response);
+  return response;
 }
 
 const unmappedDetails = {
@@ -301,5 +337,118 @@ test('a paid Whop event with no matching account raises one actionable alert wit
   } finally {
     restore();
     purchaseAlert.restore();
+  }
+});
+
+test('a completed PayPal capture with no custom_id raises one alert without granting a licence', async () => {
+  const prisma = mockPrisma();
+  const alerts = [];
+  const { router, restore } = loadWebhooksRouter(prisma, {
+    recordUnmappedPurchase: (injectedPrisma, details) => alerts.push({ injectedPrisma, details }),
+  }, {
+    verifyPayPalWebhook: async () => true,
+  });
+
+  try {
+    const response = await postPayPal(router, {
+      id: 'capture_missing_custom_123',
+      status: 'COMPLETED',
+      amount: { value: '69.00', currency_code: 'USD' },
+    });
+    assert.equal(response.statusCode, 200);
+    assert.equal(alerts.length, 1);
+    assert.equal(alerts[0].injectedPrisma, prisma);
+    assert.deepEqual(alerts[0].details, {
+      reason: 'paypal_missing_custom_id',
+      paypalCaptureId: 'capture_missing_custom_123',
+      amount: '69.00',
+      currency: 'USD',
+      eventType: 'PAYMENT.CAPTURE.COMPLETED',
+    });
+    assert.equal(prisma.upserts.length, 0);
+    assert.equal(prisma.creates.length, 0);
+  } finally {
+    restore();
+  }
+});
+
+test('a completed PayPal capture with an unsupported plan alerts with its capture ID', async () => {
+  const sent = [];
+  const prisma = mockPrisma();
+  const purchaseAlert = loadPurchaseAlert({
+    emailConfigured: () => true,
+    sendEmail: (message) => sent.push(message),
+  });
+  const { router, restore } = loadWebhooksRouter(prisma, {
+    recordUnmappedPurchase: purchaseAlert.recordUnmappedPurchase,
+  }, {
+    verifyPayPalWebhook: async () => true,
+  });
+
+  try {
+    const response = await postPayPal(router, {
+      id: 'capture_unsupported_plan_456',
+      status: 'COMPLETED',
+      custom_id: 'avalisa:user_123:enterprise',
+      amount: { value: '199.00', currency_code: 'USD' },
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(response.statusCode, 200);
+    assert.equal(prisma.created.length, 1);
+    assert.equal(prisma.created[0].meta.reason, 'paypal_unsupported_plan');
+    assert.equal(sent.length, 1);
+    assert.match(sent[0].text, /PayPal Capture ID: capture_unsupported_plan_456/);
+    assert.equal(prisma.upserts.length, 0);
+    assert.equal(prisma.creates.length, 0);
+  } finally {
+    restore();
+    purchaseAlert.restore();
+  }
+});
+
+test('a pending PayPal capture raises no alert', async () => {
+  const prisma = mockPrisma();
+  const alerts = [];
+  const { router, restore } = loadWebhooksRouter(prisma, {
+    recordUnmappedPurchase: (injectedPrisma, details) => alerts.push({ injectedPrisma, details }),
+  }, {
+    verifyPayPalWebhook: async () => true,
+  });
+
+  try {
+    const response = await postPayPal(router, {
+      id: 'capture_pending_789',
+      status: 'PENDING',
+    });
+    assert.equal(response.statusCode, 200);
+    assert.equal(alerts.length, 0);
+    assert.equal(prisma.upserts.length, 0);
+    assert.equal(prisma.creates.length, 0);
+  } finally {
+    restore();
+  }
+});
+
+test('a completed, mappable PayPal capture grants a licence without an alert', async () => {
+  const prisma = mockPrisma();
+  const alerts = [];
+  const { router, restore } = loadWebhooksRouter(prisma, {
+    recordUnmappedPurchase: (injectedPrisma, details) => alerts.push({ injectedPrisma, details }),
+  }, {
+    verifyPayPalWebhook: async () => true,
+  });
+
+  try {
+    const response = await postPayPal(router, {
+      id: 'capture_basic_012',
+      status: 'COMPLETED',
+      custom_id: 'avalisa:user_123:basic',
+      amount: { value: '69.00', currency_code: 'USD' },
+    });
+    assert.equal(response.statusCode, 200);
+    assert.equal(alerts.length, 0);
+    assert.equal(prisma.upserts.length, 1);
+  } finally {
+    restore();
   }
 });

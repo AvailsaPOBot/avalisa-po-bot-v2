@@ -122,20 +122,36 @@ router.post('/paypal', express.raw({ type: 'application/json' }), async (req, re
 });
 
 async function handlePayPalCaptureCompleted(resource) {
+  if (resource?.status !== 'COMPLETED') {
+    console.warn('[PayPal] Capture not completed:', resource?.id, resource?.status);
+    return;
+  }
+
   const custom = decodeCustomId(resource?.custom_id || resource?.supplementary_data?.related_ids?.custom_id);
   if (!custom) {
+    recordUnmappedPurchase(prisma, {
+      reason: 'paypal_missing_custom_id',
+      paypalCaptureId: resource?.id,
+      amount: resource?.amount?.value,
+      currency: resource?.amount?.currency_code,
+      eventType: 'PAYMENT.CAPTURE.COMPLETED',
+    });
     console.warn('[PayPal] Capture missing Avalisa custom_id:', resource?.id);
     return;
   }
 
   const plan = normalizeCheckoutPlan(custom.plan);
   if (!plan) {
+    recordUnmappedPurchase(prisma, {
+      reason: 'paypal_unsupported_plan',
+      userId: custom.userId,
+      planId: custom.plan,
+      paypalCaptureId: resource?.id,
+      amount: resource?.amount?.value,
+      currency: resource?.amount?.currency_code,
+      eventType: 'PAYMENT.CAPTURE.COMPLETED',
+    });
     console.warn('[PayPal] Capture has unsupported plan:', custom.plan);
-    return;
-  }
-
-  if (resource?.status !== 'COMPLETED') {
-    console.warn('[PayPal] Capture not completed:', resource?.id, resource?.status);
     return;
   }
 
