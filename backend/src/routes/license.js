@@ -1,6 +1,7 @@
 const express = require('express');
 const { authMiddleware, optionalAuthMiddleware } = require('../middleware/auth');
 const prisma = require('../lib/prisma');
+const presence = require('../lib/presence');
 const { PLAN_IDS, getPlanEntitlements, getAiTradesAllowanceForPlan } = require('../lib/plans');
 const {
   PRICING_URL,
@@ -19,6 +20,13 @@ router.post('/check', optionalAuthMiddleware, async (req, res) => {
   // userId comes from the verified JWT (optionalAuthMiddleware), NOT the body —
   // otherwise anyone could read another user's license by passing their id.
   const userId = req.userId || null;
+  if (userId) {
+    try {
+      presence.touch(userId);
+    } catch (_) {
+      // Presence is best-effort; it must never affect licence availability.
+    }
+  }
   const { deviceFingerprint } = req.body;
   if (!deviceFingerprint) {
     return res.status(400).json({ error: 'deviceFingerprint is required' });
