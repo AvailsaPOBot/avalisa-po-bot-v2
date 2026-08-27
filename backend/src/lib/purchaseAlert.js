@@ -5,6 +5,12 @@
 
 const { sendEmail, emailConfigured } = require('./email');
 
+const UNMAPPED_PURCHASE_REASONS = new Set([
+  'no_customer_email',
+  'no_matching_account',
+  'no_plan_match',
+]);
+
 function escapeHtml(value) {
   return String(value)
     .replace(/&/g, '&amp;')
@@ -26,6 +32,10 @@ function formatDollars(priceInCents) {
 // Returns a promise (resolving to whether a row was written) for tests, but
 // callers should NOT await it in request handlers.
 function recordUnmappedPurchase(prisma, details = {}) {
+  if (!UNMAPPED_PURCHASE_REASONS.has(details?.reason)) {
+    throw new TypeError('recordUnmappedPurchase requires a valid reason');
+  }
+
   const p = (async () => {
     const safeDetails = Object.fromEntries(
       Object.entries(details || {}).map(([key, value]) => [
@@ -41,6 +51,7 @@ function recordUnmappedPurchase(prisma, details = {}) {
       planId,
       membershipId,
       eventType,
+      reason,
     } = safeDetails;
     let wrote = false;
 
@@ -70,8 +81,10 @@ function recordUnmappedPurchase(prisma, details = {}) {
         const displayCustomerEmail = customerEmail || 'unknown';
         const displayUserId = userId || 'unknown';
         const displayEventType = eventType || 'unknown';
+        const displayReason = reason;
         const text = [
           'Avalisa paid purchase was not activated — manual grant needed.',
+          `Reason: ${displayReason}`,
           `Price: ${displayPriceInCents} cents (${formatDollars(displayPriceInCents)})`,
           `Plan Name: ${displayPlanName}`,
           `Plan ID: ${displayPlanId}`,
@@ -81,12 +94,12 @@ function recordUnmappedPurchase(prisma, details = {}) {
           `Whop Event Type: ${displayEventType}`,
           `Timestamp (UTC): ${timestamp}`,
         ].join('\n');
-        const html = `<p><strong>Avalisa paid purchase was not activated — manual grant needed.</strong></p><p><strong>Price:</strong> ${displayPriceInCents} cents (${formatDollars(displayPriceInCents)})<br><strong>Plan Name:</strong> ${escapeHtml(displayPlanName)}<br><strong>Plan ID:</strong> ${escapeHtml(displayPlanId)}<br><strong>Membership ID:</strong> ${escapeHtml(displayMembershipId)}<br><strong>Customer Email:</strong> ${escapeHtml(displayCustomerEmail)}<br><strong>User ID:</strong> ${escapeHtml(displayUserId)}<br><strong>Whop Event Type:</strong> ${escapeHtml(displayEventType)}<br><strong>Timestamp (UTC):</strong> ${timestamp}</p>`;
+        const html = `<p><strong>Avalisa paid purchase was not activated — manual grant needed.</strong></p><p><strong>Reason:</strong> ${escapeHtml(displayReason)}<br><strong>Price:</strong> ${displayPriceInCents} cents (${formatDollars(displayPriceInCents)})<br><strong>Plan Name:</strong> ${escapeHtml(displayPlanName)}<br><strong>Plan ID:</strong> ${escapeHtml(displayPlanId)}<br><strong>Membership ID:</strong> ${escapeHtml(displayMembershipId)}<br><strong>Customer Email:</strong> ${escapeHtml(displayCustomerEmail)}<br><strong>User ID:</strong> ${escapeHtml(displayUserId)}<br><strong>Whop Event Type:</strong> ${escapeHtml(displayEventType)}<br><strong>Timestamp (UTC):</strong> ${timestamp}</p>`;
 
         Promise.resolve()
           .then(() => sendEmail({
             to: recipient,
-            subject: '[Avalisa] PAID BUT NOT ACTIVATED - manual grant needed',
+            subject: `[Avalisa] PAID BUT NOT ACTIVATED (${displayReason}) - manual grant needed`,
             text,
             html,
           }))

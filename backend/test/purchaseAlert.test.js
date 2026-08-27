@@ -2,12 +2,14 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 
-function mockPrisma({ throws = false } = {}) {
+function mockPrisma({ throws = false, user = { id: 'user_123', email: 'customer@example.com', license: null } } = {}) {
   const created = [];
   const upserts = [];
+  const creates = [];
   return {
     created,
     upserts,
+    creates,
     funnelEvent: {
       create: async ({ data }) => {
         if (throws) throw new Error('relation "FunnelEvent" does not exist');
@@ -16,9 +18,13 @@ function mockPrisma({ throws = false } = {}) {
       },
     },
     user: {
-      findUnique: async () => ({ id: 'user_123', email: 'customer@example.com', license: null }),
+      findUnique: async () => user,
     },
     license: {
+      create: async (args) => {
+        creates.push(args);
+        return args;
+      },
       upsert: async (args) => {
         upserts.push(args);
         return args;
@@ -126,6 +132,7 @@ async function postWhop(router, data, type = 'membership.activated') {
 }
 
 const unmappedDetails = {
+  reason: 'no_plan_match',
   userId: 'user_123',
   customerEmail: 'customer@example.com',
   priceInCents: 5000,
@@ -204,7 +211,8 @@ test('an unmapped-purchase email contains manual-grant identifiers', async () =>
   try {
     await recordUnmappedPurchase(mockPrisma(), unmappedDetails);
     assert.equal(sent.length, 1);
-    assert.equal(sent[0].subject, '[Avalisa] PAID BUT NOT ACTIVATED - manual grant needed');
+    assert.equal(sent[0].subject, '[Avalisa] PAID BUT NOT ACTIVATED (no_plan_match) - manual grant needed');
+    assert.match(sent[0].text, /Reason: no_plan_match/);
     assert.match(sent[0].text, /5000 cents \(\$50\.00\)/);
     assert.match(sent[0].text, /Plan Name: Avalisa Starter/);
     assert.match(sent[0].text, /Membership ID: mem_123/);
@@ -234,7 +242,64 @@ test('the unmappable Whop webhook branch invokes the alert with purchase identif
     assert.equal(alerts.length, 1);
     assert.equal(alerts[0].injectedPrisma, prisma);
     assert.deepEqual(alerts[0].details, unmappedDetails);
+    assert.equal(prisma.upserts.length, 0);
+    assert.equal(prisma.creates.length, 0);
   } finally {
     restore();
+  }
+});
+
+test('a paid Whop event with no customer email raises one no_customer_email alert without granting a licence', async () => {
+  const prisma = mockPrisma();
+  const alerts = [];
+  const { router, restore } = loadWebhooksRouter(prisma, {
+    recordUnmappedPurchase: (injectedPrisma, details) => alerts.push({ injectedPrisma, details }),
+  });
+
+  try {
+    const response = await postWhop(router, {
+      id: 'mem_no_email',
+      plan: { id: 'plan_basic', name: 'Basic', price_cents: 6900 },
+    });
+    assert.equal(response.statusCode, 200);
+    assert.equal(alerts.length, 1);
+    assert.equal(alerts[0].injectedPrisma, prisma);
+    assert.equal(alerts[0].details.reason, 'no_customer_email');
+    assert.equal(prisma.upserts.length, 0);
+    assert.equal(prisma.creates.length, 0);
+  } finally {
+    restore();
+  }
+});
+
+test('a paid Whop event with no matching account raises one actionable alert without granting a licence', async () => {
+  const sent = [];
+  const prisma = mockPrisma({ user: null });
+  const purchaseAlert = loadPurchaseAlert({
+    emailConfigured: () => true,
+    sendEmail: (message) => sent.push(message),
+  });
+  const { router, restore } = loadWebhooksRouter(prisma, {
+    recordUnmappedPurchase: purchaseAlert.recordUnmappedPurchase,
+  });
+
+  try {
+    const response = await postWhop(router, {
+      id: 'mem_no_account',
+      user: { email: 'different-checkout@example.com' },
+      plan: { id: 'plan_basic', name: 'Basic', price_cents: 6900 },
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(response.statusCode, 200);
+    assert.equal(prisma.created.length, 1);
+    assert.equal(prisma.created[0].type, 'unmapped_purchase');
+    assert.equal(prisma.created[0].meta.reason, 'no_matching_account');
+    assert.equal(sent.length, 1);
+    assert.match(sent[0].text, /different-checkout@example\.com/);
+    assert.equal(prisma.upserts.length, 0);
+    assert.equal(prisma.creates.length, 0);
+  } finally {
+    restore();
+    purchaseAlert.restore();
   }
 });

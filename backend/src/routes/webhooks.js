@@ -254,26 +254,9 @@ async function handleWhopMembership(data, eventType) {
   // Log full payload on first receipt so we can verify structure
   console.log('[Whop] Membership payload:', JSON.stringify(data, null, 2));
 
-  if (!customerEmail) {
-    console.warn(`[Whop] No email for membership ${membershipId}`);
-    return;
-  }
-
-  const user = await prisma.user.findUnique({ where: { email: customerEmail }, include: { license: true } });
-  if (!user) {
-    console.warn(`[Whop] No user found for email: ${customerEmail}`);
-    return;
-  }
-
-  const whopOrderId = `whop_${membershipId}`;
-
-  // Replay protection: if license already exists with this orderId, skip reset
-  if (user.license && user.license.lemonsqueezyOrderId === whopOrderId) {
-    console.log(`[Whop] Membership ${membershipId} already processed for user ${user.id}. Skipping reset.`);
-    return;
-  }
-
-  // Match by configured Whop plan ID, current price, or plan name fallback.
+  // These raw purchase identifiers are available even when the customer cannot
+  // be identified. Keep their extraction above the early returns so every paid
+  // but unactivated outcome can be surfaced for manual action.
   const priceInCents = Number(
     data?.plan?.price_cents ??
     data?.checkout?.plan?.price_cents ??
@@ -298,10 +281,49 @@ async function handleWhopMembership(data, eventType) {
     ''
   );
 
+  if (!customerEmail) {
+    console.warn(`[Whop] No email for membership ${membershipId}`);
+    recordUnmappedPurchase(prisma, {
+      reason: 'no_customer_email',
+      membershipId,
+      priceInCents,
+      planName,
+      planId,
+      eventType,
+    });
+    return;
+  }
+
+  const user = await prisma.user.findUnique({ where: { email: customerEmail }, include: { license: true } });
+  if (!user) {
+    console.warn(`[Whop] No user found for email: ${customerEmail}`);
+    recordUnmappedPurchase(prisma, {
+      reason: 'no_matching_account',
+      userId: null,
+      customerEmail,
+      membershipId,
+      priceInCents,
+      planName,
+      planId,
+      eventType,
+    });
+    return;
+  }
+
+  const whopOrderId = `whop_${membershipId}`;
+
+  // Replay protection: if license already exists with this orderId, skip reset
+  if (user.license && user.license.lemonsqueezyOrderId === whopOrderId) {
+    console.log(`[Whop] Membership ${membershipId} already processed for user ${user.id}. Skipping reset.`);
+    return;
+  }
+
+  // Match by configured Whop plan ID, current price, or plan name fallback.
   const plan = getPaidPlanFromWhop({ planId, priceInCents, planName });
   if (!plan) {
     console.warn(`[Whop] Cannot determine plan. Price: ${priceInCents}, Name: ${planName}`);
     recordUnmappedPurchase(prisma, {
+      reason: 'no_plan_match',
       userId: user.id,
       customerEmail,
       priceInCents,
