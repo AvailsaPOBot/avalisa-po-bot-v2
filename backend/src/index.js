@@ -118,12 +118,22 @@ app.use('/api/webhooks', webhookRoutes);
 app.use(express.json({ limit: '1mb' }));
 
 // Health check — reflects real DB status so Render (and we) can see degradation, not a fake 'ok'
+// Which code is actually running. Render sets RENDER_GIT_COMMIT on every deploy;
+// resolved once at boot because it cannot change without a restart. Without this,
+// "did it deploy?" has no answer that is not a guess - and a guess already produced
+// one false positive (any /api/admin/* path 401s, real route or not).
+const RUNNING_COMMIT = (process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || '')
+  .trim()
+  .slice(0, 7) || 'unknown';
+
 app.get('/health', async (req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ status: 'ok', db: 'up', timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', db: 'up', commit: RUNNING_COMMIT, timestamp: new Date().toISOString() });
   } catch (err) {
-    res.status(503).json({ status: 'degraded', db: 'down', timestamp: new Date().toISOString() });
+    // The commit belongs on the failure path too: a degraded backend is exactly
+    // when you need to know which build is live.
+    res.status(503).json({ status: 'degraded', db: 'down', commit: RUNNING_COMMIT, timestamp: new Date().toISOString() });
   }
 });
 
