@@ -1,38 +1,42 @@
 const express = require('express');
+const prisma = require('../lib/prisma');
+const { recordSupportEscalation } = require('../lib/supportEscalation');
 
 const router = express.Router();
 
 const HUMAN_FOLLOW_UP_REPLY = 'Thanks for telling us. This needs human review, so please email avalisapobot@gmail.com with your account email, Pocket Option ID if relevant, and a short description. A human from Avalisa will follow up.';
 
 const SENSITIVE_ESCALATION_PATTERNS = [
-  /\brefund(s|ed|ing)?\b/i,
-  /\bcharge\s?back(s)?\b/i,
-  /\bdelete\s+(my\s+)?account\b/i,
-  /\bclose\s+(my\s+)?account\b/i,
-  /\bremove\s+(my\s+)?(data|account)\b/i,
-  /\blegal\b/i,
-  /\blawyer\b/i,
-  /\bsue\b/i,
-  /\bscam(s|med|ming)?\b/i,
-  /\bfraud(s|ulent)?\b/i,
-  /\bfinancial\s+loss(es)?\b/i,
-  /\blost\s+(money|cash|funds|\$|usd|baht|thb)\b/i,
-  /\blost\s+[$€£฿]\s*\d[\d,]*(\.\d+)?\b/i,
-  /\blost\s+\d[\d,]*(\.\d+)?\s*(usd|dollars?|baht|thb)\b/i,
-  /\blost\s+(all\s+)?(my\s+)?(deposit|balance|account|investment)\b/i,
-  /\bblew\s+(up\s+)?(my\s+)?(account|balance)\b/i,
-  /\bmoney\s+back\b/i,
+  { name: 'refund', pattern: /\brefund(s|ed|ing)?\b/i },
+  { name: 'chargeback', pattern: /\bcharge\s?back(s)?\b/i },
+  { name: 'account_deletion', pattern: /\bdelete\s+(my\s+)?account\b/i },
+  { name: 'account_closure', pattern: /\bclose\s+(my\s+)?account\b/i },
+  { name: 'data_removal', pattern: /\bremove\s+(my\s+)?(data|account)\b/i },
+  { name: 'legal', pattern: /\blegal\b/i },
+  { name: 'lawyer', pattern: /\blawyer\b/i },
+  { name: 'lawsuit', pattern: /\bsue\b/i },
+  { name: 'scam', pattern: /\bscam(s|med|ming)?\b/i },
+  { name: 'fraud', pattern: /\bfraud(s|ulent)?\b/i },
+  { name: 'financial_loss', pattern: /\bfinancial\s+loss(es)?\b/i },
+  { name: 'lost_money', pattern: /\blost\s+(money|cash|funds|\$|usd|baht|thb)\b/i },
+  { name: 'lost_amount', pattern: /\blost\s+[$€£฿]\s*\d[\d,]*(\.\d+)?\b/i },
+  { name: 'lost_currency_amount', pattern: /\blost\s+\d[\d,]*(\.\d+)?\s*(usd|dollars?|baht|thb)\b/i },
+  { name: 'lost_deposit', pattern: /\blost\s+(all\s+)?(my\s+)?(deposit|balance|account|investment)\b/i },
+  { name: 'account_blown', pattern: /\bblew\s+(up\s+)?(my\s+)?(account|balance)\b/i },
+  { name: 'money_back', pattern: /\bmoney\s+back\b/i },
 ];
 
-function getSensitiveSupportEscalation(messages) {
+function getSensitiveSupportEscalationMatch(messages) {
   const text = messages
     .filter((message) => message.role === 'user')
     .map((message) => message.content)
     .join('\n');
 
-  return SENSITIVE_ESCALATION_PATTERNS.some((pattern) => pattern.test(text))
-    ? HUMAN_FOLLOW_UP_REPLY
-    : null;
+  return SENSITIVE_ESCALATION_PATTERNS.find(({ pattern }) => pattern.test(text)) || null;
+}
+
+function getSensitiveSupportEscalation(messages) {
+  return getSensitiveSupportEscalationMatch(messages) ? HUMAN_FOLLOW_UP_REPLY : null;
 }
 
 const SYSTEM_PROMPT = `You are Avalisa, the official AI support assistant for Avalisa PO Bot —
@@ -176,11 +180,16 @@ router.post('/chat', async (req, res) => {
   }
 
   const trimmedMessages = normalizeMessages(req.body.messages, userMessage);
-  const escalationReply = getSensitiveSupportEscalation(trimmedMessages);
+  const escalation = getSensitiveSupportEscalationMatch(trimmedMessages);
 
-  if (escalationReply) {
+  if (escalation) {
+    recordSupportEscalation(prisma, {
+      userId: req.user?.id,
+      reason: escalation.name,
+      excerpt: userMessage,
+    });
     return res.json({
-      reply: escalationReply,
+      reply: HUMAN_FOLLOW_UP_REPLY,
       provider: 'avalisa-escalation',
       escalate: true,
     });
@@ -249,6 +258,7 @@ router.post('/chat', async (req, res) => {
 });
 
 router.__test = {
+  getSensitiveSupportEscalationMatch,
   getSensitiveSupportEscalation,
   HUMAN_FOLLOW_UP_REPLY,
 };

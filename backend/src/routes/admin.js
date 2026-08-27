@@ -459,4 +459,19 @@ router.get('/funnel', async (req, res) => {
   }
 });
 
+// GET /api/admin/support-escalations — newest 100 sensitive support records.
+router.get('/support-escalations', async (req, res) => {
+  try {
+    const escalations = await prisma.funnelEvent.findMany({
+      where: { type: 'support_escalation' },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+    return res.json({ escalations });
+  } catch (err) {
+    console.error('[Admin] support escalations list error:', err);
+    return res.status(500).json({ error: 'Failed to fetch support escalations' });
+  }
+});
+
 module.exports = router;
