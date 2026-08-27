@@ -34,6 +34,20 @@ const PLAN_ENTITLEMENTS = {
   },
 };
 
+// Should a Whop deactivation revoke this licence?
+//
+// THE RULE THAT PROTECTS PAYING CUSTOMERS: a licence with expiresAt === null is a
+// permanent purchase (one-time Basic $69 / Pro $119, or a manual grant) and must
+// NEVER be revoked by a subscription event. Only licences we explicitly marked as
+// expiring — created from a recurring plan — may be downgraded when payment stops.
+//
+// Every licence created before 2026-08-27 has expiresAt === null, so existing
+// customers are protected by construction rather than by remembering to check.
+function shouldRevokeLicense(license) {
+  if (!license) return false;
+  return license.expiresAt !== null && license.expiresAt !== undefined;
+}
+
 function getPlanEntitlements(plan) {
   return PLAN_ENTITLEMENTS[plan] || null;
 }
@@ -80,6 +94,7 @@ function getPaidPlanFromWhop({ planId = '', priceInCents = 0, planName = '' }) {
 }
 
 module.exports = {
+  shouldRevokeLicense,
   PLAN_IDS,
   PLAN_ENTITLEMENTS,
   getPlanEntitlements,
