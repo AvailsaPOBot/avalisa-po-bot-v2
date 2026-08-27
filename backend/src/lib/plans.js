@@ -68,9 +68,21 @@ function getAiTradesAllowanceForPlan(plan) {
   return entitlements.aiTradesAllowance;
 }
 
+// Additional Whop prices that grant an existing plan. The Board added a $29/month
+// recurring option to Pro on 2026-08-27 (one-time $119 stays — see the pricing rail).
+// Recognising the PRICE matters: mapping fell back to the plan NAME, so a pricing
+// option named e.g. "Monthly access" would have matched nothing and the webhook
+// would have granted the customer nothing at all while still taking their money.
+const EXTRA_WHOP_PRICES_TO_PLAN = {
+  2900: PLAN_IDS.PRO, // Pro, billed monthly
+};
+
 function getPaidPlanFromWhop({ planId = '', priceInCents = 0, planName = '' }) {
   const normalizedPlanId = String(planId || '');
   const normalizedName = String(planName || '').toLowerCase();
+
+  const extra = EXTRA_WHOP_PRICES_TO_PLAN[Number(priceInCents)];
+  if (extra) return extra;
 
   if (
     normalizedPlanId === process.env.WHOP_PLAN_ID_BASIC ||
@@ -94,6 +106,7 @@ function getPaidPlanFromWhop({ planId = '', priceInCents = 0, planName = '' }) {
 }
 
 module.exports = {
+  EXTRA_WHOP_PRICES_TO_PLAN,
   shouldRevokeLicense,
   PLAN_IDS,
   PLAN_ENTITLEMENTS,
