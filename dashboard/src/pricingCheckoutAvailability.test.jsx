@@ -32,7 +32,7 @@ describe('checkout availability', () => {
   beforeEach(() => { process.env = { ...OLD_ENV }; });
   afterAll(() => { process.env = OLD_ENV; });
 
-  test('with no Whop URL configured, no element links to a dead checkout', async () => {
+  test('with no env var, the built-in checkout link is used and nothing dead-links', async () => {
     delete process.env.REACT_APP_WHOP_BASIC_URL;
     delete process.env.REACT_APP_WHOP_PRO_URL;
     delete process.env.REACT_APP_WHOP_LIFETIME_URL;
@@ -52,8 +52,10 @@ describe('checkout availability', () => {
       expect(deadLinks).toHaveLength(0);
     });
 
-    // And it must positively SAY it is unavailable, not just omit the link.
-    expect(await screen.findByText(/whop checkout is temporarily unavailable/i)).toBeTruthy();
+    // With no env var we fall back to the live product link, so a buyer can still pay.
+    const live = Array.from(document.querySelectorAll('a'))
+      .some(a => (a.getAttribute('href') || '').includes('whop.com/avalisabot/products/'));
+    expect(live).toBe(true);
   });
 
   test('when a Whop URL IS configured the real link is used', async () => {
@@ -70,5 +72,15 @@ describe('checkout availability', () => {
         .some((a) => (a.getAttribute('href') || '').includes('whop.com/avalisabot/basic-live'));
       expect(live).toBe(true);
     });
+  });
+  test('a checkout explicitly disabled says so instead of linking anywhere', async () => {
+    process.env.REACT_APP_WHOP_BASIC_URL = 'none';
+    render(<Pricing />);
+    const chooser = await screen.findAllByRole('button', { name: /choose payment method/i });
+    fireEvent.click(chooser[0]);
+    expect(await screen.findByText(/whop checkout is temporarily unavailable/i)).toBeTruthy();
+    const deadLinks = Array.from(document.querySelectorAll('a'))
+      .filter(a => (a.getAttribute('href') || '').trim() === '#');
+    expect(deadLinks).toHaveLength(0);
   });
 });
