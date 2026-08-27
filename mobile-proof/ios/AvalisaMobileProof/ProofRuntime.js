@@ -1735,8 +1735,25 @@
     state.lastResult = result;
     if (result === 'loss') {
       if (state.martingaleStep < maxSteps) {
+        const wanted = Number((state.nextAmount * multiplier).toFixed(2));
+        const ceiling = maxAllowedProofAmount();
+        if (wanted > ceiling) {
+          // The ladder can no longer recover. Clamping here (the old behaviour) meant
+          // the bot silently re-bet the ceiling forever: from $1 at 2x, step 7 wants
+          // $128, gets $64, and every later loss also gets $64 while accumulated
+          // losses keep growing. Recovery maths is broken from that point and the
+          // user was never told. The Chrome extension has no such cap
+          // (content.js: currentAmount * multiplier, uncapped), so the same settings
+          // behaved differently on desktop and phone. Stop and say why instead.
+          stopBot(
+            `Martingale stopped: the next step needs $${wanted.toFixed(2)} but this ` +
+            `device is limited to $${ceiling.toFixed(2)}. Continuing would re-bet ` +
+            `$${ceiling.toFixed(2)} without recovering earlier losses.`
+          );
+          return;
+        }
         state.martingaleStep += 1;
-        state.nextAmount = Math.min(maxAllowedProofAmount(), Number((state.nextAmount * multiplier).toFixed(2)));
+        state.nextAmount = wanted;
       } else {
         state.martingaleStep = 0;
         state.nextAmount = startAmount;
