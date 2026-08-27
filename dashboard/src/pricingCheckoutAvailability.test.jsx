@@ -84,3 +84,13 @@ describe('checkout availability', () => {
     expect(deadLinks).toHaveLength(0);
   });
 });
+
+describe('advertised billing options', () => {
+  // Whop sells Pro at $119 once AND $29/month. The site showed only $119, so the
+  // cheaper entry point was invisible — a silent conversion loss, not a bug anyone
+  // would have reported.
+  test('the Pro card advertises the monthly option', async () => {
+    render(<Pricing />);
+    expect(await screen.findByText(/\$29\s*\/\s*month/i)).toBeTruthy();
+  });
+});

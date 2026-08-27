@@ -153,6 +153,10 @@ export default function Pricing() {
       name: 'Pro',
       price: '$119',
       period: 'one-time',
+      // Whop sells Pro at BOTH $119 once and $29/month (added 2026-08-27). The buyer
+      // picks at checkout ("Choose your plan"). The site showed only $119, so nobody
+      // learned the cheaper entry point existed — a silent conversion loss.
+      altBilling: 'or $29 / month',
       description: 'Unlock Martingale and Avalisa Bot with no trade limit.',
       cta: 'Buy Pro — $119',
       href: appendEmail(resolveWhopUrl(process.env.REACT_APP_WHOP_PRO_URL ?? process.env.REACT_APP_WHOP_LIFETIME_URL, WHOP_PRO_FALLBACK)),
@@ -187,6 +191,7 @@ export default function Pricing() {
               {plan.featured && <b>MOST POPULAR</b>}
               <span>{plan.name}</span>
               <h3>{plan.price}<small>{plan.period}</small></h3>
+              {plan.altBilling && <p className="lux-price__alt">{plan.altBilling}</p>}
               <p>{plan.description}</p>
               <ul>{plan.features.map((item) => <li key={item}><Check size={14} /> {item}</li>)}</ul>
               {current ? (
@@ -228,6 +233,11 @@ export default function Pricing() {
             <button type="button" className="lux-payment-modal__close" onClick={() => setSelectedPlan(null)}>Close</button>
             <p className="lux-kicker">Payment Method</p>
             <h2 id="payment-choice-title">{selectedPaymentPlan.name} {selectedPaymentPlan.price}</h2>
+            {selectedPaymentPlan.altBilling && (
+              // Say it here too: the buyer chooses one-time vs monthly on Whop's page,
+              // so the modal must not imply $119 is the only option.
+              <p className="lux-payment-modal__alt">{selectedPaymentPlan.altBilling} — choose at checkout</p>
+            )}
             <p className="lux-payment-modal__copy">Choose the checkout provider you prefer. Your Avalisa license activates after payment confirmation.</p>
             <div className="lux-payment-choice-grid">
               {selectedPaymentPlan.href ? (

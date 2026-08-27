@@ -4816,3 +4816,20 @@
   color: rgba(245, 239, 228, 0.6);
   margin-top: 0.1rem;
 }
+
+/* Secondary billing option under a plan price (Pro: "$119 one-time" / "or $29 / month").
+   Deliberately quiet — the headline price stays the headline. */
+.lux-price__alt {
+  margin: 0.25rem 0 0;
+  font-size: 0.82rem;
+  letter-spacing: 0.01em;
+  color: var(--lux-gold-2);
+  opacity: 0.9;
+}
+
+.lux-payment-modal__alt {
+  margin: 0.15rem 0 0.6rem;
+  font-size: 0.83rem;
+  color: var(--lux-gold-2);
+  opacity: 0.9;
+}
