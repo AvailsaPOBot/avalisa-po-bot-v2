@@ -1,7 +1,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const prisma = require('../lib/prisma');
-const { getPaidPlanFromWhop, getPlanEntitlements, getAiTradesAllowanceForPlan } = require('../lib/plans');
+const { PLAN_IDS, getPaidPlanFromWhop, getPlanEntitlements, getAiTradesAllowanceForPlan, shouldRevokeLicense } = require('../lib/plans');
 const { activatePaidLicense } = require('../lib/licenseActivation');
 const { decodeCustomId, normalizeCheckoutPlan, verifyPayPalWebhook } = require('../lib/paypal');
 
@@ -57,12 +57,32 @@ router.post('/whop', express.raw({ type: 'application/json' }), async (req, res)
     'invoice_paid',
   ]);
 
+  // A subscription that stops paying MUST stop granting access, or a $29/month
+  // customer keeps Pro forever after one payment. Before 2026-08-27 nothing handled
+  // this because only one-time plans existed.
+  const deactivationEvents = new Set([
+    'membership.went_invalid',
+    'membership.deactivated',
+    'membership.cancelled',
+    'membership.canceled',
+    'membership_went_invalid',
+    'membership_deactivated',
+    'membership_cancelled',
+  ]);
+
   if (activationEvents.has(action)) {
     try {
       await handleWhopMembership(data);
     } catch (err) {
       console.error('[Whop] Error processing membership:', err);
       return res.status(500).json({ error: 'Failed to process membership' });
+    }
+  } else if (deactivationEvents.has(action)) {
+    try {
+      await handleWhopDeactivation(data);
+    } catch (err) {
+      console.error('[Whop] Error processing deactivation:', err);
+      return res.status(500).json({ error: 'Failed to process deactivation' });
     }
   }
 
@@ -175,6 +195,50 @@ function safeCompare(left, right) {
   }
 }
 
+// Revoke access when a RECURRING Whop membership stops paying.
+//
+// SAFETY INVARIANT: a licence with expiresAt === null is permanent and is NEVER
+// touched here. Every licence created before 2026-08-27 has null, so one-time
+// Basic ($69) and Pro ($119) buyers — the Board's existing paying customers —
+// cannot lose access through this path no matter what Whop sends. Only licences
+// we explicitly marked as expiring (i.e. created from a recurring plan) are
+// revocable. We downgrade to the demo plan rather than deleting, so the account
+// and its history survive and a re-subscribe simply upgrades it again.
+async function handleWhopDeactivation(data) {
+  const membershipId = data?.id || data?.membership?.id;
+  if (!membershipId) {
+    console.warn('[Whop] Deactivation event with no membership id — ignoring.');
+    return;
+  }
+
+  const whopOrderId = `whop_${membershipId}`;
+  const license = await prisma.license.findFirst({ where: { lemonsqueezyOrderId: whopOrderId } });
+  if (!license) {
+    console.log(`[Whop] Deactivation for unknown membership ${membershipId} — nothing to revoke.`);
+    return;
+  }
+
+  if (!shouldRevokeLicense(license)) {
+    console.log(
+      `[Whop] Membership ${membershipId} deactivated, but licence ${license.id} is PERMANENT ` +
+      `(expiresAt null — one-time/lifetime purchase). Leaving access untouched.`
+    );
+    return;
+  }
+
+  const demo = getPlanEntitlements(PLAN_IDS.DEMO);
+  await prisma.license.update({
+    where: { id: license.id },
+    data: {
+      plan: PLAN_IDS.DEMO,
+      tradesLimit: demo.tradesLimit,
+      tradesUsed: 0,
+      expiresAt: new Date(),
+    },
+  });
+  console.log(`[Whop] Recurring membership ${membershipId} ended — licence ${license.id} downgraded to demo.`);
+}
+
 async function handleWhopMembership(data) {
   const membershipId = data?.membership?.id || data?.membership_id || data?.id || data?.payment_id;
   const customerEmail =
@@ -241,6 +305,23 @@ async function handleWhopMembership(data) {
   const tradesLimit = getPlanEntitlements(plan).tradesLimit;
   const aiTradesAllowance = getAiTradesAllowanceForPlan(plan);
 
+  // Recurring vs one-time. THE INVARIANT: expiresAt === null means "permanent, never
+  // revoke". Every licence created before 2026-08-27 has null, so one-time and lifetime
+  // buyers are protected by construction — a cancellation event can never take their
+  // access away. Only a licence we explicitly marked as expiring is revocable.
+  const renewalEnd =
+    data?.renewal_period_end ?? data?.plan?.renewal_period_end ?? data?.current_period_end ?? null;
+  const isRecurring = Boolean(
+    data?.plan?.billing_period ||
+    data?.plan?.plan_type === 'renewal' ||
+    data?.billing_period ||
+    renewalEnd
+  );
+  const expiresAt = isRecurring && renewalEnd ? new Date(Number(renewalEnd) * 1000 || renewalEnd) : null;
+  if (isRecurring) {
+    console.log(`[Whop] Recurring membership ${membershipId} -> expiresAt ${expiresAt ? expiresAt.toISOString() : 'unknown'}`);
+  }
+
   await prisma.license.upsert({
     where: { userId: user.id },
     update: {
@@ -249,7 +330,7 @@ async function handleWhopMembership(data) {
       tradesLimit,
       ...(aiTradesAllowance !== null && { aiTradesAllowance }),
       lemonsqueezyOrderId: `whop_${membershipId}`,
-      expiresAt: null,
+      expiresAt,
     },
     create: {
       userId: user.id,
@@ -258,6 +339,7 @@ async function handleWhopMembership(data) {
       tradesLimit,
       ...(aiTradesAllowance !== null && { aiTradesAllowance }),
       lemonsqueezyOrderId: `whop_${membershipId}`,
+      expiresAt,
     },
   });
 
