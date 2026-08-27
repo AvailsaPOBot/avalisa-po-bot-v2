@@ -1826,7 +1826,10 @@
   display: none;
 }
 
-.lux-payment-choice:disabled {
+.lux-payment-choice:disabled,
+/* :disabled only applies to form elements; the unavailable Whop option is a div
+   carrying aria-disabled, so it needs the modifier class to match. */
+.lux-payment-choice--disabled {
   opacity: 0.52;
   cursor: not-allowed;
 }

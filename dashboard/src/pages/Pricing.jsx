@@ -73,7 +73,11 @@ export default function Pricing() {
 
   const email = user?.email || '';
   const appendEmail = (url) => {
-    if (!url || url === '#') return '#';
+    // Return null, not '#', when no checkout URL is configured. Returning '#' made
+    // every caller think a live link existed: the plan card rendered a clickable
+    // anchor that did nothing, and the payment modal could never detect that Whop
+    // was unavailable. Callers now branch on a falsy href and say so plainly.
+    if (!url || url === '#') return null;
     const separator = url.includes('?') ? '&' : '?';
     return email ? `${url}${separator}checkout[email]=${encodeURIComponent(email)}` : url;
   };
@@ -167,7 +171,11 @@ export default function Pricing() {
                 plan.paypalPlan ? (
                   <button type="button" onClick={() => setSelectedPlan(plan.id)}>Choose payment method</button>
                 ) : (
-                  <a href={plan.href || '#'} target="_blank" rel="noreferrer">{plan.cta}</a>
+                  plan.href ? (
+                    <a href={plan.href} target="_blank" rel="noreferrer">{plan.cta}</a>
+                  ) : (
+                    <button type="button" disabled>Checkout temporarily unavailable</button>
+                  )
                 )
               ) : (
                 <Link to={plan.href}>{plan.cta}</Link>
@@ -198,10 +206,21 @@ export default function Pricing() {
             <h2 id="payment-choice-title">{selectedPaymentPlan.name} {selectedPaymentPlan.price}</h2>
             <p className="lux-payment-modal__copy">Choose the checkout provider you prefer. Your Avalisa license activates after payment confirmation.</p>
             <div className="lux-payment-choice-grid">
-              <a href={selectedPaymentPlan.href || '#'} target="_blank" rel="noreferrer" className="lux-payment-choice">
-                <strong>Whop</strong>
-                <span>Current checkout path</span>
-              </a>
+              {selectedPaymentPlan.href ? (
+                <a href={selectedPaymentPlan.href} target="_blank" rel="noreferrer" className="lux-payment-choice">
+                  <strong>Whop</strong>
+                  <span>Current checkout path</span>
+                </a>
+              ) : (
+                /* No Whop URL configured -> say so, exactly as the PayPal option does.
+                   Previously this rendered href="#", so the button looked live and did
+                   nothing; before that it pointed at a removed product and sent buyers
+                   to Whop's "Product not found" page. Both lie to a paying customer. */
+                <div className="lux-payment-choice lux-payment-choice--disabled" aria-disabled="true">
+                  <strong>Whop</strong>
+                  <span>Whop checkout is temporarily unavailable</span>
+                </div>
+              )}
               <button
                 type="button"
                 className="lux-payment-choice lux-payment-choice--paypal"
