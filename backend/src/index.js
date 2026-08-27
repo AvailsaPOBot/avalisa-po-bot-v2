@@ -126,14 +126,24 @@ const RUNNING_COMMIT = (process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT 
   .trim()
   .slice(0, 7) || 'unknown';
 
+// Can our alerts actually leave the building? Support escalations and orphaned-purchase
+// alerts both depend on the Brevo transport being configured; if it is not, they no-op
+// silently and a paying customer's complaint reaches nobody. Booleans only - never the
+// key, never the address.
+function alertingReadiness() {
+  let email = false;
+  try { email = require('./lib/email').emailConfigured(); } catch { email = false; }
+  return { email, alertTo: Boolean(process.env.SUPPORT_ALERT_EMAIL) };
+}
+
 app.get('/health', async (req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ status: 'ok', db: 'up', commit: RUNNING_COMMIT, timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', db: 'up', commit: RUNNING_COMMIT, alerting: alertingReadiness(), timestamp: new Date().toISOString() });
   } catch (err) {
     // The commit belongs on the failure path too: a degraded backend is exactly
     // when you need to know which build is live.
-    res.status(503).json({ status: 'degraded', db: 'down', commit: RUNNING_COMMIT, timestamp: new Date().toISOString() });
+    res.status(503).json({ status: 'degraded', db: 'down', commit: RUNNING_COMMIT, alerting: alertingReadiness(), timestamp: new Date().toISOString() });
   }
 });
 
