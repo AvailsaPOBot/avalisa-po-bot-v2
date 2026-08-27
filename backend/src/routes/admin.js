@@ -474,4 +474,19 @@ router.get('/support-escalations', async (req, res) => {
   }
 });
 
+// GET /api/admin/unmapped-purchases — newest 100 paid purchases needing manual activation.
+router.get('/unmapped-purchases', async (req, res) => {
+  try {
+    const purchases = await prisma.funnelEvent.findMany({
+      where: { type: 'unmapped_purchase' },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+    return res.json({ purchases });
+  } catch (err) {
+    console.error('[Admin] unmapped purchases list error:', err);
+    return res.status(500).json({ error: 'Failed to fetch unmapped purchases' });
+  }
+});
+
 module.exports = router;

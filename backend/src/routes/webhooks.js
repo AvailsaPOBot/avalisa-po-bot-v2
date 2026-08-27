@@ -4,6 +4,7 @@ const prisma = require('../lib/prisma');
 const { PLAN_IDS, getPaidPlanFromWhop, getPlanEntitlements, getAiTradesAllowanceForPlan, shouldRevokeLicense } = require('../lib/plans');
 const { activatePaidLicense } = require('../lib/licenseActivation');
 const { decodeCustomId, normalizeCheckoutPlan, verifyPayPalWebhook } = require('../lib/paypal');
+const { recordUnmappedPurchase } = require('../lib/purchaseAlert');
 
 const router = express.Router();
 
@@ -72,7 +73,7 @@ router.post('/whop', express.raw({ type: 'application/json' }), async (req, res)
 
   if (activationEvents.has(action)) {
     try {
-      await handleWhopMembership(data);
+      await handleWhopMembership(data, action);
     } catch (err) {
       console.error('[Whop] Error processing membership:', err);
       return res.status(500).json({ error: 'Failed to process membership' });
@@ -239,7 +240,7 @@ async function handleWhopDeactivation(data) {
   console.log(`[Whop] Recurring membership ${membershipId} ended — licence ${license.id} downgraded to demo.`);
 }
 
-async function handleWhopMembership(data) {
+async function handleWhopMembership(data, eventType) {
   const membershipId = data?.membership?.id || data?.membership_id || data?.id || data?.payment_id;
   const customerEmail =
     data?.user?.email ||
@@ -295,11 +296,20 @@ async function handleWhopMembership(data) {
     data?.product?.name ||
     data?.membership?.plan?.name ||
     ''
-  ).toLowerCase();
+  );
 
   const plan = getPaidPlanFromWhop({ planId, priceInCents, planName });
   if (!plan) {
     console.warn(`[Whop] Cannot determine plan. Price: ${priceInCents}, Name: ${planName}`);
+    recordUnmappedPurchase(prisma, {
+      userId: user.id,
+      customerEmail,
+      priceInCents,
+      planName,
+      planId,
+      membershipId,
+      eventType,
+    });
     return;
   }
   const tradesLimit = getPlanEntitlements(plan).tradesLimit;
