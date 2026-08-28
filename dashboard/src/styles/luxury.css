@@ -3640,11 +3640,33 @@
   align-items: center;
 }
 
+/* These two lead with text in the first column, so it needs to be the larger of the
+   two - the reverse of .avalisa-safety, which leads with the image. */
+.avalisa-device-band__grid,
+.avalisa-ai-section__grid {
+  grid-template-columns: minmax(22rem, 0.95fr) minmax(26rem, 1.05fr);
+}
+
 .avalisa-device-band h2,
 .avalisa-ai-section h2,
 .avalisa-pricing h2 {
   color: var(--av-ink);
   font-size: clamp(2.8rem, 5.8vw, 5.6rem);
+}
+
+/* The rule above sizes display type against the VIEWPORT (5.8vw = ~84px at 1440).
+   That is right for .avalisa-pricing, whose heading spans the full 1240px shell, and
+   for .avalisa-safety, which puts its text in the WIDE 1.28fr column. But
+   .avalisa-device-band and .avalisa-ai-section put their heading in the NARROW
+   0.72fr column (~420px measured at 1440) — where 84px type fits about five
+   characters per line and collapses into a 4-5 line stack. Size those two for the
+   column they actually live in. */
+.avalisa-device-band h2,
+.avalisa-ai-section h2 {
+  font-size: clamp(2.4rem, 3.2vw, 3.5rem);
+  line-height: 1.04;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
 }
 
 .avalisa-device-band h2 span,
@@ -3662,9 +3684,12 @@
   color: var(--av-muted);
 }
 
-.avalisa-device-band__grid p {
+.avalisa-device-band__grid p,
+.avalisa-ai-section__grid > div > p {
   max-width: 34rem;
-  margin: 1rem 0 1.5rem;
+  margin: 1.05rem 0 1.6rem;
+  font-size: clamp(0.98rem, 1.05vw, 1.08rem);
+  line-height: 1.65;
 }
 
 .avalisa-device-band figure,
