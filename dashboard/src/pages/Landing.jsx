@@ -62,11 +62,11 @@ const plans = [
     name: 'Basic',
     price: '$69',
     period: 'one-time',
-    text: 'Unlimited Martingale plus starter Avalisa Bot access.',
+    text: 'Unlimited Martingale trading, with no starting amount cap.',
     href: '/pricing#basic',
     cta: 'View Basic',
     featured: true,
-    items: ['Unlimited Martingale', '10 Avalisa Bot trades', 'Cloud settings', 'Trade history'],
+    items: ['Unlimited Martingale', 'No starting amount cap', 'Cloud settings', 'Trade history'],
   },
   {
     name: 'Pro',
