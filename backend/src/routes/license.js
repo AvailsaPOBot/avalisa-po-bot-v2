@@ -9,6 +9,7 @@ const {
   getRegisterUrl,
   normalizeClaimRejectionReason,
 } = require('../lib/claimGuidance');
+const { notifyBoardOfClaim } = require('../lib/claimNotify');
 
 const router = express.Router();
 
@@ -282,6 +283,7 @@ router.post('/claim', authMiddleware, async (req, res) => {
       data: { claimStatus: 'pending', claimedPoUid: uid, claimNote: null },
     });
 
+    notifyBoardOfClaim(prisma, { userId: req.userId, email: user?.email, poUid: uid });
     res.json({ message: 'Claim submitted. We will review and notify you within 24 hours.' });
   } catch (err) {
     console.error('Claim error:', err);
