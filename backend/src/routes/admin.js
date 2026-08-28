@@ -7,6 +7,7 @@ const { getClaimRejectionMessage, normalizeClaimRejectionReason } = require('../
 const { getFunnelSummary } = require('../lib/funnel');
 const presence = require('../lib/presence');
 const { getActivitySummary, getLastActiveByUser } = require('../lib/adminActivity');
+const { notifyUserOfClaimOutcome } = require('../lib/claimNotify');
 
 const router = express.Router();
 
@@ -108,6 +109,12 @@ router.post('/claims/approve', async (req, res) => {
     if (license.claimStatus !== 'pending') {
       return res.status(400).json({ error: 'Claim is not in pending state' });
     }
+    let user;
+    try {
+      user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+    } catch (_) {
+      // The claim decision remains valid if its best-effort email lookup fails.
+    }
 
     await prisma.$transaction([
       prisma.license.update({
@@ -125,6 +132,12 @@ router.post('/claims/approve', async (req, res) => {
       }),
     ]);
 
+    notifyUserOfClaimOutcome(prisma, {
+      userId,
+      email: user?.email,
+      poUid: license.claimedPoUid,
+      outcome: 'approved',
+    });
     return res.json({ message: 'Claim approved. User now has Pro access.' });
   } catch (err) {
     console.error('[Admin] approve claim error:', err);
@@ -143,6 +156,12 @@ router.post('/claims/reject', async (req, res) => {
     if (license.claimStatus !== 'pending') {
       return res.status(400).json({ error: 'Claim is not in pending state' });
     }
+    let user;
+    try {
+      user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+    } catch (_) {
+      // The claim decision remains valid if its best-effort email lookup fails.
+    }
 
     const normalizedReason = normalizeClaimRejectionReason(reason);
 
@@ -151,6 +170,13 @@ router.post('/claims/reject', async (req, res) => {
       data: { claimStatus: 'rejected', claimNote: normalizedReason },
     });
 
+    notifyUserOfClaimOutcome(prisma, {
+      userId,
+      email: user?.email,
+      poUid: license.claimedPoUid,
+      reason: normalizedReason,
+      outcome: 'rejected',
+    });
     return res.json({
       message: 'Claim rejected. User will see activation instructions in Avalisa.',
       claimMessage: getClaimRejectionMessage(normalizedReason),
