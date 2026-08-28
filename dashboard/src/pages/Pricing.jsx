@@ -6,33 +6,14 @@ import { useAuth } from '../hooks/useAuth';
 import api from '../lib/api';
 import '../styles/luxury.css';
 import { AVALISA_CHARACTER_IMAGE } from '../lib/brandAssets';
+import {
+  appendCheckoutEmail,
+  WHOP_BASIC_CHECKOUT_URL,
+  WHOP_PRO_CHECKOUT_URL,
+} from '../lib/checkout';
 
 const FALLBACK_AFFILIATE_LINK = 'https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50';
 const API_BASE = process.env.REACT_APP_API_URL || 'https://avalisa-backend.onrender.com';
-
-// Live Whop checkout links, recreated 2026-08-27 after the originals were deleted.
-// These are FALLBACKS: a REACT_APP_WHOP_*_URL env var still wins, so nothing changes
-// for an environment that sets them. They exist because the previous links were
-// build-time-only, so when the products were removed the site kept sending buyers to
-// a dead "Product not found" page and only a redeploy could fix it. With defaults in
-// code the store works the moment the products exist. If these ever 404 again, the
-// pricing page now says "Whop checkout is temporarily unavailable" rather than
-// dead-linking (see appendEmail returning null).
-const WHOP_BASIC_FALLBACK = 'https://whop.com/avalisabot/products/basic-e9-52a3/';
-const WHOP_PRO_FALLBACK = 'https://whop.com/avalisabot/products/pro-9d-c997/';
-
-// Setting the env var to 'none' (or empty/off/disabled) turns a checkout OFF on
-// purpose and the page then says so, rather than linking somewhere broken. Without
-// this the fallback would make the "temporarily unavailable" state unreachable, and
-// there would be no way to close a checkout without shipping code.
-const WHOP_DISABLED_VALUES = new Set(['', 'none', 'off', 'disabled', 'false']);
-const resolveWhopUrl = (envValue, fallback) => {
-  if (envValue !== undefined && envValue !== null
-      && WHOP_DISABLED_VALUES.has(String(envValue).trim().toLowerCase())) {
-    return null;
-  }
-  return envValue || fallback;
-};
 
 export default function Pricing() {
   const location = useLocation();
@@ -96,16 +77,6 @@ export default function Pricing() {
   }, [location.search]);
 
   const email = user?.email || '';
-  const appendEmail = (url) => {
-    // Return null, not '#', when no checkout URL is configured. Returning '#' made
-    // every caller think a live link existed: the plan card rendered a clickable
-    // anchor that did nothing, and the payment modal could never detect that Whop
-    // was unavailable. Callers now branch on a falsy href and say so plainly.
-    if (!url || url === '#') return null;
-    const separator = url.includes('?') ? '&' : '?';
-    return email ? `${url}${separator}checkout[email]=${encodeURIComponent(email)}` : url;
-  };
-
   async function startPayPalCheckout(planId) {
     if (!user) {
       toast.error('Sign in or create an Avalisa account before PayPal checkout.');
@@ -142,7 +113,7 @@ export default function Pricing() {
       period: 'one-time',
       description: 'Unlimited Martingale plus starter Avalisa Bot access.',
       cta: 'Buy Basic — $69',
-      href: appendEmail(resolveWhopUrl(process.env.REACT_APP_WHOP_BASIC_URL, WHOP_BASIC_FALLBACK)),
+      href: appendCheckoutEmail(WHOP_BASIC_CHECKOUT_URL, email),
       paypalPlan: 'basic',
       external: true,
       featured: true,
@@ -159,7 +130,7 @@ export default function Pricing() {
       altBilling: 'or $29 / month',
       description: 'Unlock Martingale and Avalisa Bot with no trade limit.',
       cta: 'Buy Pro — $119',
-      href: appendEmail(resolveWhopUrl(process.env.REACT_APP_WHOP_PRO_URL ?? process.env.REACT_APP_WHOP_LIFETIME_URL, WHOP_PRO_FALLBACK)),
+      href: appendCheckoutEmail(WHOP_PRO_CHECKOUT_URL, email),
       paypalPlan: 'lifetime',
       external: true,
       features: ['Unlimited trades', 'Martingale mode', 'Avalisa Bot mode', 'No starting amount cap', 'Affiliate users get this plan'],

@@ -4,10 +4,13 @@
  * History: the Whop product behind REACT_APP_WHOP_BASIC_URL was removed, so the
  * live pricing page sent buyers to Whop's "Product not found" page. The earlier
  * fallback (href="#") was no better — it looked live and silently did nothing.
- * When no checkout URL is configured the page must SAY so.
+ * The environment override was removed because it silently reintroduced dead URLs.
  */
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import Pricing from './pages/Pricing';
+
+const LIVE_BASIC_CHECKOUT_URL = 'https://whop.com/avalisabot/products/basic-e9-52a3/';
+const LIVE_PRO_CHECKOUT_URL = 'https://whop.com/avalisabot/products/pro-9d-c997/';
 
 let mockLocation = { pathname: '/pricing', hash: '' };
 
@@ -24,7 +27,7 @@ jest.mock('./lib/api', () => ({
 }));
 
 jest.mock('./hooks/useAuth', () => ({
-  useAuth: () => ({ user: { email: 'customer@example.com', license: { plan: 'demo' } } }),
+  useAuth: () => ({ user: null }),
 }));
 
 describe('checkout availability', () => {
@@ -32,56 +35,44 @@ describe('checkout availability', () => {
   beforeEach(() => { process.env = { ...OLD_ENV }; });
   afterAll(() => { process.env = OLD_ENV; });
 
-  test('with no env var, the built-in checkout link is used and nothing dead-links', async () => {
-    delete process.env.REACT_APP_WHOP_BASIC_URL;
-    delete process.env.REACT_APP_WHOP_PRO_URL;
-    delete process.env.REACT_APP_WHOP_LIFETIME_URL;
-
-    render(<Pricing />);
-
-    // The dead link lives INSIDE the payment modal, so it must be opened or this
-    // test proves nothing. (First version of this test passed with the bug still
-    // present, for exactly that reason.)
+  async function openWhopCheckout(planIndex) {
     const chooser = await screen.findAllByRole('button', { name: /choose payment method/i });
-    fireEvent.click(chooser[0]);
+    fireEvent.click(chooser[planIndex]);
+    return screen.findByRole('link', { name: /whop/i });
+  }
 
-    // The old bug: an anchor whose href is "#" - looks clickable, does nothing.
-    await waitFor(() => {
-      const deadLinks = Array.from(document.querySelectorAll('a'))
-        .filter((a) => (a.getAttribute('href') || '').trim() === '#');
-      expect(deadLinks).toHaveLength(0);
+  function expectNoRetiredCheckoutHrefs() {
+    const hrefs = Array.from(document.querySelectorAll('a'))
+      .map((link) => link.getAttribute('href') || '');
+    hrefs.forEach((href) => {
+      expect(href).not.toContain('basic-plan-7d-48b3');
+      expect(href).not.toContain('lifetime-plan-df-e6c6');
     });
+  }
 
-    // With no env var we fall back to the live product link, so a buyer can still pay.
-    const live = Array.from(document.querySelectorAll('a'))
-      .some(a => (a.getAttribute('href') || '').includes('whop.com/avalisabot/products/'));
-    expect(live).toBe(true);
+  test('the Basic Whop checkout link equals the canonical live product URL', async () => {
+    render(<Pricing />);
+    expect(await openWhopCheckout(0)).toHaveAttribute('href', LIVE_BASIC_CHECKOUT_URL);
   });
 
-  test('when a Whop URL IS configured the real link is used', async () => {
-    process.env.REACT_APP_WHOP_BASIC_URL = 'https://whop.com/avalisabot/basic-live/';
+  test('the Pro Whop checkout link equals the canonical live product URL', async () => {
     render(<Pricing />);
-
-    // The plan card shows "Choose payment method" (a PayPal plan exists), so the
-    // actual checkout link only appears once the modal is open.
-    const chooser = await screen.findAllByRole('button', { name: /choose payment method/i });
-    fireEvent.click(chooser[0]);
-
-    await waitFor(() => {
-      const live = Array.from(document.querySelectorAll('a'))
-        .some((a) => (a.getAttribute('href') || '').includes('whop.com/avalisabot/basic-live'));
-      expect(live).toBe(true);
-    });
+    expect(await openWhopCheckout(1)).toHaveAttribute('href', LIVE_PRO_CHECKOUT_URL);
   });
-  test('a checkout explicitly disabled says so instead of linking anywhere', async () => {
-    process.env.REACT_APP_WHOP_BASIC_URL = 'none';
+
+  test('a bogus Basic Whop environment value cannot override the rendered checkout', async () => {
+    process.env.REACT_APP_WHOP_BASIC_URL = 'https://whop.com/avalisabot/basic-plan-7d-48b3/';
     render(<Pricing />);
-    const chooser = await screen.findAllByRole('button', { name: /choose payment method/i });
-    fireEvent.click(chooser[0]);
-    expect(await screen.findByText(/whop checkout is temporarily unavailable/i)).toBeTruthy();
-    const deadLinks = Array.from(document.querySelectorAll('a'))
-      .filter(a => (a.getAttribute('href') || '').trim() === '#');
-    expect(deadLinks).toHaveLength(0);
+    expect(await openWhopCheckout(0)).toHaveAttribute('href', LIVE_BASIC_CHECKOUT_URL);
+  });
+
+  test('no rendered pricing checkout href contains either retired Whop slug', async () => {
+    render(<Pricing />);
+    await openWhopCheckout(0);
+    expectNoRetiredCheckoutHrefs();
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    await openWhopCheckout(1);
+    expectNoRetiredCheckoutHrefs();
   });
 });
 
