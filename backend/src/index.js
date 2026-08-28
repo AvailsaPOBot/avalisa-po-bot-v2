@@ -36,6 +36,7 @@ const tradeRoutes = require('./routes/trades');
 const settingsRoutes = require('./routes/settings');
 const adminRoutes = require('./routes/admin');
 const supportRoutes = require('./routes/support');
+const funnelRoutes = require('./routes/funnel');
 const webhookRoutes = require('./routes/webhooks');
 const paymentRoutes = require('./routes/payments');
 
@@ -106,10 +107,18 @@ const chatLimiter = rateLimit({
   legacyHeaders: false,
   handler: rateLimitJsonHandler,
 });
+const checkoutClickLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: rateLimitJsonHandler,
+});
 
 app.use('/api', generalLimiter);
 app.use('/api/auth', authLimiter);
 app.use('/api/support/chat', chatLimiter);
+app.use('/api/funnel/checkout-click', checkoutClickLimiter);
 
 // Webhook route BEFORE express.json() — needs raw body for HMAC verification
 app.use('/api/webhooks', webhookRoutes);
@@ -154,6 +163,7 @@ app.use('/api/trades', tradeRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/support', supportRoutes);
+app.use('/api/funnel', funnelRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/webhooks/pocketpartners', require('./routes/pocketpartners'));
 app.use('/api/config', require('./routes/config'));

@@ -15,6 +15,26 @@ import {
 const FALLBACK_AFFILIATE_LINK = 'https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50';
 const API_BASE = process.env.REACT_APP_API_URL || 'https://avalisa-backend.onrender.com';
 
+export function trackCheckoutClick(plan) {
+  const url = `${API_BASE}/api/funnel/checkout-click`;
+  const body = JSON.stringify({ plan });
+
+  try {
+    const beacon = typeof navigator !== 'undefined' ? navigator.sendBeacon : null;
+    if (typeof beacon === 'function' && beacon.call(navigator, url, new Blob([body], { type: 'application/json' }))) {
+      return;
+    }
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+      keepalive: true,
+    }).catch(() => {});
+  } catch (err) {
+    // Checkout navigation must not depend on analytics.
+  }
+}
+
 export default function Pricing() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -212,7 +232,13 @@ export default function Pricing() {
             <p className="lux-payment-modal__copy">Choose the checkout provider you prefer. Your Avalisa license activates after payment confirmation.</p>
             <div className="lux-payment-choice-grid">
               {selectedPaymentPlan.href ? (
-                <a href={selectedPaymentPlan.href} target="_blank" rel="noreferrer" className="lux-payment-choice">
+                <a
+                  href={selectedPaymentPlan.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="lux-payment-choice"
+                  onClick={() => trackCheckoutClick(selectedPaymentPlan.id)}
+                >
                   <strong>Whop</strong>
                   <span>Current checkout path</span>
                 </a>
