@@ -61,6 +61,9 @@ router.post('/signal', authMiddleware, async (req, res) => {
   ]);
   const budget = parseInt(budgetConfig?.value || '10000');
   const used = usage?.tokensUsed || 0;
+  // This route currently has no callers: Avalisa Bot mode has been a local rule
+  // engine since v2.2.6. This budget governs a dormant path; if a client is ever
+  // wired here, it becomes live and binding and Pro's "unlimited" copy must be revisited.
   if (!isAdmin && used >= budget) {
     return res.status(429).json({ error: 'quota_exceeded', message: 'AI quota reached, resets 1st of month' });
   }

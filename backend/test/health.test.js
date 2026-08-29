@@ -5,10 +5,9 @@ process.env.JWT_SECRET ||= 'test-jwt-secret';
 process.env.DATABASE_URL ||= 'postgresql://test:test@localhost:5432/test';
 process.env.WHOP_WEBHOOK_SECRET ||= 'test-whop-webhook-secret';
 
-function loadHealthHandler({ event = null, eventError = null, referral = null, referralError = null, aiBudgetConfig = null, aiBudgetError = null, postbackSecret } = {}) {
+function loadHealthHandler({ event = null, eventError = null, referral = null, referralError = null, postbackSecret } = {}) {
   let eventQueries = 0;
   let referralQueries = 0;
-  let aiBudgetQueries = 0;
   const originalPostbackSecret = process.env.POCKETPARTNERS_SECRET;
   if (postbackSecret === undefined) delete process.env.POCKETPARTNERS_SECRET;
   else process.env.POCKETPARTNERS_SECRET = postbackSecret;
@@ -17,10 +16,7 @@ function loadHealthHandler({ event = null, eventError = null, referral = null, r
     appConfig: {
       findUnique: async (args) => {
         if (args?.where?.key === 'funnel_analytics_enabled') return { value: 'true' };
-        assert.deepEqual(args, { where: { key: 'ai_token_budget_per_user' } });
-        aiBudgetQueries += 1;
-        if (aiBudgetError) throw aiBudgetError;
-        return aiBudgetConfig;
+        assert.fail(`Unexpected AppConfig query: ${JSON.stringify(args)}`);
       },
     },
     funnelEvent: {
@@ -74,7 +70,6 @@ function loadHealthHandler({ event = null, eventError = null, referral = null, r
     },
     eventQueries: () => eventQueries,
     referralQueries: () => referralQueries,
-    aiBudgetQueries: () => aiBudgetQueries,
     restore() {
       delete require.cache[indexPath];
       if (originalPrisma) require.cache[prismaPath] = originalPrisma;
@@ -215,56 +210,13 @@ test('health caches affiliate liveness for 60 seconds', async () => {
   }
 });
 
-test('health reports the configured per-user AI token budget', async () => {
-  const loaded = loadHealthHandler({ aiBudgetConfig: { value: '50000' } });
-  try {
-    const response = await loaded.health();
-    assert.equal(response.statusCode, 200);
-    assert.deepEqual(response.body.ai, { tokenBudgetPerUser: 50000, budgetSource: 'config' });
-  } finally {
-    loaded.restore();
-  }
-});
-
-test('health reports the default per-user AI token budget when no config exists', async () => {
+test('health does not expose a dormant AI token budget', async () => {
   const loaded = loadHealthHandler();
   try {
     const response = await loaded.health();
     assert.equal(response.statusCode, 200);
-    assert.deepEqual(response.body.ai, { tokenBudgetPerUser: 10000, budgetSource: 'default' });
-  } finally {
-    loaded.restore();
-  }
-});
-
-test('a failed AI budget probe does not degrade health', async () => {
-  const loaded = loadHealthHandler({ aiBudgetError: new Error('relation "AppConfig" does not exist') });
-  try {
-    const response = await loaded.health();
-    assert.equal(response.statusCode, 200);
     assert.equal(response.body.status, 'ok');
-    assert.deepEqual(response.body.ai, { tokenBudgetPerUser: null, budgetSource: 'unknown' });
-  } finally {
-    loaded.restore();
-  }
-});
-
-test('health AI response exposes the allowance and source only', async () => {
-  const loaded = loadHealthHandler({ aiBudgetConfig: { value: '50000' } });
-  try {
-    const { ai } = (await loaded.health()).body;
-    assert.deepEqual(Object.keys(ai).sort(), ['budgetSource', 'tokenBudgetPerUser']);
-  } finally {
-    loaded.restore();
-  }
-});
-
-test('health caches AI budget readiness for 60 seconds', async () => {
-  const loaded = loadHealthHandler({ aiBudgetConfig: { value: '50000' } });
-  try {
-    await loaded.health();
-    await loaded.health();
-    assert.equal(loaded.aiBudgetQueries(), 1);
+    assert.equal(Object.hasOwn(response.body, 'ai'), false);
   } finally {
     loaded.restore();
   }
