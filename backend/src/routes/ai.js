@@ -1,7 +1,7 @@
 const express = require('express');
 const { authMiddleware } = require('../middleware/auth');
 const prisma = require('../lib/prisma');
-const { canUseStrategy, getAiTradesAllowanceForPlan, PLAN_IDS } = require('../lib/plans');
+const { canUseStrategyForLicense, getAiTradesAllowanceForLicense, PLAN_IDS } = require('../lib/plans');
 
 const router = express.Router();
 
@@ -39,8 +39,11 @@ router.get('/token-status', authMiddleware, async (req, res) => {
 // Body: { indicators: {...} }
 router.post('/signal', authMiddleware, async (req, res) => {
   const license = await prisma.license.findUnique({ where: { userId: req.userId } });
-  if (!license || !canUseStrategy(license.plan, 'ai')) {
-    return res.status(403).json({ error: 'Avalisa Bot trading requires a plan with Avalisa Bot access' });
+  if (!license || !canUseStrategyForLicense(license, 'ai')) {
+    return res.status(403).json({
+      error: 'Avalisa Bot trading requires a plan with Avalisa Bot access',
+      upgradeUrl: 'https://avalisabot.vercel.app/pricing',
+    });
   }
 
   const { indicators } = req.body;
@@ -66,7 +69,7 @@ router.post('/signal', authMiddleware, async (req, res) => {
   // issued) — not only at /trades/log. Otherwise a Basic user could keep pulling
   // AI signals past their paid trade cap. Pro/admin are unlimited.
   const isUnlimitedAi = isAdmin || license.plan === PLAN_IDS.PRO;
-  const aiTradesAllowance = getAiTradesAllowanceForPlan(license.plan);
+  const aiTradesAllowance = getAiTradesAllowanceForLicense(license);
   if (!isUnlimitedAi && license.aiTradesUsed >= aiTradesAllowance) {
     return res.status(429).json({
       error: 'ai_allowance_exhausted',

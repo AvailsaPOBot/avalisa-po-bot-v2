@@ -1,7 +1,7 @@
 const express = require('express');
 const { authMiddleware } = require('../middleware/auth');
 const prisma = require('../lib/prisma');
-const { PLAN_IDS, getAiTradesAllowanceForPlan } = require('../lib/plans');
+const { PLAN_IDS, getAiTradesAllowanceForLicense } = require('../lib/plans');
 
 const router = express.Router();
 const VALID_TIMEFRAMES = ['S15', 'S30', 'M1', 'M3', 'M5', 'M30', 'H1'];
@@ -61,7 +61,7 @@ router.post('/log', authMiddleware, async (req, res) => {
       const license = await prisma.license.findUnique({ where: { userId: req.userId } });
       unlimitedAi = req.user?.isAdmin || license?.plan === PLAN_IDS.PRO;
       if (!unlimitedAi) {
-        const aiTradesAllowance = getAiTradesAllowanceForPlan(license?.plan);
+        const aiTradesAllowance = getAiTradesAllowanceForLicense(license);
         const consumed = await prisma.license.updateMany({
           where: { userId: req.userId, aiTradesUsed: { lt: aiTradesAllowance } },
           data: { aiTradesUsed: { increment: 1 } },
