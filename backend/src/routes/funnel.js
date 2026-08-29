@@ -23,4 +23,17 @@ router.post('/checkout-click', (req, res) => {
   return res.status(204).end();
 });
 
+// POST /api/funnel/pricing-view — public, asynchronous pricing-page arrival signal.
+router.post('/pricing-view', (req, res) => {
+  // Do not read req.body here. This fixed event cannot become an arbitrary event writer.
+  // Analytics must never affect a visitor's ability to view the pricing page.
+  try {
+    recordFunnelEvent(prisma, 'pricing_view');
+  } catch (err) {
+    // Intentionally ignored.
+  }
+
+  return res.status(204).end();
+});
+
 module.exports = router;

@@ -42,6 +42,7 @@ describe('checkout intent analytics', () => {
 
   beforeEach(() => {
     mockLocation = { pathname: '/pricing', hash: '', search: '' };
+    window.sessionStorage.clear();
     mockInitialRequests();
     originalSendBeacon = navigator.sendBeacon;
   });
@@ -54,6 +55,8 @@ describe('checkout intent analytics', () => {
     const beacon = jest.fn(() => true);
     Object.defineProperty(navigator, 'sendBeacon', { configurable: true, value: beacon });
     const checkout = await openBasicWhopCheckout();
+
+    beacon.mockClear();
 
     fireEvent.click(checkout);
 

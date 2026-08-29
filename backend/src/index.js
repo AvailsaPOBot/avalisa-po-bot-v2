@@ -114,11 +114,19 @@ const checkoutClickLimiter = rateLimit({
   legacyHeaders: false,
   handler: rateLimitJsonHandler,
 });
+const pricingViewLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: rateLimitJsonHandler,
+});
 
 app.use('/api', generalLimiter);
 app.use('/api/auth', authLimiter);
 app.use('/api/support/chat', chatLimiter);
 app.use('/api/funnel/checkout-click', checkoutClickLimiter);
+app.use('/api/funnel/pricing-view', pricingViewLimiter);
 
 // Webhook route BEFORE express.json() — needs raw body for HMAC verification
 app.use('/api/webhooks', webhookRoutes);
