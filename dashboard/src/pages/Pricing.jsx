@@ -14,6 +14,7 @@ import {
 
 const FALLBACK_AFFILIATE_LINK = 'https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50';
 const API_BASE = process.env.REACT_APP_API_URL || 'https://avalisa-backend.onrender.com';
+const PRICING_VIEW_SESSION_KEY = 'avalisa-pricing-view-sent';
 
 export function trackCheckoutClick(plan) {
   const url = `${API_BASE}/api/funnel/checkout-click`;
@@ -35,6 +36,23 @@ export function trackCheckoutClick(plan) {
   }
 }
 
+export function trackPricingView() {
+  const url = `${API_BASE}/api/funnel/pricing-view`;
+
+  try {
+    const beacon = typeof navigator !== 'undefined' ? navigator.sendBeacon : null;
+    if (typeof beacon === 'function' && beacon.call(navigator, url)) {
+      return;
+    }
+    fetch(url, {
+      method: 'POST',
+      keepalive: true,
+    }).catch(() => {});
+  } catch (err) {
+    // Rendering the pricing page must not depend on analytics.
+  }
+}
+
 export default function Pricing() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -45,6 +63,28 @@ export default function Pricing() {
   const [paypalBusyPlan, setPaypalBusyPlan] = useState(null);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const captureStarted = useRef(false);
+  const pricingViewSent = useRef(false);
+
+  useEffect(() => {
+    if (pricingViewSent.current) return;
+    pricingViewSent.current = true;
+
+    let alreadySent = false;
+    try {
+      alreadySent = sessionStorage.getItem(PRICING_VIEW_SESSION_KEY) === 'true';
+    } catch (err) {
+      // Storage can be blocked; analytics must remain best-effort.
+    }
+    if (alreadySent) return;
+
+    try {
+      sessionStorage.setItem(PRICING_VIEW_SESSION_KEY, 'true');
+    } catch (err) {
+      // If storage is blocked, still send the signal rather than breaking the page.
+    }
+
+    trackPricingView();
+  }, []);
 
   useEffect(() => {
     fetch(`${API_BASE}/api/config/affiliate-link`)
