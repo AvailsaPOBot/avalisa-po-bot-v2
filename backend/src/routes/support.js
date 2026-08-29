@@ -8,7 +8,11 @@ const HUMAN_FOLLOW_UP_REPLY = 'Thanks for telling us. This needs human review, s
 
 const SENSITIVE_ESCALATION_PATTERNS = [
   { name: 'refund', pattern: /\brefund(s|ed|ing)?\b/i },
-  { name: 'chargeback', pattern: /\bcharge\s?back(s)?\b/i },
+  { name: 'chargeback_intent', pattern: /\b(?:charge\s?back(?:s)?|dispute\s+(?:(?:this|the|a|my)\s+)?(?:payment|charge)|reverse\s+the\s+charge)\b/i },
+  { name: 'billing_error', pattern: /\b(?:charged\s+(?:me\s+)?twice|double\s+charged|billed\s+twice)\b/i },
+  { name: 'unauthorized_charge', pattern: /\b(?:unauthori[sz]ed\s+charge|i\s+(?:did\s+not|didn't)\s+authori[sz]e)\b/i },
+  { name: 'cancellation', pattern: /\b(?:cancel(?:l(?:ed|ing)?|ed|ing)?\s+(?:my\s+)?(?:subscription|plan|membership|billing)|stop\s+charging\s+me)\b/i },
+  { name: 'paid_no_access', pattern: /\b(?:paid|bought|purchased)\b[\s\S]{0,240}\b(?:no\s+access|not\s+activated|nothing\s+happened|still\s+(?:on\s+(?:the\s+)?demo|free|locked))\b|\b(?:no\s+access|not\s+activated|nothing\s+happened|still\s+(?:on\s+(?:the\s+)?demo|free|locked))\b[\s\S]{0,240}\b(?:paid|bought|purchased)\b/i },
   { name: 'account_deletion', pattern: /\bdelete\s+(my\s+)?account\b/i },
   { name: 'account_closure', pattern: /\bclose\s+(my\s+)?account\b/i },
   { name: 'data_removal', pattern: /\bremove\s+(my\s+)?(data|account)\b/i },
