@@ -48,20 +48,20 @@ beforeEach(() => {
   window.localStorage.clear();
 });
 
-test('does not show the review ask with 19 completed trades', async () => {
-  await renderDashboard({ wins: 10, losses: 8, ties: 1, winRate: 55, totalProfit: 10 });
+test('does not show the review ask with 7 completed trades', async () => {
+  await renderDashboard({ wins: 4, losses: 2, ties: 1, winRate: 55, totalProfit: 10 });
 
   expect(reviewCard()).not.toBeInTheDocument();
 });
 
-test('shows the review ask with 20 completed trades', async () => {
-  await renderDashboard({ wins: 10, losses: 8, ties: 2, winRate: 55, totalProfit: 10 });
+test('shows the review ask with 8 completed trades — reachable inside the 10-trade demo cap', async () => {
+  await renderDashboard({ wins: 4, losses: 3, ties: 1, winRate: 55, totalProfit: 10 });
 
   expect(reviewCard()).toBeInTheDocument();
 });
 
 test('dismissing the review ask hides it and persists the completed flag', async () => {
-  await renderDashboard({ wins: 20, losses: 0, ties: 0, winRate: 100, totalProfit: 10 });
+  await renderDashboard({ wins: 8, losses: 0, ties: 0, winRate: 100, totalProfit: 10 });
 
   fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
 
@@ -89,7 +89,7 @@ test('continues to render when localStorage throws on read and write', async () 
   });
 
   try {
-    await renderDashboard({ wins: 20, losses: 0, ties: 0, winRate: 100, totalProfit: 10 });
+    await renderDashboard({ wins: 8, losses: 0, ties: 0, winRate: 100, totalProfit: 10 });
     expect(screen.getByText('Save Settings')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
@@ -100,7 +100,20 @@ test('continues to render when localStorage throws on read and write', async () 
 });
 
 test('review ask copy contains no incentive language', async () => {
-  await renderDashboard({ wins: 20, losses: 0, ties: 0, winRate: 100, totalProfit: 10 });
+  await renderDashboard({ wins: 8, losses: 0, ties: 0, winRate: 100, totalProfit: 10 });
 
   expect(reviewCard()).not.toHaveTextContent(/free|discount|unlock|reward|bonus|pro plan/i);
+});
+
+// THE TEST THAT WOULD HAVE CAUGHT THE ORIGINAL BUG.
+// The ask was set at 20 completed trades while the Demo plan caps at 10 for the LIFETIME of
+// the account, so no free user could ever see it — and with only a handful of paid accounts,
+// that meant essentially nobody. It tested green and could not fire. This asserts the
+// RELATIONSHIP rather than the number: the threshold must stay reachable inside the free tier.
+test('the review-ask threshold is reachable within the demo trade cap', async () => {
+  const DEMO_TRADE_CAP = 10; // backend/src/lib/plans.js -> PLAN_ENTITLEMENTS[DEMO].tradesLimit
+
+  // One below the cap must already qualify, so a free user meets it before hitting the wall.
+  await renderDashboard({ wins: DEMO_TRADE_CAP - 1, losses: 0, ties: 0, winRate: 100, totalProfit: 1 });
+  expect(reviewCard()).toBeInTheDocument();
 });
