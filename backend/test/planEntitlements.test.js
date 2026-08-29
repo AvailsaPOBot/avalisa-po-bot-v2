@@ -82,3 +82,16 @@ test('whop prices map to the new paid plans', () => {
   assert.equal(getPaidPlanFromWhop({ priceInCents: 5000, planName: '' }), null);
   assert.equal(getPaidPlanFromWhop({ priceInCents: 12000, planName: '' }), null);
 });
+
+// A Basic licence whose createdAt is missing or unparseable must be treated as LEGACY, i.e.
+// it KEEPS its AI access. License.createdAt has a schema default so this should be
+// unreachable, but if it ever happens the failure must land on our side: silently
+// withdrawing something a customer paid for, because of a bad timestamp, is precisely what
+// the grandfather clause exists to prevent.
+test('a Basic licence with an unusable createdAt keeps its AI access', () => {
+  for (const bad of [null, undefined, '', 'not-a-date']) {
+    const license = { plan: PLAN_IDS.BASIC, createdAt: bad };
+    assert.equal(canUseStrategyForLicense(license, 'ai'), true, `createdAt=${String(bad)}`);
+    assert.equal(getAiTradesAllowanceForLicense(license), 10, `createdAt=${String(bad)}`);
+  }
+});

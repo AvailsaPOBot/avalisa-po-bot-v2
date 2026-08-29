@@ -73,9 +73,16 @@ function getAiTradesAllowanceForPlan(plan) {
 }
 
 function isBasicAiLegacyLicense(license) {
-  if (license?.plan !== PLAN_IDS.BASIC || !license.createdAt) return false;
+  if (license?.plan !== PLAN_IDS.BASIC) return false;
+  // A Basic licence with no usable createdAt is treated as LEGACY, i.e. it keeps its AI
+  // access. License.createdAt has a schema default so this should be unreachable - but if
+  // it ever happens, the failure must fall on our side of the line. Silently withdrawing
+  // something a customer paid for, because of a missing timestamp, is exactly the outcome
+  // this grandfather clause exists to prevent.
+  if (!license.createdAt) return true;
   const createdAt = new Date(license.createdAt);
-  return !Number.isNaN(createdAt.getTime()) && createdAt < BASIC_AI_LEGACY_CUTOFF;
+  if (Number.isNaN(createdAt.getTime())) return true;
+  return createdAt < BASIC_AI_LEGACY_CUTOFF;
 }
 
 function canUseStrategyForLicense(license, strategy) {
