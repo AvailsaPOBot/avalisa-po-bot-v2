@@ -380,9 +380,17 @@ export default function Dashboard() {
 
   if (!settings) return <div className="dashboard-page flex items-center justify-center min-h-screen text-brand-400">Loading dashboard...</div>;
 
+  // Ask people with an informed opinion — but the threshold must be REACHABLE. It was 20,
+  // while the Demo plan caps at 10 trades for the LIFETIME of the account, so no free user
+  // could ever see this. With only a handful of paid accounts in existence, the ask was
+  // effectively invisible to everyone: it tested green, deployed fine, and could not fire.
+  // 8 is 80% of the free tier — a real basis for an opinion about visible settings and a
+  // stop that works — and it lands just BEFORE the paywall rather than at it, so we are not
+  // asking a user for a favour at the moment they hit a wall.
+  const REVIEW_ASK_MIN_TRADES = 8;
   const completedTrades = ['wins', 'losses', 'ties']
     .reduce((total, result) => total + (Number(stats?.[result]) || 0), 0);
-  const shouldShowReviewAsk = completedTrades >= 20 && !reviewAskCompleted;
+  const shouldShowReviewAsk = completedTrades >= REVIEW_ASK_MIN_TRADES && !reviewAskCompleted;
 
   return (
     <div className="dashboard-page max-w-6xl mx-auto px-4 py-10">
