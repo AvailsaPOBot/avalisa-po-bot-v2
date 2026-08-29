@@ -180,15 +180,42 @@ async function funnelLiveness() {
   return value;
 }
 
+const AFFILIATE_LIVENESS_CACHE_TTL_MS = 60_000;
+const AFFILIATE_LIVENESS_UNAVAILABLE = { postbackSecretSet: false, everReferred: false };
+let affiliateLivenessCache = { value: AFFILIATE_LIVENESS_UNAVAILABLE, at: 0 };
+
+// Public health proves the affiliate auto-grant path is configured and has
+// received at least one referral without exposing the secret or referral volume.
+async function affiliateLiveness() {
+  const now = Date.now();
+  if (now - affiliateLivenessCache.at < AFFILIATE_LIVENESS_CACHE_TTL_MS) {
+    return affiliateLivenessCache.value;
+  }
+
+  let value = AFFILIATE_LIVENESS_UNAVAILABLE;
+  try {
+    const referral = await prisma.affiliateReferral.findFirst({ select: { id: true } });
+    value = {
+      postbackSecretSet: Boolean(process.env.POCKETPARTNERS_SECRET),
+      everReferred: Boolean(referral),
+    };
+  } catch (err) {
+    // A missing referral table must never make Render treat this service as down.
+  }
+
+  affiliateLivenessCache = { value, at: now };
+  return value;
+}
+
 app.get('/health', async (req, res) => {
-  const funnel = await funnelLiveness();
+  const [funnel, affiliate] = await Promise.all([funnelLiveness(), affiliateLiveness()]);
   try {
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ status: 'ok', db: 'up', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', db: 'up', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, affiliate, timestamp: new Date().toISOString() });
   } catch (err) {
     // The commit belongs on the failure path too: a degraded backend is exactly
     // when you need to know which build is live.
-    res.status(503).json({ status: 'degraded', db: 'down', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, timestamp: new Date().toISOString() });
+    res.status(503).json({ status: 'degraded', db: 'down', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, affiliate, timestamp: new Date().toISOString() });
   }
 });
 
