@@ -153,14 +153,42 @@ function alertingReadiness() {
   return { email, alertTo: Boolean(process.env.SUPPORT_ALERT_EMAIL) };
 }
 
+const FUNNEL_LIVENESS_CACHE_TTL_MS = 60_000;
+const FUNNEL_LIVENESS_UNAVAILABLE = { enabled: false, table: 'missing', everRecorded: false };
+let funnelLivenessCache = { value: FUNNEL_LIVENESS_UNAVAILABLE, at: 0 };
+
+// Public health may prove the funnel instrumentation is wired without exposing
+// commercially sensitive volumes, rates, event types, or timestamps.
+async function funnelLiveness() {
+  const now = Date.now();
+  if (now - funnelLivenessCache.at < FUNNEL_LIVENESS_CACHE_TTL_MS) {
+    return funnelLivenessCache.value;
+  }
+
+  let value = FUNNEL_LIVENESS_UNAVAILABLE;
+  try {
+    const [enabled, event] = await Promise.all([
+      require('./lib/funnel').funnelEnabled(prisma),
+      prisma.funnelEvent.findFirst({ select: { id: true } }),
+    ]);
+    value = { enabled, table: 'ok', everRecorded: Boolean(event) };
+  } catch (err) {
+    // A missing analytics table must never make Render treat this service as down.
+  }
+
+  funnelLivenessCache = { value, at: now };
+  return value;
+}
+
 app.get('/health', async (req, res) => {
+  const funnel = await funnelLiveness();
   try {
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ status: 'ok', db: 'up', commit: RUNNING_COMMIT, alerting: alertingReadiness(), timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', db: 'up', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, timestamp: new Date().toISOString() });
   } catch (err) {
     // The commit belongs on the failure path too: a degraded backend is exactly
     // when you need to know which build is live.
-    res.status(503).json({ status: 'degraded', db: 'down', commit: RUNNING_COMMIT, alerting: alertingReadiness(), timestamp: new Date().toISOString() });
+    res.status(503).json({ status: 'degraded', db: 'down', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, timestamp: new Date().toISOString() });
   }
 });
 
@@ -203,4 +231,6 @@ async function startServer() {
   });
 }
 
-startServer();
+if (require.main === module) startServer();
+
+module.exports = { app };
