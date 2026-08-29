@@ -2,6 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const prisma = require('../lib/prisma');
 const { PLAN_IDS, getPlanEntitlements } = require('../lib/plans');
+const { recordFunnelEvent } = require('../lib/funnel');
 
 const router = express.Router();
 
@@ -26,6 +27,14 @@ router.get('/', async (req, res) => {
   // public. Reject anything without the shared secret.
   if (!hasValidToken(req)) {
     console.warn('[pocketpartners] Rejected request with missing/invalid token');
+    // Keep the public postback response opaque, but retain an internal signal
+    // that the affiliate pipeline is rejecting traffic. Analytics must never
+    // change this webhook's response or availability.
+    try {
+      recordFunnelEvent(prisma, 'affiliate_postback_rejected');
+    } catch (err) {
+      // Intentionally ignored.
+    }
     return res.status(200).json({ ok: true });
   }
 
