@@ -4,6 +4,10 @@ const PLAN_IDS = {
   PRO: 'lifetime',
 };
 
+// Basic licences created before this instant retain the AI access that was
+// included when they purchased. New Basic licences are martingale-only.
+const BASIC_AI_LEGACY_CUTOFF = new Date('2026-08-30T00:00:00.000Z');
+
 const PLAN_ENTITLEMENTS = {
   [PLAN_IDS.DEMO]: {
     label: 'Demo',
@@ -18,9 +22,9 @@ const PLAN_ENTITLEMENTS = {
     label: 'Basic',
     priceCents: 6900,
     tradesLimit: null,
-    aiTradesAllowance: 10,
+    aiTradesAllowance: 0,
     maxStartAmount: null,
-    strategies: ['martingale', 'ai'],
+    strategies: ['martingale'],
     grantedByAffiliate: false,
   },
   [PLAN_IDS.PRO]: {
@@ -68,6 +72,29 @@ function getAiTradesAllowanceForPlan(plan) {
   return entitlements.aiTradesAllowance;
 }
 
+function isBasicAiLegacyLicense(license) {
+  if (license?.plan !== PLAN_IDS.BASIC) return false;
+  // A Basic licence with no usable createdAt is treated as LEGACY, i.e. it keeps its AI
+  // access. License.createdAt has a schema default so this should be unreachable - but if
+  // it ever happens, the failure must fall on our side of the line. Silently withdrawing
+  // something a customer paid for, because of a missing timestamp, is exactly the outcome
+  // this grandfather clause exists to prevent.
+  if (!license.createdAt) return true;
+  const createdAt = new Date(license.createdAt);
+  if (Number.isNaN(createdAt.getTime())) return true;
+  return createdAt < BASIC_AI_LEGACY_CUTOFF;
+}
+
+function canUseStrategyForLicense(license, strategy) {
+  if (isBasicAiLegacyLicense(license) && strategy === 'ai') return true;
+  return canUseStrategy(license?.plan, strategy);
+}
+
+function getAiTradesAllowanceForLicense(license) {
+  if (isBasicAiLegacyLicense(license)) return 10;
+  return getAiTradesAllowanceForPlan(license?.plan);
+}
+
 // Additional Whop prices that grant an existing plan. The Board added a $29/month
 // recurring option to Pro on 2026-08-27 (one-time $119 stays — see the pricing rail).
 // Recognising the PRICE matters: mapping fell back to the plan NAME, so a pricing
@@ -109,10 +136,13 @@ module.exports = {
   EXTRA_WHOP_PRICES_TO_PLAN,
   shouldRevokeLicense,
   PLAN_IDS,
+  BASIC_AI_LEGACY_CUTOFF,
   PLAN_ENTITLEMENTS,
   getPlanEntitlements,
   getTradeLimitForPlan,
   canUseStrategy,
+  canUseStrategyForLicense,
   getAiTradesAllowanceForPlan,
+  getAiTradesAllowanceForLicense,
   getPaidPlanFromWhop,
 };

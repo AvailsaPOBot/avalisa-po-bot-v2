@@ -1,7 +1,7 @@
 const express = require('express');
 const { authMiddleware } = require('../middleware/auth');
 const prisma = require('../lib/prisma');
-const { canUseStrategy } = require('../lib/plans');
+const { canUseStrategyForLicense } = require('../lib/plans');
 
 const router = express.Router();
 
@@ -82,7 +82,7 @@ async function settingsUpsert(req, res) {
     // Check license for plan-gated strategies.
     if (strategy) {
       const license = await prisma.license.findUnique({ where: { userId: req.userId } });
-      if (!license || !canUseStrategy(license.plan, strategy)) {
+      if (!license || !canUseStrategyForLicense(license, strategy)) {
         return res.status(403).json({
           error: 'Your current plan does not include this strategy',
           upgradeUrl: 'https://avalisabot.vercel.app/pricing',
