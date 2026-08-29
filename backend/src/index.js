@@ -207,15 +207,42 @@ async function affiliateLiveness() {
   return value;
 }
 
+const AI_BUDGET_CACHE_TTL_MS = 60_000;
+const AI_BUDGET_DEFAULT = 10_000;
+const AI_BUDGET_UNAVAILABLE = { tokenBudgetPerUser: null, budgetSource: 'unknown' };
+let aiBudgetCache = { value: AI_BUDGET_UNAVAILABLE, at: 0 };
+
+// This is a customer-facing product limit, unlike private usage or conversion
+// data. It is intentionally limited to the configured allowance and its source.
+async function aiBudgetReadiness() {
+  const now = Date.now();
+  if (now - aiBudgetCache.at < AI_BUDGET_CACHE_TTL_MS) {
+    return aiBudgetCache.value;
+  }
+
+  let value = AI_BUDGET_UNAVAILABLE;
+  try {
+    const config = await prisma.appConfig.findUnique({ where: { key: 'ai_token_budget_per_user' } });
+    value = config
+      ? { tokenBudgetPerUser: parseInt(config.value || String(AI_BUDGET_DEFAULT), 10), budgetSource: 'config' }
+      : { tokenBudgetPerUser: AI_BUDGET_DEFAULT, budgetSource: 'default' };
+  } catch (err) {
+    // An unavailable AppConfig table must never make Render treat this service as down.
+  }
+
+  aiBudgetCache = { value, at: now };
+  return value;
+}
+
 app.get('/health', async (req, res) => {
-  const [funnel, affiliate] = await Promise.all([funnelLiveness(), affiliateLiveness()]);
+  const [funnel, affiliate, ai] = await Promise.all([funnelLiveness(), affiliateLiveness(), aiBudgetReadiness()]);
   try {
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ status: 'ok', db: 'up', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, affiliate, timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', db: 'up', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, affiliate, ai, timestamp: new Date().toISOString() });
   } catch (err) {
     // The commit belongs on the failure path too: a degraded backend is exactly
     // when you need to know which build is live.
-    res.status(503).json({ status: 'degraded', db: 'down', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, affiliate, timestamp: new Date().toISOString() });
+    res.status(503).json({ status: 'degraded', db: 'down', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, affiliate, ai, timestamp: new Date().toISOString() });
   }
 });
 
