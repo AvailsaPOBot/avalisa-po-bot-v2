@@ -41,5 +41,15 @@ if [ -n "$OFFENDERS" ]; then
   exit 1
 fi
 
+# Superseded builds are NOT deleted - they are the Board's files, on the Board's Desktop, and
+# deleting is the one mistake a build script cannot take back. But three zips sitting side by
+# side is a footgun: the wrong one gets uploaded and a fix silently does not ship. So say so.
+OLD="$(ls "${HOME}/Desktop"/avalisa-v*.zip 2>/dev/null | grep -v "^${OUTPUT}$" || true)"
+if [ -n "$OLD" ]; then
+  echo ""
+  echo "NOTE: superseded builds are still on the Desktop. Upload ONLY v${VERSION}:"
+  printf '  superseded: %s\n' $OLD
+fi
+
 echo "Created: $OUTPUT"
 echo "Upload this file at: https://chromewebstore.google.com/devconsole"
