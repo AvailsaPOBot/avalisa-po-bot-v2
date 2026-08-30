@@ -155,12 +155,9 @@ function getOverlayHTML() {
         <div id="av-trade-counter" class="av-counter">Trades this session: 0</div>
       </div>
 
-      <div id="av-limit-msg" class="av-limit-msg" style="display:none">
-        <p>Trade limit reached!</p>
-        <a id="av-affiliate-link" class="av-btn av-btn-primary" target="_blank">Register for Pro Access</a>
-        <a id="av-upgrade-link" class="av-btn av-btn-outline" target="_blank">Upgrade Plan</a>
+      <div id="av-claim-block" class="av-section" style="display:none">
         <div id="av-claim-section" style="margin-top:8px; border-top:1px solid #2a4060; padding-top:8px;">
-          <p style="font-size:11px; color:#8fa8c8; margin:0 0 6px 0;">Already registered via affiliate link?</p>
+          <p style="font-size:11px; color:#8fa8c8; margin:0 0 6px 0;">Registered a new Pocket Option account through our link? Claim your free Pro access.</p>
           <button id="av-claim-btn" style="width:100%; padding:6px; background:#7c3aed; color:white; border:none; border-radius:4px; font-size:12px; cursor:pointer;">
             Claim Pro Access
           </button>
@@ -173,6 +170,12 @@ function getOverlayHTML() {
           </div>
           <div id="av-claim-status" style="font-size:11px; margin-top:6px; display:none;"></div>
         </div>
+      </div>
+
+      <div id="av-limit-msg" class="av-limit-msg" style="display:none">
+        <p>Trade limit reached!</p>
+        <a id="av-affiliate-link" class="av-btn av-btn-primary" target="_blank">Register for Pro Access</a>
+        <a id="av-upgrade-link" class="av-btn av-btn-outline" target="_blank">Upgrade Plan</a>
       </div>
 
       <div class="av-footer">
