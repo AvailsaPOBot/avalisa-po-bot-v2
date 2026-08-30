@@ -21,10 +21,16 @@ const AFFILIATE_URL =
   'https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50';
 const CHROME_EXTENSION_URL = process.env.REACT_APP_CHROME_STORE_URL || 'https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa';
 
+// The free demo leads. Measured 2026-08-30: every rival on the Web Store shelf leads with
+// "free" - the top result on all four queries tested is literally named "Free Pocket Option
+// Bot" and carries 10x the installs of the better-rated listing above it. We already HAVE a
+// free tier; we simply never said so first. These three slots were generic feature labels
+// ("AI-Assisted Execution") that could describe any bot in the category and asked the visitor
+// to take a paid product on trust. No price changes here - only what a visitor reads first.
 const heroHighlights = [
-  { icon: Brain, title: 'AI-Assisted Execution', text: 'Signals stay visible before execution.' },
-  { icon: ShieldCheck, title: 'Martingale Strategy Controls', text: 'Visible settings and transparent outcomes.' },
-  { icon: Lock, title: 'Latest Reliability Updates', text: 'Improved control, stability, and clarity.' },
+  { icon: Brain, title: 'Start Free, No Payment', text: 'Run demo mode on your Pocket Option demo balance first.' },
+  { icon: ShieldCheck, title: 'Martingale Strategy Controls', text: 'Your start amount, multiplier and step limit - visible before every trade.' },
+  { icon: Lock, title: 'Stop At Any Time', text: 'Payout filter, step ceiling and manual stop stay under your control.' },
 ];
 
 const deviceLinks = [
