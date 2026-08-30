@@ -1787,6 +1787,7 @@ function updateUI() {
   const stopBtn = document.getElementById('av-stop-btn');
   const loginForm = document.getElementById('av-login-form');
   const loggedIn = document.getElementById('av-logged-in');
+  const claimBlock = document.getElementById('av-claim-block');
 
   if (startBtn) startBtn.disabled = state.running;
   if (stopBtn) stopBtn.disabled = !state.running;
@@ -1842,6 +1843,8 @@ function updateUI() {
     if (loginForm) loginForm.style.display = 'block';
     if (loggedIn) loggedIn.style.display = 'none';
   }
+  const plan = state.licenseInfo?.plan;
+  if (claimBlock) claimBlock.style.display = state.jwt && plan === 'free' ? 'block' : 'none';
   syncLimitReachedMessage();
 
   // Load settings into UI
