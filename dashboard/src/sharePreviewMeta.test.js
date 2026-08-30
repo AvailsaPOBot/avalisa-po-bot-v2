@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const publicDirectory = path.resolve(__dirname, '..', 'public');
 const indexHtml = fs.readFileSync(path.join(publicDirectory, 'index.html'), 'utf8');
@@ -47,5 +48,27 @@ describe('share preview metadata', () => {
     ].join(' ');
 
     expect(previewCopy).not.toMatch(/profit|guaranteed|win rate|earnings|rich|%/i);
+  });
+
+  // A share card is the most-republished asset we own: it is copied into every
+  // Telegram, Facebook and X preview and cached by those platforms for weeks.
+  // The asset originally wired up here (Ads.jpg, and a byte-identical duplicate)
+  // rendered the Board's own email address inside a mock product panel, and both
+  // copies were being served publicly. Verified by LOOKING at the image - the
+  // earlier check only confirmed the file existed. This guard is by content hash,
+  // not filename, so re-adding the same picture under any new name still fails.
+  const FORBIDDEN_ASSET_MD5 = 'f17611d1502f29722820864a2739fca9';
+
+  test('no public asset is the image that leaks the Board email', () => {
+    const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+      const full = path.join(dir, e.name);
+      return e.isDirectory() ? walk(full) : [full];
+    });
+
+    const offenders = walk(publicDirectory).filter((file) =>
+      crypto.createHash('md5').update(fs.readFileSync(file)).digest('hex') === FORBIDDEN_ASSET_MD5
+    );
+
+    expect(offenders).toEqual([]);
   });
 });
