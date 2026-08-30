@@ -80,5 +80,5 @@ test('content UI gates the claim block to signed-in free/demo users', async () =
 test('manifest has the claim-reachability release version', async () => {
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
 
-  assert.equal(manifest.version, '2.4.11');
+  assert.equal(manifest.version, '2.4.12');
 });

@@ -22,6 +22,9 @@
     .msg { font-size: 11px; line-height: 1.4; min-height: 14px; margin-top: 5px; }
     .msg.error { color: #f87171; }
     .msg.ok { color: #34d399; }
+    .account-links { font-size: 10px; color: #64748b; margin-top: 6px; line-height: 1.4; }
+    .account-links a { color: #7c3aed; text-decoration: none; }
+    .account-links a:hover { text-decoration: underline; }
     .note { font-size: 10px; color: #64748b; margin-top: 6px; line-height: 1.4; }
   </style>
 </head>
@@ -30,7 +33,8 @@
   <input id="password" type="password" placeholder="Password" autocomplete="current-password" />
   <button id="submit">Sign in</button>
   <div class="msg" id="msg"></div>
-  <div class="note">Typed inside the extension, not the Pocket Option page.</div>
+  <div class="account-links"><a href="https://avalisabot.vercel.app/register" target="_blank" rel="noopener">Create an account</a> &middot; <a href="https://avalisabot.vercel.app/login" target="_blank" rel="noopener">Forgot password?</a></div>
+  <div class="note">Your Avalisa account is separate from Pocket Option.<br />Type credentials inside the extension.</div>
   <script src="login.js"></script>
 </body>
 </html>
