@@ -258,7 +258,13 @@ function getOverlayCSS() {
     .av-plan-badge.plan-basic { background: #059669; color: #fff; }
     .av-plan-badge.plan-free { background: #3b82f6; color: #fff; }
     .av-login-frame {
-      width: 100%; height: 162px; border: 0; display: block;
+      /* 196px, not 162px. The sign-in iframe is a FIXED-height box and an iframe CLIPS: when
+         login.html gained the "Create an account / Forgot password?" links and the two-line
+         note explaining that an Avalisa account is separate from Pocket Option, the content
+         measured 192px against a 162px frame and the note - the exact sentence that answers
+         the confusion a real customer wrote in about - was cut off entirely. Measured in the
+         panel's true 248px content width, not eyeballed. Raise this if either grows again. */
+      width: 100%; height: 196px; border: 0; display: block;
       margin-bottom: 8px; background: transparent; color-scheme: normal;
     }
     .av-signin-note {
