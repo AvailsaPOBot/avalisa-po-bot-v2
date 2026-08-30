@@ -71,4 +71,22 @@ describe('share preview metadata', () => {
 
     expect(offenders).toEqual([]);
   });
+
+  // The Phase 1 criterion is "a designed 1200x630 card, not the bare logo". That was my own
+  // judgement until now; this makes it a fact the suite can check. Dimensions come straight
+  // from the PNG IHDR chunk (bytes 16-24), so no image library is needed. Facebook, X and
+  // Telegram all crop toward 1.91:1 - a square logo gets centre-cropped and the wordmark is
+  // the first thing lost, which is exactly what the old 700x700 asset did.
+  test('share image is a 1.91:1 card, not a square logo', () => {
+    const imageUrl = new URL(metaContent('property', 'og:image'));
+    const buf = fs.readFileSync(path.join(publicDirectory, imageUrl.pathname));
+    expect(buf.slice(1, 4).toString()).toBe('PNG');
+    const width = buf.readUInt32BE(16);
+    const height = buf.readUInt32BE(20);
+    expect(width).toBe(1200);
+    expect(height).toBe(630);
+    // and the declared meta dimensions must match the actual file
+    expect(metaContent('property', 'og:image:width')).toBe(String(width));
+    expect(metaContent('property', 'og:image:height')).toBe(String(height));
+  });
 });
