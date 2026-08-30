@@ -185,8 +185,17 @@ https://avalisabot.vercel.app
 | Variable | Description |
 |----------|-------------|
 | `REACT_APP_API_URL` | Backend URL, usually `https://avalisa-backend.onrender.com` |
-| `REACT_APP_WHOP_BASIC_URL` | Whop checkout URL for the $69 Basic plan |
-| `REACT_APP_WHOP_PRO_URL` | Whop checkout URL for the $119 Pro plan |
+| ~~`REACT_APP_WHOP_BASIC_URL`~~ | **DO NOT SET.** See below. |
+| ~~`REACT_APP_WHOP_PRO_URL`~~ | **DO NOT SET.** See below. |
+
+> **Checkout URLs are NOT configurable by environment variable, deliberately.**
+> They are version-controlled in `dashboard/src/lib/checkout.js`. Reading them from
+> `process.env` cost two months of revenue: stale values in the Vercel dashboard silently
+> overrode the correct in-code URLs at build time, so the source and the shipped bundle
+> disagreed and **both checkout buttons 404'd** while the store looked open. Nothing failed
+> loudly because a 404 is a valid HTTP response.
+> If you need to change a checkout URL, edit `checkout.js` and ship it — so the change is
+> reviewable, and so the code you read is the code that runs.
 | `REACT_APP_CHROME_STORE_URL` | Chrome Web Store listing URL |
 
 ## Monetization Flow
