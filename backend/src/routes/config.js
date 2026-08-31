@@ -1,10 +1,9 @@
 const express = require('express');
 const prisma = require('../lib/prisma');
 const { recordFunnelEvent } = require('../lib/funnel');
+const { AFFILIATE_LINK } = require('../lib/affiliateLink');
 
 const router = express.Router();
-
-const FALLBACK_AFFILIATE_LINK = 'https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50';
 
 // In-memory cache — 1 hour TTL
 let cache = { url: null, expiry: 0 };
@@ -27,7 +26,7 @@ router.get('/affiliate-link', async (req, res) => {
     console.error('[config] affiliate-link DB error:', err.message);
   }
 
-  return res.json({ url: FALLBACK_AFFILIATE_LINK });
+  return res.json({ url: AFFILIATE_LINK });
 });
 
 // GET /api/config/winrates — no auth, public

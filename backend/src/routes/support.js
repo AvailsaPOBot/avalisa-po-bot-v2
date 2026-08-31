@@ -1,6 +1,7 @@
 const express = require('express');
 const prisma = require('../lib/prisma');
 const { recordSupportEscalation } = require('../lib/supportEscalation');
+const { AFFILIATE_LINK } = require('../lib/affiliateLink');
 
 const router = express.Router();
 
@@ -77,7 +78,7 @@ YouTube: https://youtube.com/@avalisapobot
 === PLANS & PRICING ===
 
 Demo: Existing users get 10 Martingale trades with no starting amount cap.
-Affiliate Pro signup link: https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50
+Affiliate Pro signup link: ${AFFILIATE_LINK}
 New users who register under our affiliate link get Pro access after Pocket Option account confirmation.
 
 Basic Plan: $69 one-time — unlimited Martingale trades
@@ -265,6 +266,7 @@ router.__test = {
   getSensitiveSupportEscalationMatch,
   getSensitiveSupportEscalation,
   HUMAN_FOLLOW_UP_REPLY,
+  SYSTEM_PROMPT,
 };
 
 module.exports = router;

@@ -210,11 +210,10 @@ Whop remains the primary checkout path. PayPal appears as a second checkout path
 when backend PayPal credentials are configured. New users who register under the
 affiliate link receive Pro access after Pocket Option account confirmation.
 
-Affiliate link:
-
-```text
-https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50
-```
+Affiliate link: use the backend single source of truth in
+[`backend/src/lib/affiliateLink.js`](backend/src/lib/affiliateLink.js). The extension's fallback
+is defined only in [`extension/config.js`](extension/config.js); keep both values in sync when
+PocketPartners provides a new approved campaign URL.
 
 ## API Reference
 
