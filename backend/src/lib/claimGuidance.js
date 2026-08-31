@@ -1,4 +1,4 @@
-const FALLBACK_REGISTER_URL = 'https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50';
+const { AFFILIATE_LINK } = require('./affiliateLink');
 const PRICING_URL = 'https://avalisabot.vercel.app/pricing';
 
 const CLAIM_REJECTION_REASONS = {
@@ -23,16 +23,16 @@ function getClaimRejectionMessage(reason) {
 async function getRegisterUrl(prisma) {
   try {
     const row = await prisma.appConfig.findUnique({ where: { key: 'affiliate_link' } });
-    return row?.value || FALLBACK_REGISTER_URL;
+    return row?.value || AFFILIATE_LINK;
   } catch (err) {
     console.error('[ClaimGuidance] affiliate link lookup failed:', err.message);
-    return FALLBACK_REGISTER_URL;
+    return AFFILIATE_LINK;
   }
 }
 
 module.exports = {
   CLAIM_REJECTION_REASONS,
-  FALLBACK_REGISTER_URL,
+  FALLBACK_REGISTER_URL: AFFILIATE_LINK,
   PRICING_URL,
   getClaimRejectionMessage,
   getRegisterUrl,

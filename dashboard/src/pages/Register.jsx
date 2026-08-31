@@ -4,10 +4,9 @@ import { Gift, Lock, Mail, ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';
 import { API_BASE } from '../lib/api';
+import { AFFILIATE_LINK } from '../lib/affiliate';
 import { AVALISA_CHARACTER_IMAGE } from '../lib/brandAssets';
 import '../styles/luxury.css';
-
-const AFFILIATE_LINK = 'https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50';
 
 export default function Register() {
   const { register } = useAuth();

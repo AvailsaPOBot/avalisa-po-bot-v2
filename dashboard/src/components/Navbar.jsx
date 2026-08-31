@@ -2,9 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-
-const AFFILIATE_URL =
-  'https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50';
+import { AFFILIATE_LINK } from '../lib/affiliate';
 
 const navItems = [
   { label: 'Webapp Bot', href: '/webapp' },
@@ -64,7 +62,7 @@ export default function Navbar() {
             <>
               <Link to="/login">Login</Link>
               <Link to="/register" className="site-nav__cta">Sign up Avalisa</Link>
-              <a href={AFFILIATE_URL} className="site-nav__po" target="_blank" rel="noreferrer">Pocket Option</a>
+              <a href={AFFILIATE_LINK} className="site-nav__po" target="_blank" rel="noreferrer">Pocket Option</a>
             </>
           )}
         </div>
@@ -94,7 +92,7 @@ export default function Navbar() {
             <>
               <Link to="/login" onClick={() => setMenuOpen(false)}>Login</Link>
               <Link to="/register" className="site-nav__cta" onClick={() => setMenuOpen(false)}>Sign up Avalisa</Link>
-              <a href={AFFILIATE_URL} className="site-nav__po" target="_blank" rel="noreferrer" onClick={() => setMenuOpen(false)}>Pocket Option</a>
+              <a href={AFFILIATE_LINK} className="site-nav__po" target="_blank" rel="noreferrer" onClick={() => setMenuOpen(false)}>Pocket Option</a>
             </>
           )}
         </div>

@@ -15,10 +15,9 @@ import {
   X,
 } from 'lucide-react';
 import { useLenis } from '../lib/useLenis';
+import { AFFILIATE_LINK } from '../lib/affiliate';
 import '../styles/luxury.css';
 
-const AFFILIATE_URL =
-  'https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50';
 const CHROME_EXTENSION_URL = process.env.REACT_APP_CHROME_STORE_URL || 'https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa';
 
 // The free demo leads. Measured 2026-08-30: every rival on the Web Store shelf leads with
@@ -348,7 +347,7 @@ export default function Landing() {
             <Gift size={28} />
             <strong>New to Pocket Option?</strong>
             <p>Register through Avalisa and request Pro unlock. The first-deposit bonus code is applied by the link automatically — if Pocket Option asks for it, it&apos;s {AFFILIATE_PROMO_CODE}.</p>
-            <SmartLink href={AFFILIATE_URL} external className="avalisa-button avalisa-button--gold">
+            <SmartLink href={AFFILIATE_LINK} external className="avalisa-button avalisa-button--gold">
               Open Pocket Option <ArrowRight size={17} />
             </SmartLink>
           </aside>

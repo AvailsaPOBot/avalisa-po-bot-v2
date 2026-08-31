@@ -17,7 +17,7 @@ Replace `src/pages/Landing.jsx` with a new sectioned implementation following th
 3. **CTA wiring (verify with the user before guessing):**
    - Hero "Start Free" → `/register` (existing route)
    - Hero "Already on PO? Skip to Step 2" → smooth-scroll anchor to Step 02 card
-   - Step 01 CTA "Register PO" → external affiliate URL (read from spec, currently in user memory: `https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50`)
+   - Step 01 CTA "Register PO" → external affiliate URL from the backend single source of truth: `backend/src/lib/affiliateLink.js` (extension fallback: `extension/config.js`)
    - Step 02 CTA "Add to Chrome" → approved Chrome Web Store listing: `https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa`
    - Step 03 CTA "See it in action" → smooth-scroll anchor to bot demo section (#demo)
    - Pricing CTAs → `/register` (Free), `/pricing#basic` (Basic), `/pricing#pro` (Pro)
