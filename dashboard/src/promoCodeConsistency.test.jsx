@@ -15,9 +15,10 @@ const read = (rel) => fs.readFileSync(path.join(__dirname, rel), 'utf8');
 
 test('every advertised promo code matches the code the affiliate link carries', () => {
   const landing = read('pages/Landing.jsx');
+  const affiliate = read('lib/affiliate.js');
 
   // What the link actually applies.
-  const linkCodes = [...landing.matchAll(/[?&]code=([A-Za-z0-9_-]+)/g)].map((m) => m[1]);
+  const linkCodes = [...affiliate.matchAll(/[?&]code=([A-Za-z0-9_-]+)/g)].map((m) => m[1]);
   expect(linkCodes.length).toBeGreaterThan(0);
   const carried = new Set(linkCodes);
   expect(carried.size).toBe(1);

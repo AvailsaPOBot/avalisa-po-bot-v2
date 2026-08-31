@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import api from '../lib/api';
+import { AFFILIATE_LINK } from '../lib/affiliate';
 import { useAuth } from '../hooks/useAuth';
 import toast from 'react-hot-toast';
 
@@ -618,7 +619,7 @@ export default function Dashboard() {
                 ❌ {claimNotice?.message || 'PO UID not found. Register with the Avalisa Pocket Option link, or make payment to activate your account.'}
               </div>
               <div className="flex gap-3">
-                <a href={claimNotice?.registerUrl || 'https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50'}
+                <a href={AFFILIATE_LINK}
                   target="_blank" rel="noreferrer" className="btn-primary text-sm py-2 px-4">
                   Register
                 </a>

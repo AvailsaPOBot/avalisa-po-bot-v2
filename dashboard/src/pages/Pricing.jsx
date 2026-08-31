@@ -11,8 +11,8 @@ import {
   WHOP_BASIC_CHECKOUT_URL,
   WHOP_PRO_CHECKOUT_URL,
 } from '../lib/checkout';
+import { AFFILIATE_LINK } from '../lib/affiliate';
 
-const FALLBACK_AFFILIATE_LINK = 'https://u3.shortink.io/register?utm_campaign=36377&utm_source=affiliate&utm_medium=sr&a=h00sp8e1L95KmS&al=1272290&ac=april2024&cid=845788&code=WELCOME50';
 const API_BASE = process.env.REACT_APP_API_URL || 'https://avalisa-backend.onrender.com';
 const PRICING_VIEW_SESSION_KEY = 'avalisa-pricing-view-sent';
 
@@ -58,7 +58,6 @@ export default function Pricing() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const currentPlan = user?.license?.plan || null;
-  const [affiliateLink, setAffiliateLink] = useState(FALLBACK_AFFILIATE_LINK);
   const [paypalEnabled, setPaypalEnabled] = useState(false);
   const [paypalBusyPlan, setPaypalBusyPlan] = useState(null);
   const [selectedPlan, setSelectedPlan] = useState(null);
@@ -84,13 +83,6 @@ export default function Pricing() {
     }
 
     trackPricingView();
-  }, []);
-
-  useEffect(() => {
-    fetch(`${API_BASE}/api/config/affiliate-link`)
-      .then((r) => r.json())
-      .then((data) => { if (data?.url) setAffiliateLink(data.url); })
-      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -162,7 +154,7 @@ export default function Pricing() {
       period: 'trades',
       description: 'Existing users can test the workflow before upgrading.',
       cta: 'Open Pocket Option',
-      href: affiliateLink,
+      href: AFFILIATE_LINK,
       external: true,
       features: ['10 Martingale trades', 'Webapp Bot access', 'Dashboard access', 'All supported timeframes', 'Basic trade history'],
     },
@@ -248,7 +240,7 @@ export default function Pricing() {
           <div>
             <strong>Want Pro through Pocket Option?</strong>
             <p>Register through Avalisa, then submit your PO UID in the dashboard to request Pro access.</p>
-            <a href={affiliateLink} target="_blank" rel="noreferrer">Open Pocket Option</a>
+            <a href={AFFILIATE_LINK} target="_blank" rel="noreferrer">Open Pocket Option</a>
           </div>
         </aside>
       </section>
