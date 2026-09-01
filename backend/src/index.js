@@ -225,15 +225,49 @@ async function claimQueue() {
   }
 }
 
+// 680 installs and $0. Nobody could say whether that is a REACH problem or a CONVERSION
+// problem, because the events that answer it are recorded and then only readable behind the
+// Board's admin login. Cycles have been picking work on an assumption about which it is.
+//
+// Deliberately BUCKETS, not counts. /health is public and exact commercial figures do not
+// belong on it — but this file already publishes liveness booleans there, and a bucket is the
+// same kind of statement. Buckets are enough to choose between reach and conversion, which is
+// the only decision this needs to serve.
+//
+// GATED ON `enabled`: if analytics is off this returns null rather than zeros. "No events"
+// and "not recording" are opposite conclusions and must never share a representation.
+async function funnelWindow() {
+  try {
+    const { funnelEnabled } = require('./lib/funnel');
+    if (!(await funnelEnabled(prisma))) return null;
+    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const rows = await prisma.funnelEvent.groupBy({
+      by: ['type'],
+      where: { createdAt: { gte: since } },
+      _count: { _all: true },
+    });
+    const bucket = (n) => (n === 0 ? 'none' : n < 10 ? '1-9' : n < 100 ? '10-99' : '100+');
+    const out = { days: 7 };
+    for (const type of ['affiliate_link_served', 'signup', 'pricing_view', 'checkout_click']) {
+      const hit = rows.find((r) => r.type === type);
+      out[type] = bucket(hit ? hit._count._all : 0);
+    }
+    return out;
+  } catch {
+    return null;
+  }
+}
 app.get('/health', async (req, res) => {
-  const [funnel, affiliate, claims] = await Promise.all([funnelLiveness(), affiliateLiveness(), claimQueue()]);
+  const [funnel, affiliate, claims, funnelWindow7d] = await Promise.all([
+    funnelLiveness(), affiliateLiveness(), claimQueue(), funnelWindow(),
+  ]);
   try {
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ status: 'ok', db: 'up', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, affiliate, claims, timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', db: 'up', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, affiliate, claims, funnelWindow7d, timestamp: new Date().toISOString() });
   } catch (err) {
     // The commit belongs on the failure path too: a degraded backend is exactly
     // when you need to know which build is live.
-    res.status(503).json({ status: 'degraded', db: 'down', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, affiliate, claims, timestamp: new Date().toISOString() });
+    res.status(503).json({ status: 'degraded', db: 'down', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, affiliate, claims, funnelWindow7d, timestamp: new Date().toISOString() });
   }
 });
 
