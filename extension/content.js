@@ -2157,19 +2157,15 @@ async function init() {
   loadAffiliateLink(); // fire-and-forget
   // Paid users whose PO account is already linked get unlocked without signing in.
   tryPoLinkedEntitlement().catch(() => {});
-  // Seed token status if logged in
   if (state.jwt) {
     // v2.3.3: also seed licenseInfo on init — popup reads from chrome.storage,
     // and without this call licenseInfo only populated on Start (popup stuck showing FREE).
-    checkLicense().then(lic => { state.licenseInfo = lic; updateUI(); }).catch(() => {});
-    apiGet('/api/ai/token-status').then(ts => {
-      if (ts) {
-        if (ts.remaining !== undefined) state.aiTokensRemaining = ts.remaining;
-        if (ts.tokensLimit !== undefined) state.aiTokensLimit = ts.tokensLimit;
-        if (ts.unlimited) state.aiUnlimited = true;
-      }
-      updateBottomStatus();
-    }).catch(() => {});
+    // updateBottomStatus renders "Trade allowance" from licenseInfo, so it must run AGAIN when
+    // the licence lands — updateUI() does not call it. Before #55 this was covered by accident:
+    // the /api/ai/token-status round-trip usually resolved after checkLicense, so the allowance
+    // painted late but painted. Depending on an unrelated request's latency is not a mechanism.
+    checkLicense().then(lic => { state.licenseInfo = lic; updateUI(); updateBottomStatus(); }).catch(() => {});
+    updateBottomStatus();
   }
   setTimeout(() => prefillCandleHistory().catch(console.error), 3000);
   // The login iframe tells us the moment it succeeds, so the panel swaps over

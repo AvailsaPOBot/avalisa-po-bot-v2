@@ -29,9 +29,6 @@ const state = {
   candleBuffer: {},   // { "EURUSD_otc:60": [{time,open,high,low,close},...] }
   activePair: null,   // normalized asset key from last updateHistoryNewFast
   activePeriod: null, // period (seconds) from last updateHistoryNewFast
-  aiTokensRemaining: null,
-  aiTokensLimit: null,
-  aiUnlimited: false,
   recentCloseEvents: [], // [{ ts, event, payload }] — from PO's binary successcloseOrder
   lastWsOpen: null,      // last successopenOrder payload (authoritative open confirmation)
   currentDealId: null,   // PO deal id of the trade in flight, so results pair exactly
