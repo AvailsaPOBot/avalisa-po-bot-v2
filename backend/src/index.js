@@ -207,15 +207,33 @@ async function affiliateLiveness() {
   return value;
 }
 
+async function claimQueue() {
+  try {
+    const pending = await prisma.license.count({ where: { claimStatus: 'pending' } });
+    if (pending === 0) return { pending: 0 };
+    const oldest = await prisma.license.findFirst({
+      where: { claimStatus: 'pending' },
+      orderBy: { updatedAt: 'asc' },
+      select: { updatedAt: true },
+    });
+    const oldestTouchedHours = oldest
+      ? Math.floor((Date.now() - new Date(oldest.updatedAt).getTime()) / 3600000)
+      : null;
+    return { pending, oldestTouchedHours };
+  } catch {
+    return { pending: null };
+  }
+}
+
 app.get('/health', async (req, res) => {
-  const [funnel, affiliate] = await Promise.all([funnelLiveness(), affiliateLiveness()]);
+  const [funnel, affiliate, claims] = await Promise.all([funnelLiveness(), affiliateLiveness(), claimQueue()]);
   try {
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ status: 'ok', db: 'up', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, affiliate, timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', db: 'up', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, affiliate, claims, timestamp: new Date().toISOString() });
   } catch (err) {
     // The commit belongs on the failure path too: a degraded backend is exactly
     // when you need to know which build is live.
-    res.status(503).json({ status: 'degraded', db: 'down', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, affiliate, timestamp: new Date().toISOString() });
+    res.status(503).json({ status: 'degraded', db: 'down', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, affiliate, claims, timestamp: new Date().toISOString() });
   }
 });
 
