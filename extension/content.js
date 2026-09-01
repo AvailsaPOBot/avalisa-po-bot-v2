@@ -1295,6 +1295,8 @@ function bindOverlayEvents() {
 
   document.getElementById('av-affiliate-link').href = state.affiliateLink;
   document.getElementById('av-upgrade-link').href = `${DASHBOARD_URL}/pricing`;
+  const plansLink = document.getElementById('av-plans-link');
+  if (plansLink) plansLink.href = `${DASHBOARD_URL}/pricing`;
 
   document.getElementById('av-claim-btn').addEventListener('click', handleClaimClick);
   document.getElementById('av-claim-submit').addEventListener('click', handleClaimSubmit);

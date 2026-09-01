@@ -174,12 +174,14 @@ function getOverlayHTML() {
 
       <div id="av-limit-msg" class="av-limit-msg" style="display:none">
         <p>Trade limit reached!</p>
-        <a id="av-affiliate-link" class="av-btn av-btn-primary" target="_blank">Register for Pro Access</a>
-        <a id="av-upgrade-link" class="av-btn av-btn-outline" target="_blank">Upgrade Plan</a>
+        <a id="av-affiliate-link" class="av-btn av-btn-outline" target="_blank">Free Pro — needs a NEW PO account</a>
+        <a id="av-upgrade-link" class="av-btn av-btn-primary" target="_blank">Upgrade Plan</a>
       </div>
 
       <div class="av-footer">
         <a href="https://avalisabot.vercel.app" target="_blank" rel="noopener">avalisabot.vercel.app</a>
+        <span class="av-footer-sep"> · </span>
+        <a id="av-plans-link" target="_blank" rel="noopener">Plans</a>
         <span class="av-footer-sep"> · </span>
         <a href="mailto:AvalisaPOBot@gmail.com">AvalisaPOBot@gmail.com</a>
       </div>
