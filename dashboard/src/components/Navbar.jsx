@@ -9,6 +9,7 @@ const navItems = [
   { label: 'Features', href: '/#features' },
   { label: 'Avalisa Bot', href: '/#ai' },
   { label: 'Pricing', href: '/pricing' },
+  { label: 'Setup Guide', href: '/guide' },
   { label: 'Support', href: '/support' },
 ];
 

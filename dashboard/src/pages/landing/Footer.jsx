@@ -20,6 +20,7 @@ export default function Footer() {
 
         <div className="landing-footer__column">
           <h3>Resources</h3>
+          <Link to="/guide">Setup Guide</Link>
           <Link to="/support">Support</Link>
           <Link to="/privacy">Privacy</Link>
           {/* TODO: Replace placeholder text with the real Terms destination when available. */}

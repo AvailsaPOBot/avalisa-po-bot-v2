@@ -17,6 +17,7 @@ import Dashboard from './pages/Dashboard';
 import Pricing from './pages/Pricing';
 import Support from './pages/Support';
 import Privacy from './pages/Privacy';
+import Guide from './pages/Guide';
 import NotFound from './pages/NotFound';
 import Webapp from './pages/Webapp';
 import Admin from './pages/Admin';
@@ -68,6 +69,7 @@ function AppShell() {
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/support" element={<Support />} />
         <Route path="/privacy" element={<Privacy />} />
+        <Route path="/guide" element={<Guide />} />
         <Route path="/dashboard" element={
           <ProtectedRoute><Dashboard /></ProtectedRoute>
         } />
