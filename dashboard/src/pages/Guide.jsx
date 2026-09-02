@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { BookOpen, Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { API_BASE } from '../lib/api';
 import '../styles/luxury.css';
 
 const STORE_URL =
@@ -10,6 +12,106 @@ const STORE_URL =
 // candle gate from state.js REQUIRED_CANDLES_BY_INTENSITY, the rule gate from signalEngine.js
 // RULES_REQUIRED, and the plan limits from backend/src/lib/plans.js PLAN_ENTITLEMENTS.
 // If any of those change, this page is wrong and must change with them.
+// #137 — the question a doubting buyer actually asks, answerable without an email.
+// A paying Pro customer sent us his PO ID and waited 13 days for this exact lookup;
+// the route already existed and nothing on the web let a human call it.
+// Entitlement only: POST /api/license/po-entitlement returns plan + allowance and
+// never a token, email, id or history (guarded by backend/test/poEntitlement.test.js),
+// so this box cannot leak anyone's personal data and cannot sign anybody in.
+const PLAN_LABELS = { lifetime: 'Pro', basic: 'Basic' };
+
+function LicenceCheck() {
+  const [uid, setUid] = useState('');
+  const [result, setResult] = useState({ status: 'idle' });
+
+  async function check(event) {
+    event.preventDefault();
+    const trimmed = uid.trim();
+    // Mirror the server's own validator rather than inventing a looser one.
+    if (!/^\d{3,20}$/.test(trimmed)) {
+      setResult({ status: 'invalid' });
+      return;
+    }
+    setResult({ status: 'loading' });
+    try {
+      const res = await fetch(`${API_BASE}/api/license/po-entitlement`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ poUid: trimmed }),
+      });
+      if (!res.ok) {
+        setResult({ status: 'invalid' });
+        return;
+      }
+      const data = await res.json();
+      setResult({ status: 'done', linked: Boolean(data.linked), plan: data.plan });
+    } catch (_) {
+      // Never render a failed lookup as "you have no licence" — that is the same
+      // false negative that told a paying customer his purchase was gone.
+      setResult({ status: 'unreachable' });
+    }
+  }
+
+  const label = result.status === 'done' ? PLAN_LABELS[result.plan] : null;
+  const paid = result.status === 'done' && result.linked && Boolean(label);
+
+  return (
+    <article className="lux-privacy-card">
+      <h2>Already bought? Check your Pocket Option ID</h2>
+      <div className="lux-privacy-card__body">
+        <p>
+          If you have paid and the bot still looks locked, check here before buying anything a
+          second time. Enter the Pocket Option account ID you use for trading.
+        </p>
+        <form onSubmit={check}>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={uid}
+            onChange={e => setUid(e.target.value)}
+            aria-label="Pocket Option ID"
+            placeholder="e.g. 5131350"
+          />{' '}
+          <button className="lux-button lux-button--gold" type="submit" disabled={result.status === 'loading'}>
+            {result.status === 'loading' ? 'Checking…' : 'Check'}
+          </button>
+        </form>
+
+        {result.status === 'invalid' && (
+          <p>Enter the numeric Pocket Option account ID — digits only, no email address.</p>
+        )}
+        {result.status === 'unreachable' && (
+          <p>
+            We could not reach our server just now, so this is not an answer either way. Please
+            try again in a moment, or email us and we will check it by hand.
+          </p>
+        )}
+        {paid && (
+          <p>
+            <strong>That account already has {label}.</strong> You do not need to buy anything.
+            Open Chrome&apos;s extensions page and press Update so you are on the current version,
+            then open Pocket Option signed in to this account — the panel unlocks on its own.
+            Automatic unlocking arrived in August, so an older copy of the extension cannot see it.
+            If it still looks locked, email us and say what the panel status line reads.
+          </p>
+        )}
+        {result.status === 'done' && !paid && (
+          <p>
+            We have no paid licence linked to that ID. If you have paid for Avalisa, email{' '}
+            <a href="mailto:avalisapobot@gmail.com">avalisapobot@gmail.com</a> with that ID and we
+            will sort it out — do not buy a second time. Otherwise the free demo needs no payment,
+            and the plans are on the <Link to="/pricing">pricing page</Link>.
+          </p>
+        )}
+        <p>
+          This only reports whether a licence is attached to that ID. It shows no personal details,
+          and it does not sign you in to anything.
+        </p>
+      </div>
+    </article>
+  );
+}
+
 export default function Guide() {
   const sections = [
     {
@@ -188,6 +290,7 @@ export default function Guide() {
       </section>
 
       <section className="lux-privacy-content lux-shell">
+        <LicenceCheck />
         {sections.map(section => (
           <article key={section.title} className="lux-privacy-card">
             <h2>{section.title}</h2>
