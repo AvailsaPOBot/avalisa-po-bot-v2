@@ -53,9 +53,17 @@ test('NOT_FOUND still offers the paid route, since that is what its audience CAN
 });
 
 test('the postback really is registration-only — the premise of all of the above', () => {
+  // I first wrote this as assert.match(postback, /event === 'Registration'/) — pinned to the
+  // SOURCE TEXT. Two cycles later it failed a correct fix: PocketPartners sends both casings,
+  // so the comparison had to become case-insensitive, and this guard blocked it. That is #117
+  // exactly, committed by the person who wrote #117. Pin the INTENT: the grant happens on a
+  // registration event and on nothing else. pocketpartners.test.js proves the behaviour;
+  // this asserts only the premise the NEW-account rule depends on.
   const postback = read('routes/pocketpartners.js');
-  assert.match(postback, /event === 'Registration'/,
-    'if the postback ever grants on another event, the NEW-account rule is no longer true');
+  assert.match(postback, /=== 'registration'|=== 'Registration'/i,
+    'the grant must still be keyed on a registration event');
+  assert.doesNotMatch(postback, /=== '(Deposit|FTD|Trade)'/i,
+    'granting on any non-registration event would break the NEW-account rule');
 });
 
 test('UID_MISMATCH sends them to a human only because there is no self-serve path', () => {

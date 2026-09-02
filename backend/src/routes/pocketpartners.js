@@ -52,7 +52,13 @@ router.get('/', async (req, res) => {
       create: { poUid: uid, event: event || 'unknown' },
     });
 
-    if (event === 'Registration') {
+    // PocketPartners sends BOTH casings. Measured 2026-09-02 from our own AffiliateReferral
+    // table: "Registration" 1-9 rows, "registration" 10-99 rows. This comparison was exact, so
+    // the MAJORITY of referrals were stored and then silently ignored — the auto-grant never
+    // fired for them and those users stayed on the demo plan owing a Pro they had earned.
+    // Never compare a third party's event name case-sensitively; you are asserting a detail of
+    // their serialiser, not of your own domain.
+    if (String(event || '').toLowerCase() === 'registration') {
       // Check if a user account already has this PO UID linked
       const user = await prisma.user.findUnique({ where: { poUserId: uid } });
       if (user) {
