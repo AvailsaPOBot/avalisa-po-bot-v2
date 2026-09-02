@@ -163,13 +163,13 @@ export default function Pricing() {
       name: 'Basic',
       price: '$69',
       period: 'one-time',
-      description: 'Unlimited Martingale trading, with no starting amount cap.',
+      description: 'Unlimited Martingale trading, past the demo\u2019s 10-trade limit.',
       cta: 'Buy Basic — $69',
       href: appendCheckoutEmail(WHOP_BASIC_CHECKOUT_URL, email),
       paypalPlan: 'basic',
       external: true,
       featured: true,
-      features: ['Unlimited Martingale', 'No starting amount cap', 'Cloud settings sync', 'Trade history'],
+      features: ['Unlimited Martingale', 'Cloud settings sync', 'Trade history'],
     },
     {
       id: 'pro',
@@ -185,7 +185,7 @@ export default function Pricing() {
       href: appendCheckoutEmail(WHOP_PRO_CHECKOUT_URL, email),
       paypalPlan: 'lifetime',
       external: true,
-      features: ['Unlimited trades', 'Martingale mode', 'Avalisa Bot mode', 'No starting amount cap', 'Affiliate users get this plan'],
+      features: ['Unlimited trades', 'Martingale mode', 'Avalisa Bot mode', 'Affiliate users get this plan'],
     },
   ];
 
