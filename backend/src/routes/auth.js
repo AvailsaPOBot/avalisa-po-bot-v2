@@ -140,7 +140,16 @@ async function fetchOAuthProfile(provider, accessToken) {
 
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
-  const { password, poUserId } = req.body;
+  // poUserId is deliberately NOT read from the body. It used to be, and nothing legitimate ever
+  // sent it: the only caller is dashboard/src/hooks/useAuth.js, which posts { email, password }.
+  // That made it input surface only an attacker would use — and the damage is quiet. poUserId is
+  // @unique and first-come-first-served, so anyone registering with a PO UID they do not own
+  // PERMANENTLY BLOCKS the genuine owner from ever linking or claiming it, and (because the claim
+  // route auto-approves any UID present in AffiliateReferral) could collect a free Pro earned by
+  // someone else's referral. Linking now happens only through PUT /api/auth/po-user-id, which
+  // returns 409 when the UID belongs to another account, and through the claim flow.
+  // Surfaced by the Board asking "are you sure it's the correct matched uid?" — not by a test.
+  const { password } = req.body;
   const email = String(req.body.email || '').trim().toLowerCase();
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required' });
@@ -157,7 +166,7 @@ router.post('/register', async (req, res) => {
       data: {
         email,
         passwordHash,
-        poUserId: poUserId || null,
+        poUserId: null,
         license: {
           create: {
             plan: PLAN_IDS.DEMO,
