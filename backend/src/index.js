@@ -282,17 +282,40 @@ async function affiliateFunnel() {
     return null;
   }
 }
+// Board directive, 2026-09-02: "recheck everytime you can grant pro plan to any users" and
+// "check if we missed new user to grant pro access in our avalisa db". This began as a
+// one-off diagnostic and I reverted it after reading the number once; he asked for it
+// STANDING, and he is right — a referral that arrives tomorrow creates the same gap.
+//
+// WHAT IT DOES NOT PROVE, and this decided a real decision on 2 Sep: AffiliateReferral.poUid
+// is authoritative (signed postback), but User.poUserId is SELF-ASSERTED — /api/auth/register
+// accepts it from the request body with no ownership check. So a match is a CANDIDATE, never
+// a proof of entitlement. Counts only, no ids or emails: this sizes a decision the Board makes.
+async function grantGap() {
+  try {
+    const referrals = await prisma.affiliateReferral.findMany({ select: { poUid: true } });
+    const uids = referrals.map((r) => r.poUid);
+    const [usersWithLinkedUid, matchedUsers, matchedAndStillFree] = await Promise.all([
+      prisma.user.count({ where: { poUserId: { not: null } } }),
+      prisma.user.count({ where: { poUserId: { in: uids } } }),
+      prisma.user.count({ where: { poUserId: { in: uids }, license: { plan: 'free' } } }),
+    ]);
+    return { referralUids: uids.length, usersWithLinkedUid, matchedUsers, matchedAndStillFree };
+  } catch {
+    return null;
+  }
+}
 app.get('/health', async (req, res) => {
-  const [funnel, affiliate, claims, funnelWindow7d, affiliateFunnelAllTime] = await Promise.all([
-    funnelLiveness(), affiliateLiveness(), claimQueue(), funnelWindow(), affiliateFunnel(),
+  const [funnel, affiliate, claims, funnelWindow7d, affiliateFunnelAllTime, grantGapAllTime] = await Promise.all([
+    funnelLiveness(), affiliateLiveness(), claimQueue(), funnelWindow(), affiliateFunnel(), grantGap(),
   ]);
   try {
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ status: 'ok', db: 'up', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, affiliate, claims, funnelWindow7d, affiliateFunnelAllTime, timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', db: 'up', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, affiliate, claims, funnelWindow7d, affiliateFunnelAllTime, grantGapAllTime, timestamp: new Date().toISOString() });
   } catch (err) {
     // The commit belongs on the failure path too: a degraded backend is exactly
     // when you need to know which build is live.
-    res.status(503).json({ status: 'degraded', db: 'down', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, affiliate, claims, funnelWindow7d, affiliateFunnelAllTime, timestamp: new Date().toISOString() });
+    res.status(503).json({ status: 'degraded', db: 'down', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, affiliate, claims, funnelWindow7d, affiliateFunnelAllTime, grantGapAllTime, timestamp: new Date().toISOString() });
   }
 });
 
