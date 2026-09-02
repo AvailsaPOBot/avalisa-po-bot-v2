@@ -257,17 +257,42 @@ async function funnelWindow() {
     return null;
   }
 }
+// The affiliate numbers were a HUMAN SURFACE: log into PocketPartners, read Regs/FTD, write the
+// date in surface-checks.md. It had never once been done in 80 cycles, and the Board's objection
+// is the reason why — their session expires hourly, so it needs a person at a keyboard every
+// time. That is not a surface anyone will keep checking.
+//
+// We do not need their dashboard. routes/pocketpartners.js upserts EVERY postback event into
+// AffiliateReferral (`event: event || 'unknown'`), so our own database already holds whatever
+// PocketPartners sends us. This reads it back.
+//
+// HONEST LIMIT: this can only ever show what they actually POST. If they send Registration but
+// not FTD, no FTD will appear here — and that absence would mean 'not sent', never 'zero'. The
+// event names are printed verbatim rather than mapped, so a missing stage is visible as a
+// missing KEY instead of a confident zero.
+async function affiliateFunnel() {
+  try {
+    const rows = await prisma.affiliateReferral.groupBy({ by: ['event'], _count: { _all: true } });
+    if (!rows.length) return { events: {}, note: 'no postbacks received yet' };
+    const bucket = (n) => (n === 0 ? 'none' : n < 10 ? '1-9' : n < 100 ? '10-99' : '100+');
+    const events = {};
+    for (const r of rows) events[r.event] = bucket(r._count._all);
+    return { events };
+  } catch {
+    return null;
+  }
+}
 app.get('/health', async (req, res) => {
-  const [funnel, affiliate, claims, funnelWindow7d] = await Promise.all([
-    funnelLiveness(), affiliateLiveness(), claimQueue(), funnelWindow(),
+  const [funnel, affiliate, claims, funnelWindow7d, affiliateFunnelAllTime] = await Promise.all([
+    funnelLiveness(), affiliateLiveness(), claimQueue(), funnelWindow(), affiliateFunnel(),
   ]);
   try {
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ status: 'ok', db: 'up', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, affiliate, claims, funnelWindow7d, timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', db: 'up', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, affiliate, claims, funnelWindow7d, affiliateFunnelAllTime, timestamp: new Date().toISOString() });
   } catch (err) {
     // The commit belongs on the failure path too: a degraded backend is exactly
     // when you need to know which build is live.
-    res.status(503).json({ status: 'degraded', db: 'down', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, affiliate, claims, funnelWindow7d, timestamp: new Date().toISOString() });
+    res.status(503).json({ status: 'degraded', db: 'down', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, affiliate, claims, funnelWindow7d, affiliateFunnelAllTime, timestamp: new Date().toISOString() });
   }
 });
 
