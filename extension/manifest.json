@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Avalisa PO Bot",
-  "version": "2.4.13",
+  "version": "2.4.14",
   "description": "Free demo, no payment to try. Automate Pocket Option trading with martingale or Avalisa Bot mode, under limits you set.",
   "permissions": [
     "storage"

@@ -77,8 +77,33 @@ test('content UI gates the claim block to signed-in free/demo users', async () =
   assert.match(content, /plan === 'free' \? 'demo'/);
 });
 
-test('manifest has the claim-reachability release version', async () => {
+// Was assert.equal(manifest.version, '2.4.13') — pinned to an exact value, so EVERY future
+// release failed it and the extension could not be shipped without editing a test. Caught by the
+// 2.4.14 bump. Fourth guard in this repo pinned to a literal rather than to intent (#117, #124,
+// #127): the intent is "this build is at or beyond the release that carried the claim fix".
+function semverAtLeast(actual, minimum) {
+  const a = String(actual).split('.').map(Number);
+  const b = String(minimum).split('.').map(Number);
+  for (let i = 0; i < 3; i += 1) {
+    const d = (a[i] || 0) - (b[i] || 0);
+    if (d !== 0) return d > 0;
+  }
+  return true;
+}
+
+test('manifest is at or beyond the claim-reachability release', async () => {
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
 
-  assert.equal(manifest.version, '2.4.13');
+  assert.ok(
+    semverAtLeast(manifest.version, '2.4.13'),
+    `manifest ${manifest.version} predates the claim-reachability fix (2.4.13)`
+  );
+});
+
+test('the version guard can actually fail (mutation)', () => {
+  assert.equal(semverAtLeast('2.4.12', '2.4.13'), false, 'an older build must be rejected');
+  assert.equal(semverAtLeast('2.4.13', '2.4.13'), true, 'the release itself must pass');
+  assert.equal(semverAtLeast('2.4.14', '2.4.13'), true, 'a later build must pass');
+  assert.equal(semverAtLeast('2.5.0', '2.4.13'), true, 'a later minor must pass');
+  assert.equal(semverAtLeast('1.9.9', '2.4.13'), false, 'an older major must be rejected');
 });
