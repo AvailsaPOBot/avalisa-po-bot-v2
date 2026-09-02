@@ -282,17 +282,34 @@ async function affiliateFunnel() {
     return null;
   }
 }
+// TEMPORARY DIAGNOSTIC (2026-09-02, #122). The Board asked whether the UID match is sound
+// before retro-granting the users the casing bug skipped. Counts only — no ids, no emails.
+// Remove once the decision is made; it exists to size a decision, not to be an instrument.
+async function grantGapDiagnostic() {
+  try {
+    const referrals = await prisma.affiliateReferral.findMany({ select: { poUid: true } });
+    const uids = referrals.map((r) => r.poUid);
+    const [linkedTotal, matchedTotal, matchedFree] = await Promise.all([
+      prisma.user.count({ where: { poUserId: { not: null } } }),
+      prisma.user.count({ where: { poUserId: { in: uids } } }),
+      prisma.user.count({ where: { poUserId: { in: uids }, license: { plan: 'free' } } }),
+    ]);
+    return { referralUids: uids.length, usersWithLinkedUid: linkedTotal, matchedUsers: matchedTotal, matchedAndStillFree: matchedFree };
+  } catch (e) {
+    return { error: String(e.message || e).slice(0, 120) };
+  }
+}
 app.get('/health', async (req, res) => {
-  const [funnel, affiliate, claims, funnelWindow7d, affiliateFunnelAllTime] = await Promise.all([
-    funnelLiveness(), affiliateLiveness(), claimQueue(), funnelWindow(), affiliateFunnel(),
+  const [funnel, affiliate, claims, funnelWindow7d, affiliateFunnelAllTime, grantGap] = await Promise.all([
+    funnelLiveness(), affiliateLiveness(), claimQueue(), funnelWindow(), affiliateFunnel(), grantGapDiagnostic(),
   ]);
   try {
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ status: 'ok', db: 'up', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, affiliate, claims, funnelWindow7d, affiliateFunnelAllTime, timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', db: 'up', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, affiliate, claims, funnelWindow7d, affiliateFunnelAllTime, grantGap, timestamp: new Date().toISOString() });
   } catch (err) {
     // The commit belongs on the failure path too: a degraded backend is exactly
     // when you need to know which build is live.
-    res.status(503).json({ status: 'degraded', db: 'down', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, affiliate, claims, funnelWindow7d, affiliateFunnelAllTime, timestamp: new Date().toISOString() });
+    res.status(503).json({ status: 'degraded', db: 'down', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, affiliate, claims, funnelWindow7d, affiliateFunnelAllTime, grantGap, timestamp: new Date().toISOString() });
   }
 });
 
