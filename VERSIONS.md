@@ -4,14 +4,15 @@
 > Update this file in the SAME commit as any version bump. Newest entries on top.
 > Rule: every behavior change = version bump + entry here + git tag when significant.
 
-## Current versions (updated 2026-08-17)
+## Current versions (updated 2026-09-03)
 
 | Component | Version | Where it runs | Source of truth |
 |---|---|---|---|
-| Extension (CWS public) | **2.3.19** | Users' Chrome via Web Store | CWS listing `mkcpdbnlofljijfjiglkodddicpgdapa` |
-| Extension (local/dev) | **2.4.9** | Mr. Oil's Chrome (unpacked from this repo `extension/`) | `extension/manifest.json` |
-| Backend | main @ `d86b591` | Render (auto-deploy from GitHub `main`) | `git log origin/main` |
-| Dashboard/site | main @ `d86b591` | Vercel (auto-deploy from GitHub `main`) | `git log origin/main` |
+| Extension (CWS **public shelf**) | **2.4.12** | Users' Chrome via Web Store | CWS listing `mkcpdbnlofljijfjiglkodddicpgdapa` |
+| Extension (CWS **package**, in review) | **2.4.13** | uploaded, awaiting Google | CWS API `crxVersion` (`projection=DRAFT`) |
+| Extension (repo / local dev) | **2.4.14** | Mr. Oil's Chrome (unpacked from this repo `extension/`) | `extension/manifest.json` |
+| Backend | main @ `f2c1dc4` | Render (auto-deploy from GitHub `main`) | `/health` `commit` field |
+| Dashboard/site | main @ `dcc17c8` | Vercel (auto-deploy from GitHub `main`) | bundle `REACT_APP_VERCEL_GIT_COMMIT_SHA` |
 | Webapp Bot (mobile proof) | v1.5-expiry-confirmed | Mac WKWebView shell / mobile webview | `mobile-proof/` |
 
 ⚠️ **The repo `extension/` folder is LIVE** — Mr. Oil's Chrome loads it unpacked.
@@ -63,6 +64,42 @@ Mac shell (`mobile-proof/mac/AvalisaMobileProofMac.swift`) gained QC-only, env-g
 shell ever ships to users.
 
 ## Extension changelog
+
+### 2.4.14 — 2026-09-02 — the in-product pricing path reaches users
+**The only `/pricing` link in the panel lived inside `<div id="av-limit-msg" style="display:none">`** —
+it appeared *after* a user exhausted the 10-trade demo and never before. Measured cause of
+`pricing_view` sitting at 1-9/week against ~680 installs: the funnel was starved at the top,
+not failing to convert.
+- `overlayView.js` / `content.js` (`8e1c9d9`): a persistent **Plans** link in the panel footer,
+  independent of the limit message; the pricing CTA is now `av-btn-primary`; the affiliate button
+  relabelled **"Free Pro — needs a NEW PO account"** so the one condition that disqualifies most
+  readers is stated before they click.
+- Guard `extension/test/panelPricingReachable.test.mjs` asserts a pricing path exists outside any
+  `display:none` container.
+- `c19ec8a`: removed the dead AI token-status fetch from init — 2 DB queries on every start
+  writing three fields nothing read. Backend route intentionally kept: ~680 installed copies still
+  call it until their users update.
+- `2afe41d`: affiliate link collapsed to one constant per built artifact, guarded by a test that
+  asserts the literal appears exactly once.
+- ⚠️ **Built and committed `923c84a`, NOT yet on the shelf.** Google locks the item while the
+  previous version is in review (`ITEM_NOT_UPDATABLE`), so submission waits on 2.4.13 rolling out.
+
+### 2.4.13 — 2026-08-31 — Web Store listing leads with the free demo (`cde5302`)
+Listing copy and tagline rewritten so the first thing a visitor reads is that the demo needs no
+payment and no card. Store package updated; the public shelf lagged for days behind Google review.
+
+### 2.4.12 — 2026-08-30 — new users could not create an account (`a9cff23`, `6f5f2fa`)
+The extension login had **no route to registration** — a new install could sign in and nothing
+else. Added account-creation links, and raised the login frame so the explanatory note was no
+longer clipped.
+
+### 2.4.11 — 2026-08-30 — affiliate Pro claims reachable before the trade cap (`adddfd6`)
+The claim door sat *behind* the 10-trade demo limit, so the users the affiliate funnel is meant to
+convert had to burn the demo before they could claim what they were already entitled to.
+
+### 2.4.10 — 2026-08-28 — version bump so a pending fix could ship (`961edb3`)
+No behaviour change of its own. The Web Store rejects a re-upload at an existing version, so the
+already-verified fix could not be published without a bump.
 
 ### 2.4.9 — 2026-08-17 — Avalisa AI could never trade at Mid/High + credential leak [Board-approved]
 
