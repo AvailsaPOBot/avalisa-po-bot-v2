@@ -26,7 +26,27 @@ test('candle upload dedupes and uses createMany skipDuplicates with bounded vali
   let args;const db={marketCandle:{createMany:async q=>(args=q,{count:q.data.length})}};
   assert.deepEqual(await uploadCandles(db,{pair:'EURUSD_otc',periodSec:30,candles:[candle(start),candle(start)]},now),{accepted:true,count:1});
   assert.equal(args.skipDuplicates,true);assert.equal(args.data.length,1);
-  for (const changes of [{periodSec:60},{candles:Array(501).fill(candle(start))},{candles:[candle(now/1000)]},{candles:[{...candle(start),low:3}]}]) await assert.rejects(uploadCandles(db,{pair:'EURUSD',periodSec:30,candles:[candle(start)],...changes},now),RangeError);
+  for (const changes of [{periodSec:45},{periodSec:'30'},{candles:Array(501).fill(candle(start))},{candles:[candle(now/1000)]},{candles:[{...candle(start),low:3}]}]) await assert.rejects(uploadCandles(db,{pair:'EURUSD',periodSec:30,candles:[candle(start)],...changes},now),RangeError);
+});
+// The bot trades M1: rejecting period 60 archived nothing at all in the live 2.4.19 run.
+test('60-second candles are archived with their own period and alignment', async () => {
+  resetArchiveCap();
+  let args;const db={marketCandle:{createMany:async q=>(args=q,{count:q.data.length})}};
+  const minute=Math.floor((now/1000-3000)/60)*60;
+  assert.deepEqual(await uploadCandles(db,{pair:'EURUSD_otc',periodSec:60,candles:[candle(minute)]},now),{accepted:true,count:1});
+  assert.equal(args.data[0].periodSec,60);
+  // 30s-aligned time is not a valid 60s candle boundary.
+  await assert.rejects(uploadCandles(db,{pair:'EURUSD_otc',periodSec:60,candles:[candle(minute+30)]},now),RangeError);
+});
+test('export selects the requested period and checks contiguity at that period', async () => {
+  const minute=Math.floor((now/1000-6000)/60)*60;
+  const rows=Array.from({length:20},(_,i)=>candle(minute+i*60));let args;
+  const db={marketCandle:{findMany:async q=>(args=q,rows)}};
+  await exportCandles(db,{pair:'EURUSD',periodSec:'60',from:String(minute),to:String(minute+1200)});
+  assert.equal(args.where.periodSec,60);
+  await assert.rejects(exportCandles(db,{pair:'EURUSD',periodSec:'45',from:String(minute),to:String(minute+1200)}),/periodSec must be 30 or 60/);
+  rows.splice(5,1);
+  await assert.rejects(exportCandles(db,{pair:'EURUSD',periodSec:'60',from:String(minute),to:String(minute+1200)}),/Noncontiguous/);
 });
 test('admin export roundtrips into real backtester; rejects gaps rather than inventing candles', async () => {
   const rows=Array.from({length:80},(_,i)=>candle(start+i*30));let args;

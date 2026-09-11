@@ -9,8 +9,8 @@
 | Component | Version | Where it runs | Source of truth |
 |---|---|---|---|
 | Extension (CWS **public shelf**) | **2.4.12** | Users' Chrome via Web Store | CWS listing `mkcpdbnlofljijfjiglkodddicpgdapa` |
-| Extension (CWS **package**, in review) | **2.4.13** | uploaded, awaiting Google | CWS API `crxVersion` (`projection=DRAFT`) |
-| Extension (repo / local dev) | **2.4.19** | Mr. Oil's Chrome (unpacked from this repo `extension/`) | `extension/manifest.json` |
+| Extension (CWS **package**, in review) | **2.4.19** | uploaded 12 Sep, awaiting Google | CWS API `crxVersion` (`projection=DRAFT`) |
+| Extension (repo / local dev) | **2.4.20** | Mr. Oil's Chrome (unpacked from this repo `extension/`) | `extension/manifest.json` |
 | Backend | main @ `f2c1dc4` | Render (auto-deploy from GitHub `main`) | `/health` `commit` field |
 | Dashboard/site | main @ `dcc17c8` | Vercel (auto-deploy from GitHub `main`) | bundle `REACT_APP_VERCEL_GIT_COMMIT_SHA` |
 | Webapp Bot (mobile proof) | v1.5-expiry-confirmed | Mac WKWebView shell / mobile webview | `mobile-proof/` |
@@ -18,6 +18,24 @@
 ⚠️ **The repo `extension/` folder is LIVE** — Mr. Oil's Chrome loads it unpacked.
 Never leave it broken or mid-refactor. Smoke test (`node test/extension-settings-smoke.test.js`)
 must pass before any commit that touches it. The AGE dispatcher enforces this (fail-closed revert).
+
+## 2.4.20 — 2026-09-12 — the candle archive actually collects
+
+2.4.19 shipped an archive that collected ZERO rows. Measured live the same night:
+`MarketCandle` stayed empty through a full trading session. Two filters killed every
+candle — `candle()` accepted only `period === 30` while the bot was trading M1
+(period 60), and `tick()`/`history()` compared PO's raw frame asset (numeric stream
+ids) against the display pair, so nothing ever matched.
+
+Fix: stop rebuilding candles from raw socket traffic. Upload the buffer the bot
+already built and trades on (`state.candleBuffer[activePair:period]`) — the same
+data the signal engine reads, so there is no id guessing and no second parser to
+keep in step. Both 30s and 60s are archived (backend and admin export accept either),
+still only while the bot runs, still one POST per pair+period per 5 minutes, still
+one hour of back-off on `archive_full`.
+
+Lesson recorded: a collector that silently collects nothing looks exactly like a
+quiet market. It needed a row count from production, not a passing test.
 
 ## 2.4.19 — 2026-09-11 — Local candidate, unpublished
 

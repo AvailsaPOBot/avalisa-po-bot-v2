@@ -1,11 +1,21 @@
 /* Trading-only, best-effort telemetry. No caller waits for network work.
  * Bounded queues are memory-only: reloads/offline exhaustion can lose telemetry.
+ *
+ * 2.4.20 — the archive no longer rebuilds candles from raw socket traffic.
+ * Measured live on 2026-09-12: that collected ZERO rows, because PO labels tick
+ * and history frames with numeric stream ids (never the display pair), and the
+ * old filter also insisted on period 30 while the bot trades M1 (period 60).
+ * We now upload the buffer the bot itself built and already trades on
+ * (state.candleBuffer[`${state.activePair}:${period}`]), which is the same data
+ * the signal engine sees — no id guessing, and both periods are archived.
  */
 const AvalisaTelemetry = (() => {
-  const archives = new Map();
+  const sentTimes = new Map();  // "pair:period" -> Set of uploaded candle times
+  const nextPost = new Map();   // "pair:period" -> earliest next POST
   let pending = 0;
   let sessionId = null;
   let pausedUntil = 0; // set when the server reports archive_full
+  const ARCHIVED_PERIODS = [30, 60];
   const version = () => chrome.runtime.getManifest().version;
   function post(path, payload) {
     if (!state.jwt || pending >= 120) return;
@@ -37,12 +47,8 @@ const AvalisaTelemetry = (() => {
   }
   function market(pair) {
     const intensity = state.settings?.intensity || state.settings?.aiIntensity || 'mid';
-    let periodSec = state.activePeriod || 30;
-    let candles = state.candleBuffer?.[`${pair}:${periodSec}`] || [];
-    if (!candles.length) {
-      periodSec = 30;
-      candles = [...(archives.get(pair)?.candles.values() || [])].sort((a,b) => a.time-b.time);
-    }
+    const periodSec = state.activePeriod || 30;
+    const candles = state.candleBuffer?.[`${pair}:${periodSec}`] || [];
     const empty = { pair, periodSec, intensity, rsi: null, sma20: null, stdev: null,
       volatility: null, slope: null, momentum: null, regime: 'unknown',
       rulesMatched: { call: null, put: null }, lastCandle: null,
@@ -79,107 +85,50 @@ const AvalisaTelemetry = (() => {
     }
     return facts;
   }
-  // Archive only while the bot runs, and only the pair it is on: that is the
-  // active trading pair or a favourite it switched to while scanning. Pairs a
-  // user merely browses with the bot stopped are never uploaded.
-  function viewed(pair) {
-    return !!state.running && !!pair && pair !== 'UNKNOWN' && pair === normalizeAssetName(getCurrentPair());
+  // Keep memory flat: remember only enough uploaded times to dedupe a long session.
+  function remember(key, times) {
+    const seen = sentTimes.get(key) || new Set();
+    for (const t of times) seen.add(t);
+    if (seen.size > 2000) for (const t of [...seen].sort((a, b) => a - b).slice(0, seen.size - 2000)) seen.delete(t);
+    sentTimes.set(key, seen);
+    if (sentTimes.size > 20) sentTimes.delete(sentTimes.keys().next().value);
+    if (nextPost.size > 20) nextPost.delete(nextPost.keys().next().value);
   }
-  function archive(pair) {
-    if (!viewed(pair)) return null;
-    if (!archives.has(pair)) {
-      // Bounded to the most recently viewed pairs.
-      if (archives.size >= 20) {
-        const expired = [...archives].find(([, a]) => a.nextPost <= Date.now());
-        if (!expired) return null;
-        archives.delete(expired[0]);
-      }
-      archives.set(pair, { candles: new Map(), tickTimes: new Map(), sent: new Set(), nextPost: 0 });
-    }
-    return archives.get(pair);
-  }
-  function flush(pair, a) {
-    if (!state.jwt || Date.now() < a.nextPost || Date.now() < pausedUntil) return;
-    const candles = [...a.candles.values()].filter(c => c.time + 30 <= Date.now()/1000 && !a.sent.has(c.time))
-      .sort((x,y) => x.time-y.time).slice(0,500).map(c => ({ ...c }));
+  function uploadBuffer(pair, period) {
+    const key = `${pair}:${period}`;
+    if (Date.now() < (nextPost.get(key) || 0)) return;
+    const seen = sentTimes.get(key) || new Set();
+    const nowSec = Date.now() / 1000;
+    const candles = (state.candleBuffer?.[key] || [])
+      .filter(c => c && Number.isFinite(c.time) && c.time % period === 0 && c.time + period <= nowSec
+        && !seen.has(c.time) && [c.open, c.high, c.low, c.close].every(v => Number.isFinite(v) && v > 0))
+      .sort((a, b) => a.time - b.time).slice(-500)
+      .map(c => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close }));
     if (!candles.length) return;
-    // Reserve the interval before dispatch, including failed requests. Retry on
-    // the next eligible ingestion, never faster than one POST/pair/5 minutes.
-    a.nextPost = Date.now() + 300000;
-    Promise.resolve().then(() => apiPost('/api/market/candles', { pair, periodSec: 30, candles }))
+    // Reserve the interval before dispatch, including failed requests: never
+    // faster than one POST per pair+period per 5 minutes.
+    nextPost.set(key, Date.now() + 300000);
+    Promise.resolve().then(() => apiPost('/api/market/candles', { pair, periodSec: period, candles }))
       .then(res => {
-        for (const c of candles) a.sent.add(c.time);
+        remember(key, candles.map(c => c.time));
         // Server archive is full: treat as delivered and stop all uploads for 1h.
         if (res && res.accepted === false && res.reason === 'archive_full') pausedUntil = Date.now() + 3600000;
       })
-      .catch(() => {
-        // Automatic retry uses the same five-minute reservation and frozen prices.
-        setTimeout(() => { if (archives.get(pair) === a) flush(pair, a); }, 300000);
-      });
+      .catch(() => {});
   }
-  function trim(a) {
-    while (a.candles.size > 1000) {
-      const oldest = Math.min(...a.candles.keys());
-      a.candles.delete(oldest); a.sent.delete(oldest); a.tickTimes.delete(oldest);
-    }
-  }
-  function tick(pair, timestamp, price, defer = false) {
+  // Archive only while the bot runs, and only the pair it is actually trading
+  // (state.activePair is the pair its own buffers belong to).
+  function snapshot() {
     try {
-      const a = archive(pair);
-      let ts = Number(timestamp); price = Number(price);
-      if (!a || !Number.isFinite(ts) || !Number.isFinite(price) || price <= 0) return;
-      if (ts > 1e10) ts /= 1000;
-      const time = Math.floor(ts/30)*30;
-      const c = a.candles.get(time);
-      if (!c) {
-        a.candles.set(time, {time, open:price, high:price, low:price, close:price});
-        a.tickTimes.set(time, {first:ts,last:ts});
-      } else if (!a.sent.has(time)) {
-        c.high=Math.max(c.high,price); c.low=Math.min(c.low,price);
-        const times = a.tickTimes.get(time);
-        if (times) {
-          if (ts < times.first) { c.open=price; times.first=ts; }
-          if (ts >= times.last) { c.close=price; times.last=ts; }
-        }
-      }
-      trim(a);
-      if (!defer) flush(pair,a);
-    } catch (_) {}
-  }
-  function history(pair, ticks) {
-    try {
-      if (!viewed(pair) || !Array.isArray(ticks)) return;
-      for (const t of [...ticks].sort((a,b)=>Number(a[0])-Number(b[0]))) {
-        if (Array.isArray(t) && t.length === 2) tick(pair,t[0],t[1],true);
-      }
-      const a = archives.get(pair);
-      if (a) flush(pair,a);
-    } catch (_) {}
-  }
-  function frame(payload) {
-    try {
-      const pair = normalizeAssetName(payload?.asset || getCurrentPair());
-      const rows = payload?.history || payload?.candles || (Array.isArray(payload) ? payload : []);
-      if (!Array.isArray(rows)) return;
-      if (rows.every(r => Array.isArray(r) && r.length === 2)) { history(pair, rows); return; }
-      const period = Number(payload?.period || getCurrentPeriodSeconds());
-      // Same PO OHLC layout already consumed by content.js: [time,open,close,high,low].
-      for (const r of rows) {
-        if (Array.isArray(r) && r.length >= 5) candle({asset:pair,period,time:r[0],open:r[1],close:r[2],high:r[3],low:r[4]});
-        else if (r && !Array.isArray(r)) candle({asset:pair,period,time:r.time ?? r.timestamp ?? r.t,open:r.open ?? r.o,high:r.high ?? r.h,low:r.low ?? r.l,close:r.close ?? r.c});
+      if (!state.running || !state.jwt || Date.now() < pausedUntil) return;
+      const pair = state.activePair;
+      if (!pair || pair === 'UNKNOWN') return;
+      for (const period of ARCHIVED_PERIODS) {
+        if (period === 30 || period === state.activePeriod) uploadBuffer(pair, period);
       }
     } catch (_) {}
   }
-  function candle(c) {
-    try {
-      const a = Number(c.period) === 30 ? archive(c.asset) : null;
-      if (!a) return;
-      const time = Number(c.time) > 1e10 ? Number(c.time)/1000 : Number(c.time);
-      const entry = {time, open:Number(c.open), high:Number(c.high), low:Number(c.low), close:Number(c.close)};
-      if (!Object.values(entry).every(Number.isFinite) || time % 30 !== 0) return;
-      if (!a.sent.has(time)) a.candles.set(time,entry);
-      trim(a); flush(c.asset,a);
-    } catch (_) {}
-  }
-  return { post, event, session, market, po, tick, history, candle, frame };
+  // Socket entry points stay so content.js keeps its call sites; each one just
+  // nudges the throttled snapshot rather than parsing PO's stream itself.
+  return { post, event, session, market, po, snapshot, tick: snapshot, history: snapshot, candle: snapshot, frame: snapshot };
 })();

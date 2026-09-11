@@ -48,13 +48,17 @@ function eventData(body, userId) {
   if (body.amount != null && (typeof body.amount !== 'number' || !Number.isFinite(body.amount) || body.amount < 0)) throw new RangeError('Invalid amount');
   return { userId, type: body.type, reason: body.reason ?? null, pair: body.pair ?? null, amount: body.amount ?? null, meta };
 }
+// The bot trades S30 and M1, so both periods are archivable. Accepting only 30
+// silently discarded every M1 session (measured: 0 rows after a live run).
+const ARCHIVED_PERIODS = new Set([30, 60]);
 function candleData(body, now = Date.now()) {
-  if (!body || !validPair(body.pair) || body.periodSec !== 30 || !Array.isArray(body.candles) || !body.candles.length || body.candles.length > 500) throw new RangeError('Expected pair, periodSec=30 and 1-500 candles');
+  if (!body || !validPair(body.pair) || !ARCHIVED_PERIODS.has(body.periodSec) || !Array.isArray(body.candles) || !body.candles.length || body.candles.length > 500) throw new RangeError('Expected pair, periodSec 30 or 60, and 1-500 candles');
   if (Buffer.byteLength(JSON.stringify(body)) > 100000) throw new RangeError('Candle payload exceeds 100000 bytes');
+  const period = body.periodSec;
   const candles = new Map();
   for (const c of body.candles) {
-    if (!c || !Number.isSafeInteger(c.time) || c.time % 30 || c.time < Math.floor(now / 1000) - 90 * 86400 || c.time + 30 > Math.floor(now / 1000) || !['open', 'high', 'low', 'close'].every(k => typeof c[k] === 'number' && Number.isFinite(c[k]) && c[k] > 0) || c.high < Math.max(c.open, c.close, c.low) || c.low > Math.min(c.open, c.close)) throw new RangeError('Invalid, open, or older-than-90-days candle');
-    candles.set(c.time, { pair: body.pair, periodSec: 30, time: c.time, open: c.open, high: c.high, low: c.low, close: c.close });
+    if (!c || !Number.isSafeInteger(c.time) || c.time % period || c.time < Math.floor(now / 1000) - 90 * 86400 || c.time + period > Math.floor(now / 1000) || !['open', 'high', 'low', 'close'].every(k => typeof c[k] === 'number' && Number.isFinite(c[k]) && c[k] > 0) || c.high < Math.max(c.open, c.close, c.low) || c.low > Math.min(c.open, c.close)) throw new RangeError('Invalid, open, or older-than-90-days candle');
+    candles.set(c.time, { pair: body.pair, periodSec: period, time: c.time, open: c.open, high: c.high, low: c.low, close: c.close });
   }
   return [...candles.values()];
 }
@@ -92,12 +96,14 @@ function timestamp(value, name) {
 }
 async function exportCandles(prisma, query) {
   if (!validPair(query.pair)) throw new RangeError('pair is required');
+  const periodSec = query.periodSec == null ? 30 : Number(query.periodSec);
+  if (!ARCHIVED_PERIODS.has(periodSec)) throw new RangeError('periodSec must be 30 or 60');
   const from = timestamp(query.from, 'from'), to = timestamp(query.to, 'to');
   if (to <= from || to - from > 90 * 86400) throw new RangeError('Range must be positive and at most 90 days');
-  const rows = await prisma.marketCandle.findMany({ where: { pair: query.pair, periodSec: 30, time: { gte: from, lt: to } }, orderBy: { time: 'asc' }, select: { time: true, open: true, high: true, low: true, close: true }, take: 259201 });
+  const rows = await prisma.marketCandle.findMany({ where: { pair: query.pair, periodSec, time: { gte: from, lt: to } }, orderBy: { time: 'asc' }, select: { time: true, open: true, high: true, low: true, close: true }, take: 259201 });
   if (!rows.length) throw new RangeError('No candles in requested range');
   // Never fabricate missing prices or silently return a file the strict backtester rejects.
-  const gap = rows.findIndex((c, i) => i && c.time - rows[i - 1].time !== 30);
+  const gap = rows.findIndex((c, i) => i && c.time - rows[i - 1].time !== periodSec);
   if (gap !== -1) throw new RangeError(`Noncontiguous archive: gap after ${rows[gap - 1].time}; narrow from/to to a contiguous range`);
   return { [query.pair]: rows };
 }
