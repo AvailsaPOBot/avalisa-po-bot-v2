@@ -100,6 +100,58 @@ function resultForDealId(payload, dealId) {
   return 'tie';
 }
 
+// Keep open events separately: close-like updates must not evict late identity.
+function recordWsOpen(payload, ts = Date.now()) {
+  const event = { ts, event: 'successopenOrder', payload };
+  state.lastWsOpen = event;
+  if (!state.recentOpenEvents) state.recentOpenEvents = [];
+  state.recentOpenEvents.push(event);
+  if (state.recentOpenEvents.length > 100) state.recentOpenEvents.shift();
+  reconcileCurrentDealId();
+}
+
+function dealOpenTimeMs(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const numeric = Number(value);
+  const ms = Number.isFinite(numeric)
+    ? (numeric < 1e12 ? numeric * 1000 : numeric)
+    : (typeof value === 'string' ? Date.parse(value) : NaN);
+  return Number.isFinite(ms) && ms > 0 ? ms : null;
+}
+
+function reconcileCurrentDealId(tradeStartTs = state.currentTradeIdentity?.tradeStartTs) {
+  if (state.currentDealId) return state.currentDealId;
+  const identity = state.currentTradeIdentity;
+  if (!identity || identity.tradeStartTs !== tradeStartTs || !identity.asset || identity.asset === 'UNKNOWN') return null;
+  if (!state.usedDealIds) state.usedDealIds = new Set();
+  const matches = new Map();
+  const consider = (deal, needsOpenTime) => {
+    if (!deal || typeof deal.id !== 'string' || !deal.id || state.usedDealIds.has(deal.id)) return;
+    if (typeof deal.asset !== 'string' || normalizeAssetName(deal.asset) !== identity.asset || Number(deal.amount) !== Number(identity.amount)) return;
+    const opened = dealOpenTimeMs(deal.openTime);
+    // Open receipt time is permitted evidence, but an explicitly stale server
+    // openTime must never override it. Closes always need server openTime.
+    if ((needsOpenTime && opened === null) || (opened !== null && opened < tradeStartTs)) return;
+    matches.set(deal.id, deal);
+  };
+  for (const ev of state.recentOpenEvents || []) {
+    if (ev.ts >= tradeStartTs) consider(ev.payload, false);
+  }
+  for (const ev of state.recentCloseEvents || []) {
+    if (ev.ts < tradeStartTs || !/^successcloseOrder$/i.test(ev.event)) continue;
+    const deals = Array.isArray(ev.payload?.deals) ? ev.payload.deals
+      : (Array.isArray(ev.payload) ? ev.payload : []);
+    for (const deal of deals) consider(deal, true);
+  }
+  // Count distinct IDs across all retained evidence, not just the last batch.
+  if (matches.size !== 1) return null;
+  const id = matches.keys().next().value;
+  state.currentDealId = id;
+  state.usedDealIds.add(id); // retained across Stop/Start for this page lifetime
+  console.log('[Avalisa] Trade confirmed identity via reconciled PO deal:', id);
+  return id;
+}
+
 // Match PO's close event to the deal we actually opened.
 //
 // Matching on time alone attributed the WRONG trade's result: a previous
@@ -109,9 +161,10 @@ function resultForDealId(payload, dealId) {
 // and the next trade repeated $1 instead of doubling to $2.
 //
 // successopenOrder gives us the deal id, and every closed deal carries the same
-// id, so the pairing is exact. Time-based matching stays only as a fallback for
-// the case where we never saw an open event to learn the id from.
+// id, so the pairing is exact. Without an id, a timestamp cannot distinguish
+// a late previous close from this trade; reconcile identity first or keep waiting.
 function readWsTradeResultSince(tradeStartTs, dealId = state.currentDealId) {
+  if (!dealId) dealId = reconcileCurrentDealId(tradeStartTs);
   const recentWs = state.recentCloseEvents.filter(e => e.ts >= tradeStartTs);
 
   if (dealId) {
@@ -124,10 +177,6 @@ function readWsTradeResultSince(tradeStartTs, dealId = state.currentDealId) {
     return null;
   }
 
-  for (const ev of recentWs.slice().reverse()) {
-    const result = extractResultFromCloseEvent(ev.payload);
-    if (result) return { result, event: ev.event };
-  }
   return null;
 }
 

@@ -54,6 +54,7 @@ model Trade {
   isDemo        Boolean  @default(false)
   strategy      String   @default("martingale") // martingale | ai-signal | ai
   timeframe     String?  // S30 | M1 | M3 | M5 | M30 | H1
+  meta          Json?   // bounded execution telemetry, independent of AI allowance
   signalSnapshot Json?   // local rule-engine snapshot for AI mode trades
   createdAt     DateTime @default(now())
 

@@ -70,10 +70,10 @@ function getOverlayHTML() {
         </div>
         <div class="av-row" id="av-row-intensity" style="display:none">
           <label class="av-label" title="How many of the four rules must agree before Avalisa Bot trades.">Intensity</label>
-          <select id="av-intensity" class="av-select" title="Low trades fastest. Mid is balanced and now allows OTC. High is strict and skips OTC.">
+          <select id="av-intensity" class="av-select" title="Required agreement: Low 2 of 4 rules, Mid 3 of 4, High 4 of 4. All allow OTC.">
             <option value="low" title="Most active. Lower confirmation, allows OTC.">Low</option>
-            <option value="mid" selected title="Balanced. More confirmation than Low, now allows OTC.">Mid</option>
-            <option value="high" title="Most selective. Strongest filters and skips OTC.">High</option>
+            <option value="mid" selected title="Requires 3 of 4 rules. Allows OTC.">Mid</option>
+            <option value="high" title="Requires all 4 rules. Allows OTC.">High</option>
           </select>
         </div>
         <div class="av-row" id="av-row-ai-pair-mode" style="display:none">

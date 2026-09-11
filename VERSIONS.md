@@ -10,7 +10,7 @@
 |---|---|---|---|
 | Extension (CWS **public shelf**) | **2.4.12** | Users' Chrome via Web Store | CWS listing `mkcpdbnlofljijfjiglkodddicpgdapa` |
 | Extension (CWS **package**, in review) | **2.4.13** | uploaded, awaiting Google | CWS API `crxVersion` (`projection=DRAFT`) |
-| Extension (repo / local dev) | **2.4.14** | Mr. Oil's Chrome (unpacked from this repo `extension/`) | `extension/manifest.json` |
+| Extension (repo / local dev) | **2.4.18** | Mr. Oil's Chrome (unpacked from this repo `extension/`) | `extension/manifest.json` |
 | Backend | main @ `f2c1dc4` | Render (auto-deploy from GitHub `main`) | `/health` `commit` field |
 | Dashboard/site | main @ `dcc17c8` | Vercel (auto-deploy from GitHub `main`) | bundle `REACT_APP_VERCEL_GIT_COMMIT_SHA` |
 | Webapp Bot (mobile proof) | v1.5-expiry-confirmed | Mac WKWebView shell / mobile webview | `mobile-proof/` |
@@ -18,6 +18,14 @@
 ⚠️ **The repo `extension/` folder is LIVE** — Mr. Oil's Chrome loads it unpacked.
 Never leave it broken or mid-refactor. Smoke test (`node test/extension-settings-smoke.test.js`)
 must pass before any commit that touches it. The AGE dispatcher enforces this (fail-closed revert).
+
+## 2.4.18 — 2026-09-11 — Local candidate, not published
+
+Preserves the uncommitted 2.4.17 stability candidate. Adds pre-order payout,
+martingale step, extension version, result method, signal source and intensity
+telemetry. Backend retains trades independently of history display limits and
+provides admin aggregate strategy statistics. Migration file is unapplied.
+No signal rules or martingale behavior changed.
 
 ## Webapp Bot (mobile proof) changelog
 
@@ -64,6 +72,45 @@ Mac shell (`mobile-proof/mac/AvalisaMobileProofMac.swift`) gained QC-only, env-g
 shell ever ships to users.
 
 ## Extension changelog
+
+### 2.4.17 — 2026-09-11 — late trade identity and safe amount recovery candidate
+Local candidate, not published. Retain text/binary successopenOrder events and
+reconcile late deal IDs after balance/DOM confirmation using the captured pair,
+stake and trade-start window. A close-only match requires server openTime at or
+after trade start and exactly one distinct matching ID; ambiguous, stale and
+previously used IDs remain unresolved. Timestamp-only attribution stays disabled
+and the hidden-tab balance-loss guard remains. Rejected-amount pauses restore
+and verify PO's input to startAmount (minimum 1), falling back to 1 if rejected
+and warning if PO still refuses;
+the paused recovery ladder is unchanged. Per-poll balance/button discovery logs
+now use the existing debug gate; results, confirmations and warnings remain visible.
+Regression coverage includes late opens, unique/ambiguous closes, stale/reused
+IDs, safe input restoration and debug-disabled polling.
+
+### 2.4.16 — 2026-09-11 — expanded stability and strategy QC candidate
+Local candidate, not published. Stop tracks pending/open orders through settlement
+before enabling Start. Favorite scanning checks cancellation, actual pair, readiness
+and fresh payout. Expiry selection reads back the host value. Execution rejects a
+pair change after signal selection. Warmup requests the 30-second analysis period
+without bypassing history throttling; readiness loads cached candles once per pair
+and never overwrites newer live ticks. Flat-price RSI is neutral (50), zero volatility
+remains a valid zero, and High intensity tooltips correctly allow OTC.
+
+
+### 2.4.15 — 2026-09-10 — payout and recovery QC candidate
+Local QC candidate; not published. Stop with an explanation when payout is unreadable,
+current-pair mode cannot meet the minimum, or an automatic switch cannot confirm the
+requested pair and qualifying payout. Disabled monitoring retains its existing behavior.
+The existing fresh-sequence-only timing is unchanged. Regression tests reproduce four
+failures in 2.4.14 and cover successful/disabled paths.
+Removed timestamp-only WebSocket close attribution when the current deal ID is
+unknown: another deal's delayed result must not be assigned to this trade.
+Existing balance/DOM result fallbacks remain; late-open identity reconciliation
+is not implemented in this candidate.
+Runtime restore holds in-flight, amount-set and unknown phases for manual
+reconciliation instead of scheduling a duplicate order. Safe between-cycle
+phases retain automatic recovery. Quick manual Stop/Start remains unaddressed.
+
 
 ### 2.4.14 — 2026-09-02 — the in-product pricing path reaches users
 **The only `/pricing` link in the panel lived inside `<div id="av-limit-msg" style="display:none">`** —

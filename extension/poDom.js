@@ -41,14 +41,14 @@ async function getBalance() {
         const text = el.textContent.replace(/[^0-9.]/g, '');
         const val = parseFloat(text);
         if (val > 0) {
-          console.log(`[Avalisa] Balance found via: ${sel} = ${val} (mode=${demo ? 'demo' : 'real'}, attempt=${attempt})`);
+          debugLog(`[Avalisa] Balance found via: ${sel} = ${val} (mode=${demo ? 'demo' : 'real'}, attempt=${attempt})`);
           return val;
         }
       }
     }
     const activeTextBalance = getActiveAccountBalanceFromText(demo);
     if (activeTextBalance !== null) {
-      console.log(`[Avalisa] Balance found via active account text = ${activeTextBalance} (mode=${demo ? 'demo' : 'real'}, attempt=${attempt})`);
+      debugLog(`[Avalisa] Balance found via active account text = ${activeTextBalance} (mode=${demo ? 'demo' : 'real'}, attempt=${attempt})`);
       return activeTextBalance;
     }
     if (attempt < 3) await sleep(300);
@@ -238,8 +238,13 @@ async function setTimeframe(tf, retried = false) {
     console.log('[Avalisa] setTimeframe:', reason, selectedTf);
     await sleep(300);
     closePOPopovers();
-    await sleep(700);
-    return selectedTf;
+    for (let i = 0; i < 10; i++) {
+      const actual = document.querySelector(PO_SELECTORS.durationValue)?.textContent?.trim();
+      if (actual === tfTimeMap[selectedTf]) return selectedTf;
+      await sleep(100);
+    }
+    console.warn('[Avalisa] Expiry change was not confirmed:', selectedTf);
+    return null;
   };
 
   const selectable = Array.from(items).filter(i => !isAddButton(i.textContent));
@@ -329,7 +334,7 @@ function resolveTradeButton(action, selectors) {
   for (const sel of selectors) {
     const btn = document.querySelector(sel);
     if (isUsableTradeButton(btn)) {
-      console.log(`[Avalisa] ${action.toUpperCase()} button found with selector:`, sel);
+      debugLog(`[Avalisa] ${action.toUpperCase()} button found with selector:`, sel);
       return btn;
     }
   }
@@ -436,7 +441,6 @@ async function waitForTradeOpen(balanceBefore, amount, timeoutMs = 10000, dealCo
   let sawNewDealElement = false;
   let lastBalance = balanceBefore;
   let prevSample = null;
-  const openedAtTs = Date.now();
 
   await sleep(1500);
   const start = Date.now();
@@ -444,12 +448,9 @@ async function waitForTradeOpen(balanceBefore, amount, timeoutMs = 10000, dealCo
   while (Date.now() - start < timeoutMs) {
     // PO's own successopenOrder event is authoritative and arrives on the socket
     // even when a throttled tab has frozen the balance DOM. Prefer it.
-    const wsOpen = state.lastWsOpen;
-    if (wsOpen && wsOpen.ts >= openedAtTs && Number(wsOpen.payload?.amount) === Number(amount)) {
-      console.log('[Avalisa] Trade confirmed via PO socket (successopenOrder):', wsOpen.payload?.asset, wsOpen.payload?.amount, 'deal', wsOpen.payload?.id);
-      // Remember which deal this is so the resolver cannot pick up a different
-      // trade's close event.
-      state.currentDealId = wsOpen.payload?.id || null;
+    const dealId = reconcileCurrentDealId();
+    if (dealId) {
+      console.log('[Avalisa] Trade confirmed via PO socket:', dealId);
       const bal = await getBalance();
       return { opened: true, balanceDuring: bal ?? lastBalance ?? balanceBefore, method: 'ws-open' };
     }
@@ -570,23 +571,22 @@ function getPayoutSettings() {
 async function checkPayoutBeforeTrade(options = {}) {
   const allowSwitch = options.allowSwitch !== false;
   const { minPct, action } = getPayoutSettings();
+  if (action === 'off') return { proceed: true };
   const current = getCurrentPayoutPercent();
 
   if (current === null) {
-    console.warn('[Avalisa] Payout Monitor: could not read current pair payout — proceeding');
-    return { proceed: true };
+    return { proceed: false, halt: true, reason: 'Cannot read current pair payout. Wait for PO to load and restart.' };
   }
   console.log(`[Avalisa] Payout Monitor: current=${current}% threshold=${minPct}% action=${action}`);
 
-  if (action === 'off' || current >= minPct) return { proceed: true };
+  if (current >= minPct) return { proceed: true };
 
   if (action === 'stop') {
     return { proceed: false, halt: true, reason: `Payout ${current}% below ${minPct}% threshold` };
   }
 
   if (!allowSwitch) {
-    console.log('[Avalisa] Payout Monitor: auto-switch suppressed by current-pair mode');
-    return { proceed: true };
+    return { proceed: false, halt: true, reason: `Payout ${current}% below ${minPct}% threshold; current-pair mode prevents switching` };
   }
 
   const favorites = getFavoritePairs();
@@ -600,8 +600,8 @@ async function checkPayoutBeforeTrade(options = {}) {
   }
 
   const currentPair = (getCurrentPair() || '').trim();
-  if (best.payout === current || best.name === currentPair) {
-    return { proceed: true };
+  if (normalizeAssetName(best.name) === normalizeAssetName(currentPair)) {
+    return { proceed: false, halt: true, reason: `Current pair payout ${current}% below ${minPct}% threshold` };
   }
 
   console.log(`[Avalisa] Payout Monitor: switching to ${best.name} (${best.payout}%)`);
@@ -609,6 +609,13 @@ async function checkPayoutBeforeTrade(options = {}) {
     return { proceed: false, halt: true, reason: `Could not switch to ${best.name}` };
   }
   await sleep(1500);
+  if (normalizeAssetName(getCurrentPair() || '') !== normalizeAssetName(best.name)) {
+    return { proceed: false, halt: true, reason: `Could not confirm switch to ${best.name}` };
+  }
+  const switchedPayout = getCurrentPayoutPercent();
+  if (switchedPayout === null || switchedPayout < minPct) {
+    return { proceed: false, halt: true, reason: `Cannot confirm payout >= ${minPct}% after switching to ${best.name}` };
+  }
   return { proceed: true };
 }
 

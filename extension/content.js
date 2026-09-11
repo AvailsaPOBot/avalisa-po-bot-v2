@@ -48,6 +48,8 @@ function parseWsMessage(raw) {
   let payload;
   try { payload = JSON.parse(m[2]); } catch { return; }
 
+  if (/^successopenOrder$/i.test(event)) recordWsOpen(payload);
+
   // Capture close-like events for trade result detection
   const CLOSE_EVENT_PATTERNS = /close|deal.*end|order.*close|profit|expir|update.*deal|success.*close/i;
   if (CLOSE_EVENT_PATTERNS.test(event)) {
@@ -150,6 +152,10 @@ async function restoreCandleCache(asset, periodSec) {
       const cache = data[CANDLE_CACHE_KEY] || {};
       const key = `${asset}:${periodSec}`;
       const candles = cache[key]?.candles || [];
+      const live = state.candleBuffer[key] || [];
+      // Never rewind ticks already received while the asynchronous storage read ran.
+      if (live.length && live[live.length - 1].time >= (candles[candles.length - 1]?.time || 0)) return resolve(false);
+      if (normalizeAssetName(getCurrentPair()) !== asset) return resolve(false);
       if (!isFreshCandleCache(candles, periodSec)) return resolve(false);
 
       clearStalePairBuffers(asset, periodSec);
@@ -287,9 +293,6 @@ async function restoreRuntimeSession() {
   }
 
   state.settings = { ...getDefaultSettings(), ...(saved.settings || state.settings || {}) };
-  state.running = true;
-  state.stopRequested = false;
-  state.cycleGeneration += 1;
   state.currentAmount = Math.max(1, Number(saved.currentAmount) || Number(state.settings.startAmount) || 1);
   state.martingaleStep = Math.max(0, Number(saved.martingaleStep) || 0);
   state.tradesCount = Math.max(0, Number(saved.tradesCount) || 0);
@@ -297,6 +300,40 @@ async function restoreRuntimeSession() {
   state.amountSetFailures = Math.max(0, Number(saved.amountSetFailures) || 0);
   state.recoveryReloads = Math.max(0, Number(saved.recoveryReloads) || 0);
   state.cycleErrorReloads = Math.max(0, Number(saved.cycleErrorReloads) || 0);
+
+  // A reload can happen after an order was sent but before its result was
+  // applied. Starting a fresh cycle from that snapshot can place the same rung
+  // again while the original trade is still open. Keep the saved recovery
+  // context for manual inspection, but never guess the unresolved result or
+  // auto-resume from an in-flight phase.
+  const savedPhase = String(saved.phase || '');
+  // These are written only while no order is in flight: error recovery checks
+  // !state.isTradeOpen before persisting, and resolved follows result application.
+  // amount_set can survive a crash between clicking and saving order_pending.
+  // Unknown/future
+  // phases fail closed until their safety is explicit.
+  const safeResumePhases = new Set([
+    'started',
+    'amount_retry',
+    'auto_reload_amount',
+    'cycle_error_retry',
+    'auto_reload_error',
+    'resolved',
+  ]);
+  if (!safeResumePhases.has(savedPhase)) {
+    state.running = false;
+    state.stopRequested = true;
+    state.cycleGeneration += 1;
+    clearTradeLock();
+    updateUI();
+    updateTradeCounter();
+    updateStatus('error', 'Recovered an unresolved trade. Check Pocket Option trade history and reconcile its result before starting again.');
+    return false;
+  }
+
+  state.running = true;
+  state.stopRequested = false;
+  state.cycleGeneration += 1;
   clearTradeLock();
 
   updateUI();
@@ -438,10 +475,15 @@ async function ensureAvalisaDataForCurrentPair(
   periodSec = AI_ANALYSIS_PERIOD_SEC,
 ) {
   const started = Date.now();
+  let restoredAsset = null;
   while (Date.now() - started < timeoutMs) {
     const asset = normalizeAssetName(getCurrentPair());
     if (asset && asset !== 'UNKNOWN' && periodSec) {
-      await restoreCandleCache(asset, periodSec);
+      if (restoredAsset !== asset) {
+        restoredAsset = asset;
+        const live = getBufferedCandlesFor(asset, periodSec);
+        if (!isFreshCandleCache(live, periodSec)) await restoreCandleCache(asset, periodSec);
+      }
       requestCandleHistory(asset, periodSec);
       const activeReady = state.activePair === asset && state.activePeriod === periodSec;
       const activeCount = activeReady ? getBufferedCandlesFor(asset, periodSec).length : 0;
@@ -567,6 +609,7 @@ async function handleTradeCycleError(err, generation) {
   state.cycleErrorReloads = 0;
   clearTradeLock();
   clearRuntimeSession().catch(() => {});
+  state.stopAfterTrade = false;
   updateUI();
   updateStatus('error', 'Avalisa stopped safely — Pocket Option changed or page error. Press Start to resume the ladder.');
 }
@@ -577,11 +620,13 @@ async function chooseAvalisaOpportunity(intensity, generation) {
   }
 
   const { minPct } = getPayoutSettings();
-  const currentPayout = getCurrentPayoutPercent();
-
   const requiredCandles = getRequiredCandles(intensity);
-  await ensureAvalisaDataForCurrentPair(6000, requiredCandles);
-  const current = evaluateAvalisaCurrentPair(intensity, currentPayout, 'current');
+  const currentReady = await ensureAvalisaDataForCurrentPair(6000, requiredCandles);
+  if (!isCycleActive(generation)) return { action: 'SKIP', reason: 'cancelled' };
+  const currentPayout = getCurrentPayoutPercent();
+  const current = currentReady
+    ? evaluateAvalisaCurrentPair(intensity, currentPayout, 'current')
+    : { action: 'SKIP', reason: 'no_ready_favorite', source: 'current' };
   console.log(`[Avalisa] Avalisa scan current: action=${current.action} pair=${current.asset} payout=${current.payout ?? 'n/a'} confidence=${current.confidence || 0} tf=${current.timeframe || 'n/a'} reason=${current.reason}`);
   if (current.action !== 'SKIP') return current;
 
@@ -605,19 +650,23 @@ async function chooseAvalisaOpportunity(intensity, generation) {
     console.log(`[Avalisa] Avalisa scan: switching to favorite ${fav.name} (${fav.payout}%)`);
     if (!clickFavoritePair(fav)) continue;
     await sleep(1800);
+    if (!isCycleActive(generation)) return { action: 'SKIP', reason: 'cancelled' };
     const ready = await ensureAvalisaDataForCurrentPair(7000, requiredCandles);
     // Only evaluate once the buffer actually belongs to the pair we just
     // switched to. Observed live 2026-08-17: 1 scan in 12 timed out mid-switch
     // and evaluated the PREVIOUS pair's candles while labelled as the new
     // favourite — a non-SKIP there would have traded this pair on another
     // pair's indicators.
+    if (!isCycleActive(generation)) return { action: 'SKIP', reason: 'cancelled' };
     const wanted = normalizeAssetName(getCurrentPair());
-    if (!ready || !wanted || wanted === 'UNKNOWN' || state.activePair !== wanted) {
+    if (wanted !== normalizeAssetName(fav.name) || !ready || !wanted || wanted === 'UNKNOWN' || state.activePair !== wanted) {
       console.log(`[Avalisa] Avalisa scan favorite: SKIP ${fav.name} — data not ready for ${wanted || 'unknown'} (buffer holds ${state.activePair || 'nothing'})`);
       sawLoadingCandidate = true;
       continue;
     }
-    const candidate = evaluateAvalisaCurrentPair(intensity, fav.payout, 'favorite');
+    const livePayout = getCurrentPayoutPercent();
+    if (livePayout === null || livePayout < minPct) continue;
+    const candidate = evaluateAvalisaCurrentPair(intensity, livePayout, 'favorite');
     candidate.favoriteName = fav.name;
     console.log(`[Avalisa] Avalisa scan favorite: action=${candidate.action} pair=${candidate.asset} favorite=${fav.name} payout=${fav.payout} confidence=${candidate.confidence || 0} tf=${candidate.timeframe || 'n/a'} reason=${candidate.reason}`);
     if (candidate.action !== 'SKIP') return candidate;
@@ -710,6 +759,20 @@ async function pauseRecoveryAfterAmountSetFailure(generation, safeAmount, availa
     name: 'RecoveryPaused',
     message: `Could not safely set recovery amount ${safeAmount}${balanceText}`,
   };
+  // Reset only the host input; the paused recovery ladder keeps its amount.
+  const configuredStart = Number(state.settings?.startAmount);
+  let restoreAmount = Number.isFinite(configuredStart) ? Math.max(1, configuredStart) : 1;
+  let restored = setTradeAmount(restoreAmount);
+  if (!restored && restoreAmount !== 1) {
+    console.warn('[Avalisa] PO rejected the starting amount during reset — trying minimum 1.00');
+    restoreAmount = 1;
+    restored = setTradeAmount(restoreAmount);
+  }
+  if (restored) {
+    console.log('[Avalisa] PO amount input restored after rejection:', restoreAmount.toFixed(2));
+  } else {
+    console.warn('[Avalisa] Could not restore PO amount input after rejection; check the amount before manual trading.');
+  }
   await preservePausedLadder(aboveBalance ? 'amount_above_balance' : 'amount_control_stuck');
   state.running = false;
   state.stopRequested = true;
@@ -841,6 +904,8 @@ async function runTradeCycleUnsafe(generation) {
   let aiDecidedDirection = null;
   let aiSignalSnapshot = null;
   let aiSuggestedTimeframe = null;
+  let signalAsset = null;
+  let signalSource = null;
   if (state.settings.strategy === 'ai') {
     // Wait for warmup — normally satisfied instantly by the updateHistoryNewFast seed
     const intensity = state.settings.intensity || state.settings.aiIntensity || 'mid';
@@ -851,8 +916,8 @@ async function runTradeCycleUnsafe(generation) {
     while (candles.length < requiredCandles && state.running && !state.stopRequested) {
       updateStatus('running', `Loading: ${candles.length}/${requiredCandles}`);
       const asset = normalizeAssetName(getCurrentPair());
-      const periodSec = getCurrentPeriodSeconds();
-      requestCandleHistory(asset, periodSec, true);
+      const periodSec = AI_ANALYSIS_PERIOD_SEC;
+      requestCandleHistory(asset, periodSec);
       await sleep(2000);
       if (!isCycleActive(generation)) return;
       candles = getBufferedCandles();
@@ -879,6 +944,8 @@ async function runTradeCycleUnsafe(generation) {
     if (!isCycleActive(generation)) return;
     const sig = opportunity?.sig || { action: 'SKIP', reason: opportunity?.reason || 'not_enough_rules' };
     aiSignalSnapshot = sig.snapshot || null;
+    signalAsset = opportunity?.asset || null;
+    signalSource = opportunity?.source || null;
     aiSuggestedTimeframe = opportunity?.timeframe || sig.timeframe || null;
 
     console.log(`[Avalisa] Avalisa selected: action=${sig.action} pair=${opportunity?.asset || getCurrentPair()} source=${opportunity?.source || 'current'} confidence=${opportunity?.confidence || 0} tf=${aiSuggestedTimeframe || 'n/a'} reason=${sig.reason || opportunity?.reason || 'ok'} rules=${sig.snapshot?.rulesMatched}`);
@@ -918,6 +985,11 @@ async function runTradeCycleUnsafe(generation) {
   const safeAmount = state.currentAmount;
 
   const direction = aiDecidedDirection || getNextDirection();
+  const executionAsset = normalizeAssetName(getCurrentPair());
+  if (signalAsset && executionAsset !== signalAsset) {
+    stopAvalisaForDecision('Pair changed after signal — restart to rescan');
+    return;
+  }
 
   updateStatus('running', `Trade #${state.tradesCount + 1} — ${direction.toUpperCase()} $${safeAmount.toFixed(2)}`);
 
@@ -998,6 +1070,19 @@ async function runTradeCycleUnsafe(generation) {
   closePOPopovers();
   await sleep(200);
   if (!isCycleActive(generation)) return;
+  if (normalizeAssetName(getCurrentPair()) !== executionAsset) {
+    stopAvalisaForDecision('Pair changed before order — restart to rescan');
+    return;
+  }
+  state.currentDealId = null;
+  state.currentTradeIdentity = { tradeStartTs, asset: executionAsset, amount: safeAmount };
+  const tradeMeta = {
+    payoutPct: getCurrentPayoutPercent(),
+    martingaleStep: state.martingaleStep,
+    extVersion: chrome.runtime.getManifest().version,
+    source: signalSource,
+    intensity: aiSignalSnapshot?.intensity || null,
+  };
   const placed = direction === 'call' ? clickCall() : clickPut();
   if (!placed) {
     if (!isCycleActive(generation)) return;
@@ -1006,10 +1091,6 @@ async function runTradeCycleUnsafe(generation) {
   }
 
   setTradeLock('order_pending');
-  // Drop the previous trade's deal id BEFORE this one can be confirmed, so the
-  // resolver can never pair this trade with the last trade's close event, and
-  // so a stale id cannot block resolution either.
-  state.currentDealId = null;
   await persistRuntimeSession('order_pending');
   updateStatus('running', 'Order sent — confirming open...');
 
@@ -1026,6 +1107,7 @@ async function runTradeCycleUnsafe(generation) {
     if (!openResult.opened) {
       console.warn('[Avalisa] No late balance confirmation — clearing lock and continuing without counting trade:', openResult.method);
       clearTradeLock();
+      if (state.stopAfterTrade) { stopBot(); return; }
       const canContinue = await recoverAfterUnconfirmedOrder();
       if (!canContinue || !isCycleActive(generation)) return;
       const cooldownMs = Math.min(Math.max(AI_NO_PROGRESS_RETRY_MS, 5000), 15000);
@@ -1066,6 +1148,9 @@ async function runTradeCycleUnsafe(generation) {
   const balanceAfter = await getBalance();
   if (!isCycleActive(generation)) return;
 
+  const detectedResultMethod = state.lastTradeResultDebug?.method || 'unknown';
+  tradeMeta.resultMethod = ['ws', 'balance', 'dom-late', 'unknown'].includes(detectedResultMethod)
+    ? detectedResultMethod : 'other';
   if (state.jwt) {
     withRetry(() => apiPost('/api/trades/log', {
       pair: getCurrentPair(),
@@ -1080,12 +1165,14 @@ async function runTradeCycleUnsafe(generation) {
         ? executionTimeframe
         : (state.activePeriod ? `${state.activePeriod}s` : (state.settings?.timeframe || 'M1')),
       signalSnapshot: aiSignalSnapshot,
+      meta: tradeMeta,
     })).catch(console.error);
   }
 
   applyMartingaleLogic(result);
   await persistRuntimeSession('resolved');
   clearTradeLock();
+  if (state.stopAfterTrade) { stopBot(); return; }
 
   if (isCycleActive(generation)) {
     updateStatus('running', `Last: ${result.toUpperCase()} | Next: $${state.currentAmount.toFixed(2)}`);
@@ -1245,7 +1332,10 @@ function bindOverlayEvents() {
   // Strategy dropdown — toggle UI between Martingale and AI mode
   document.getElementById('av-strategy').addEventListener('change', (e) => {
     const strategy = e.target.value;
+    state.settings.strategy = strategy;
     state.settings.aiAssist = strategy === 'ai';
+    state.lastSignal = null;
+    if (!state.running && strategy === 'martingale') updateStatus('', 'Stopped');
     applyStrategyUI(strategy);
     updateBottomStatus();
     if (strategy === 'ai') prefillCandleHistory().catch(console.error);
@@ -1693,6 +1783,7 @@ async function startBot() {
   }
 
   state.running = true;
+  state.stopAfterTrade = false;
   clearTradeLock();                  // clear any stale open-trade flag from last run
   state.currentAmount = parseFloat(state.settings.startAmount) || 1.0;
   state.martingaleStep = 0;
@@ -1729,6 +1820,14 @@ async function startBot() {
 }
 
 function stopBot() {
+  // Finish tracking an accepted/pending order before unlocking Start.
+  if (state.tradeLock || state.isTradeOpen) {
+    state.stopAfterTrade = true;
+    updateUI();
+    updateStatus('running', 'Stopping — waiting for the current order to resolve');
+    return;
+  }
+  state.stopAfterTrade = false;
   state.cycleGeneration++;           // invalidates any running cycle immediately
   state.running = false;
   state.stopRequested = true;
@@ -1792,7 +1891,7 @@ function updateUI() {
   const claimBlock = document.getElementById('av-claim-block');
 
   if (startBtn) startBtn.disabled = state.running;
-  if (stopBtn) stopBtn.disabled = !state.running;
+  if (stopBtn) stopBtn.disabled = !state.running || state.stopAfterTrade;
 
   // Lock config inputs while the bot is Running — prevents mid-run strategy/config crashes
   const lockedIds = [
@@ -2038,7 +2137,7 @@ window.addEventListener('message', (e) => {
       const evName = e.data.event || '';
 
       if (/successopenOrder/i.test(evName)) {
-        state.lastWsOpen = { ts: Date.now(), payload };
+        recordWsOpen(payload);
         debugLog('[Avalisa] WS open confirmed:', payload?.asset, payload?.amount, 'req', payload?.requestId);
       } else if (/successcloseOrder|deals?Closed|closeOrder/i.test(evName)) {
         state.recentCloseEvents.push({ ts: Date.now(), event: evName, payload });

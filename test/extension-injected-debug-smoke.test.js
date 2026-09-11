@@ -96,7 +96,35 @@ function createHarness({ debug = false } = {}) {
   assert.equal(debug.posted.some(message => message.type === 'AVALISA_FETCH_RES'), true);
   assert.equal(debug.logs.some(line => line.includes('Interceptors active')), true);
 
-  console.log('Extension injected debug smoke passed.');
+  const concurrent = createHarness();
+  const w = concurrent.window;
+  const a = new w.WebSocket('wss://po.market/a');
+  const b = new w.WebSocket('wss://po.market/b');
+  let finishOpen;
+  const delayedOpen = new w.Blob();
+  delayedOpen.text = () => new Promise(resolve => { finishOpen = resolve; });
+  const close = new w.Blob();
+  close.text = async () => 'close-payload';
+  a.dispatchMessage('451-["successopenOrder",{}]');
+  a.dispatchMessage(delayedOpen);
+  a.dispatchMessage('451-["successcloseOrder",{}]');
+  a.dispatchMessage(close);
+  b.dispatchMessage('451-["updateHistoryNewFast",{}]');
+  const history = new w.Blob(); history.text = async () => 'history-payload';
+  b.dispatchMessage(history);
+  finishOpen('open-payload');
+  await Promise.resolve(); await Promise.resolve();
+  const binary = concurrent.posted.filter(m => m.type === 'AVALISA_WS_BINARY');
+  assert.ok(binary.some(m => m.event === 'successopenOrder' && m.data === 'open-payload'));
+  assert.ok(binary.some(m => m.event === 'successcloseOrder' && m.data === 'close-payload'));
+  assert.ok(concurrent.posted.some(m => m.type === 'AVALISA_WS_HISTORY' && m.data === 'history-payload'));
+  // A pending header on socket A must not label an untagged frame on socket B.
+  a.dispatchMessage('451-["successopenOrder",{}]');
+  const tick = new w.Blob(); tick.text = async () => 'tick-payload';
+  b.dispatchMessage(tick);
+  await Promise.resolve(); await Promise.resolve();
+  assert.ok(concurrent.posted.some(m => m.type === 'AVALISA_WS_TICK' && m.data === 'tick-payload'));
+  console.log('Extension injected debug and concurrent socket smoke passed.');
 })().catch(err => {
   console.error(err);
   process.exit(1);

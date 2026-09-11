@@ -14,6 +14,19 @@ const router = express.Router();
 // All admin routes require auth + admin
 router.use(authMiddleware, adminMiddleware);
 
+// Aggregate-only measurement endpoint; authentication remains the shared admin gate.
+router.get('/strategy-stats', async (req, res) => {
+  try {
+    const { getStrategyStats } = require('../lib/strategyStats');
+    return res.json(await getStrategyStats(prisma, req.query));
+  } catch (err) {
+    if (err instanceof RangeError) return res.status(400).json({ error: err.message });
+    console.error('[admin/strategy-stats]', err.message);
+    return res.status(500).json({ error: 'Failed to aggregate strategy statistics' });
+  }
+});
+
+
 // POST /api/admin/grant-access
 // Body: { identifier: "email or PO UID", plan: "lifetime" | "basic" }
 router.post('/grant-access', async (req, res) => {

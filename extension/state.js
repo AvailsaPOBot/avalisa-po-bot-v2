@@ -23,6 +23,7 @@ const state = {
   userId: null,
   deviceFingerprint: null,
   stopRequested: false,
+  stopAfterTrade: false, // Stop drains the current order before allowing another Start
   cycleGeneration: 0,  // incremented on each start/stop; stale cycles self-terminate
   affiliateLink: AFFILIATE_LINK,  // updated from DB on startup
   // AI assist (background, non-blocking)
@@ -30,6 +31,9 @@ const state = {
   activePair: null,   // normalized asset key from last updateHistoryNewFast
   activePeriod: null, // period (seconds) from last updateHistoryNewFast
   recentCloseEvents: [], // [{ ts, event, payload }] — from PO's binary successcloseOrder
+  recentOpenEvents: [], // retained successopenOrder evidence for late identity
+  currentTradeIdentity: null, // immutable pair, stake and click window for attribution
+  usedDealIds: new Set(), // never reuse a deal across trades in this page session
   lastWsOpen: null,      // last successopenOrder payload (authoritative open confirmation)
   currentDealId: null,   // PO deal id of the trade in flight, so results pair exactly
   lastSignal: null,   // latest AvalisaSignalEngine verdict, for the panel readout

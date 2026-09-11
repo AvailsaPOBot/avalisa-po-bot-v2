@@ -86,15 +86,15 @@ const closeEvent = (ts, deals) => ({ ts, event: 'successcloseOrder', payload: { 
   assert.equal(readWsTradeResultSince(1000).result, 'tie');
 }
 
-// ── No deal id known (open never confirmed via socket) → time fallback ──────
+// ── No deal id known (open never confirmed via socket) → no attribution ──────
 {
   const state = {
     currentDealId: null,
     recentCloseEvents: [closeEvent(2000, [{ id: THEIRS, amount: 2, profit: 1.84 }])],
   };
   const { readWsTradeResultSince } = load(state);
-  assert.equal(readWsTradeResultSince(1000).result, 'win',
-    'without a known deal id the old time-based behaviour is the fallback');
+  assert.equal(readWsTradeResultSince(1000), null,
+    'without a known deal id a delayed neighbouring close must not resolve this trade');
 }
 
 // ── Events older than the trade are ignored ────────────────────────────────

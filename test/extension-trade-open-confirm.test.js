@@ -30,13 +30,17 @@ function harness({ balances, dealCounts, wsOpen = null }) {
     countDealElements: () => (dealCounts.length > 1 ? dealCounts.shift() : dealCounts[0]),
     Date,
   };
-  const state = { lastWsOpen: wsOpen };
+  const state = { lastWsOpen: wsOpen, recentOpenEvents: wsOpen ? [wsOpen] : [], recentCloseEvents: [],
+    currentTradeIdentity: { tradeStartTs: Date.now(), asset: 'AUDUSD_otc', amount: 64 } };
+  const resultSource = fs.readFileSync(path.join(root, 'extension/tradeResult.js'), 'utf8');
+  const reconcileCurrentDealId = new Function('state', 'console', 'normalizeAssetName',
+    resultSource + '\nreturn reconcileCurrentDealId;')(state, sandbox.console, x => x);
   const fn = new Function(
-    'console', 'sleep', 'getBalance', 'countDealElements', 'Date', 'state',
+    'console', 'sleep', 'getBalance', 'countDealElements', 'Date', 'state', 'reconcileCurrentDealId',
     poDomSrc.slice(poDomSrc.indexOf('async function waitForTradeOpen'),
                    poDomSrc.indexOf('function parsePayoutPercent')) +
     '\nreturn waitForTradeOpen;',
-  )(sandbox.console, sandbox.sleep, sandbox.getBalance, sandbox.countDealElements, sandbox.Date, state);
+  )(sandbox.console, sandbox.sleep, sandbox.getBalance, sandbox.countDealElements, sandbox.Date, state, reconcileCurrentDealId);
   return { fn, logs, state };
 }
 
@@ -90,7 +94,7 @@ function harness({ balances, dealCounts, wsOpen = null }) {
   const { fn } = harness({
     balances: [1000, 1000],
     dealCounts: [5, 5],
-    wsOpen: { ts: Date.now() + 50, payload: { asset: 'AUDUSD_otc', amount: 64 } },
+    wsOpen: { ts: Date.now() + 50, payload: { id: 'our-open', asset: 'AUDUSD_otc', amount: 64 } },
   });
   const r = await fn(1000, 64, 3000, 5);
   assert.equal(r.opened, true, 'successopenOrder must confirm the open on its own');

@@ -18,7 +18,7 @@ function calcRSI(closes, period = 14) {
   }
   const avgGain = gains / period;
   const avgLoss = losses / period;
-  if (avgLoss === 0) return 100;
+  if (avgLoss === 0) return avgGain === 0 ? 50 : 100;
   const rs = avgGain / avgLoss;
   return +(100 - 100 / (1 + rs)).toFixed(1);
 }
@@ -79,7 +79,7 @@ function buildIndicators(candlesOverride = null, pairOverride = null, tfOverride
     recentHigh: +recentHigh.toFixed(5),
     recentLow: +recentLow.toFixed(5),
     rangeFromLowPct: +(((price - recentLow) / (recentHigh - recentLow || 1)) * 100).toFixed(1),
-    volatility: vol ? +vol.toFixed(6) : null,
+    volatility: Number.isFinite(vol) ? +vol.toFixed(6) : null,
     momentum5,
     last3Candles: last3,
     candleCount: candles.length,

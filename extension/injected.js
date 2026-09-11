@@ -23,11 +23,12 @@
   // ── WebSocket interceptor ──────────────────────────────────────────────────
   const _WS = window.WebSocket;
   let _latestWs = null;
-  let _expectHistoryBinary = false;
-  let _pendingBinaryEvent = null;
 
   function AvalisaWS(url, proto) {
     const ws = proto ? new _WS(url, proto) : new _WS(url);
+    // Socket.IO attachment state belongs to this connection, never another socket.
+    let _expectHistoryBinary = false;
+    let _pendingBinaryEvent = null;
 
     // Track the latest PO websocket for history requests
     if (url && (url.includes('po.market') || url.includes('pocketoption') || url.includes('po.cash') || url.includes('po.trade'))) {
@@ -39,6 +40,7 @@
         // Check for Socket.IO binary event placeholder containing history data
         if (/^45\d/.test(e.data) && (e.data.includes('updateHistoryNewFast') || e.data.includes('updateCharts'))) {
           _expectHistoryBinary = true;
+          _pendingBinaryEvent = null;
           debugLog('[Avalisa] History binary expected next frame');
         } else if (/^45\d/.test(e.data)) {
           // Remember which event the NEXT binary frame belongs to. PO sends
@@ -46,6 +48,7 @@
           // successcloseOrder, the authoritative trade open/result events — and
           // without this the payload arrives anonymously and gets treated as a
           // price tick.
+          _expectHistoryBinary = false;
           const m = e.data.match(/\["([^"]+)"/);
           _pendingBinaryEvent = m ? m[1] : null;
         }
@@ -53,12 +56,17 @@
         try { window.postMessage({ type: 'AVALISA_WS', data: e.data }, '*'); } catch (_) {}
       } else if (e.data instanceof Blob) {
         // Binary frame as Blob (default binaryType)
+        // Consume metadata before asynchronous Blob decoding; the next event may
+        // arrive before text() resolves.
+        const isHistory = _expectHistoryBinary;
+        const binaryEvent = _pendingBinaryEvent;
+        _expectHistoryBinary = false;
+        _pendingBinaryEvent = null;
         e.data.text().then(text => {
-          if (_expectHistoryBinary) {
-            _expectHistoryBinary = false;
+          if (isHistory) {
             try { window.postMessage({ type: 'AVALISA_WS_HISTORY', data: text }, '*'); } catch (_) {}
-          } else if (_pendingBinaryEvent) {
-            const ev = _pendingBinaryEvent; _pendingBinaryEvent = null;
+          } else if (binaryEvent) {
+            const ev = binaryEvent;
             try { window.postMessage({ type: 'AVALISA_WS_BINARY', event: ev, data: text }, '*'); } catch (_) {}
           } else {
             try { window.postMessage({ type: 'AVALISA_WS_TICK', data: text }, '*'); } catch (_) {}

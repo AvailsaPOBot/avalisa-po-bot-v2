@@ -110,6 +110,12 @@ const testPromise = dom.window.eval(`${extensionBundle}
   assert.equal(document.getElementById('av-row-intensity').style.display, 'flex');
   assert.equal(document.getElementById('av-row-ai-pair-mode').style.display, 'flex');
   assert.equal(__storageData.settings.strategy, 'ai');
+  document.getElementById('av-strategy').value = 'martingale';
+  document.getElementById('av-strategy').dispatchEvent(new Event('change'));
+  assert.equal(state.settings.strategy, 'martingale');
+  assert.ok(document.getElementById('av-status').textContent.includes('Stopped'));
+  document.getElementById('av-strategy').value = 'ai';
+  document.getElementById('av-strategy').dispatchEvent(new Event('change'));
 
   document.getElementById('av-intensity').value = 'high';
   document.getElementById('av-ai-pair-mode').value = 'current';

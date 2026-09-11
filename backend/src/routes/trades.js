@@ -3,6 +3,7 @@ const { authMiddleware } = require('../middleware/auth');
 const prisma = require('../lib/prisma');
 const { PLAN_IDS, getAiTradesAllowanceForLicense } = require('../lib/plans');
 
+const { sanitizeTradeMeta } = require('../lib/tradeMeta');
 const router = express.Router();
 const VALID_TIMEFRAMES = ['S15', 'S30', 'M1', 'M3', 'M5', 'M30', 'H1'];
 
@@ -20,27 +21,12 @@ function normalizeTimeframe(timeframe) {
   return raw.toUpperCase();
 }
 
-// Trim trades to keep only the latest N per user per type
-async function trimTrades(userId, isDemo) {
-  const limit = isDemo ? 50 : 100;
-  const excess = await prisma.trade.findMany({
-    where: { userId, isDemo },
-    orderBy: { createdAt: 'desc' },
-    skip: limit,
-    select: { id: true },
-  });
-  if (excess.length > 0) {
-    await prisma.trade.deleteMany({ where: { id: { in: excess.map(t => t.id) } } });
-  }
-}
-
 // POST /api/trades/log
 router.post('/log', authMiddleware, async (req, res) => {
-  console.log('[trades/log] body received:', JSON.stringify(req.body));
-
   try {
     const { pair, direction, amount, result, balanceBefore, balanceAfter, isDemo, strategy, signalSnapshot } = req.body;
     const timeframe = normalizeTimeframe(req.body.timeframe);
+    const meta = sanitizeTradeMeta(req.body.meta);
 
     if (!direction || amount == null || amount === '' || !result) {
       return res.status(400).json({ error: 'Missing required fields: direction, amount, result' });
@@ -91,15 +77,11 @@ router.post('/log', authMiddleware, async (req, res) => {
         strategy: strategy || 'martingale',
         timeframe,
         signalSnapshot: signalSnapshot || null,
+        ...(meta ? { meta } : {}),
       },
     });
 
     // (AI allowance was already consumed atomically above, before trade creation.)
-
-    // Fire-and-forget trim — don't block the response
-    trimTrades(req.userId, isDemoVal).catch(err =>
-      console.error('[trades/log] trim error:', err.message)
-    );
 
     return res.json({ success: true, trade });
   } catch (err) {
@@ -127,23 +109,20 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
 // GET /api/trades/history?type=real|demo|all&page=1&limit=50
 router.get('/history', authMiddleware, async (req, res) => {
-  const { page = 1, limit = 50, type = 'all' } = req.query;
-  const skip = (parseInt(page) - 1) * parseInt(limit);
-
-  const where = { userId: req.userId };
-  if (type === 'real') where.isDemo = false;
-  else if (type === 'demo') where.isDemo = true;
-
+  const { type = 'all' } = req.query;
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const limit = Math.min(type === 'demo' ? 50 : 100, Math.max(1, parseInt(req.query.limit, 10) || 50));
+  const skip = (page - 1) * limit;
   try {
-    const [trades, total] = await Promise.all([
-      prisma.trade.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: parseInt(limit),
-      }),
-      prisma.trade.count({ where }),
-    ]);
+    // Retention is independent of the UI: expose only the newest 50 demo/100 real.
+    const types = type === 'demo' ? [true] : type === 'real' ? [false] : [true, false];
+    const recent = (await Promise.all(types.map(isDemo => prisma.trade.findMany({
+      where: { userId: req.userId, isDemo },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: isDemo ? 50 : 100,
+    })))).flat().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt) || b.id.localeCompare(a.id));
+    const total = recent.length;
+    const trades = recent.slice(skip, skip + limit);
 
     const closedTrades = trades.filter(t => t.result !== 'pending');
     const wins = closedTrades.filter(t => t.result === 'win').length;
