@@ -23,6 +23,7 @@ const expectedIsolatedScripts = [
   'tradeResult.js',
   'overlayView.js',
   'claimFlow.js',
+  'telemetry.js',
   'content.js',
 ];
 

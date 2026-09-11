@@ -21,6 +21,16 @@ function normalizeTimeframe(timeframe) {
   return raw.toUpperCase();
 }
 
+const { capBody, userRateLimit, eventData } = require('../lib/tradingTelemetry');
+router.post('/event', authMiddleware, capBody, userRateLimit(), async (req, res) => {
+  try {
+    await prisma.tradeEvent.create({ data: eventData(req.body, req.userId) });
+    return res.json({ success: true });
+  } catch (err) {
+    return res.status(err instanceof RangeError ? 400 : 500).json({ error: err instanceof RangeError ? err.message : 'Failed to record event' });
+  }
+});
+
 // POST /api/trades/log
 router.post('/log', authMiddleware, async (req, res) => {
   try {

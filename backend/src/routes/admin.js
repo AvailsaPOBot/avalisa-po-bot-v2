@@ -14,6 +14,11 @@ const router = express.Router();
 // All admin routes require auth + admin
 router.use(authMiddleware, adminMiddleware);
 
+router.get('/market-candles/export', async (req, res) => {
+  try { return res.json(await require('../lib/tradingTelemetry').exportCandles(prisma, req.query)); }
+  catch (err) { return res.status(err instanceof RangeError ? 400 : 500).json({ error: err instanceof RangeError ? err.message : 'Failed to export candles' }); }
+});
+
 // Aggregate-only measurement endpoint; authentication remains the shared admin gate.
 router.get('/strategy-stats', async (req, res) => {
   try {

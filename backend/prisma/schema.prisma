@@ -18,6 +18,7 @@ model User {
 
   license      License?
   trades       Trade[]
+  tradeEvents  TradeEvent[]
   settings     Settings?
   fingerprints DeviceFingerprint[]
   tokenUsage   UserTokenUsage[]
@@ -118,4 +119,30 @@ model FunnelEvent {
 
   @@index([type, createdAt])
   @@index([userId])
+}
+
+model TradeEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  reason    String?
+  pair      String?
+  amount    Float?
+  meta      Json?
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, createdAt])
+  @@index([type, createdAt])
+}
+
+model MarketCandle {
+  pair      String
+  periodSec Int
+  time      Int
+  open      Float
+  high      Float
+  low       Float
+  close     Float
+  @@id([pair, periodSec, time])
+  @@index([time])
 }

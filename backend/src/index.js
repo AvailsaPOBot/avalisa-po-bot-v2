@@ -132,6 +132,9 @@ app.use('/api/funnel/pricing-view', pricingViewLimiter);
 app.use('/api/webhooks', webhookRoutes);
 
 // JSON body parser for all other routes
+// Telemetry gets tighter wire-size limits before the shared JSON parser.
+app.use('/api/trades/event', express.json({ limit: '4kb' }));
+app.use('/api/market/candles', express.json({ limit: '100kb' }));
 app.use(express.json({ limit: '1mb' }));
 
 // Health check — reflects real DB status so Render (and we) can see degradation, not a fake 'ok'
@@ -305,17 +308,19 @@ async function grantGap() {
     return null;
   }
 }
+// Boolean only: whether the candle archive has hit its row cap (never a count).
+const { startRetention, archiveCapState } = require('./lib/tradingTelemetry');
 app.get('/health', async (req, res) => {
   const [funnel, affiliate, claims, funnelWindow7d, affiliateFunnelAllTime, grantGapAllTime] = await Promise.all([
     funnelLiveness(), affiliateLiveness(), claimQueue(), funnelWindow(), affiliateFunnel(), grantGap(),
   ]);
   try {
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ status: 'ok', db: 'up', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, affiliate, claims, funnelWindow7d, affiliateFunnelAllTime, grantGapAllTime, timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', db: 'up', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, affiliate, claims, funnelWindow7d, affiliateFunnelAllTime, grantGapAllTime, marketCandles: archiveCapState(), timestamp: new Date().toISOString() });
   } catch (err) {
     // The commit belongs on the failure path too: a degraded backend is exactly
     // when you need to know which build is live.
-    res.status(503).json({ status: 'degraded', db: 'down', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, affiliate, claims, funnelWindow7d, affiliateFunnelAllTime, grantGapAllTime, timestamp: new Date().toISOString() });
+    res.status(503).json({ status: 'degraded', db: 'down', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, affiliate, claims, funnelWindow7d, affiliateFunnelAllTime, grantGapAllTime, marketCandles: archiveCapState(), timestamp: new Date().toISOString() });
   }
 });
 
@@ -323,6 +328,7 @@ app.get('/health', async (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/license', licenseRoutes);
 app.use('/api/trades', tradeRoutes);
+app.use('/api/market', require('./routes/market'));
 app.use('/api/settings', settingsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/support', supportRoutes);
@@ -351,6 +357,9 @@ async function startServer() {
   } catch (err) {
     console.error('❌ Database connection failed:', err.message);
   }
+
+  // Daily MarketCandle (30d) / TradeEvent (180d) retention; unref'd, never overlaps.
+  startRetention(prisma);
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ Avalisa PO Bot API running on port ${PORT}`);

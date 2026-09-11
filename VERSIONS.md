@@ -10,7 +10,7 @@
 |---|---|---|---|
 | Extension (CWS **public shelf**) | **2.4.12** | Users' Chrome via Web Store | CWS listing `mkcpdbnlofljijfjiglkodddicpgdapa` |
 | Extension (CWS **package**, in review) | **2.4.13** | uploaded, awaiting Google | CWS API `crxVersion` (`projection=DRAFT`) |
-| Extension (repo / local dev) | **2.4.18** | Mr. Oil's Chrome (unpacked from this repo `extension/`) | `extension/manifest.json` |
+| Extension (repo / local dev) | **2.4.19** | Mr. Oil's Chrome (unpacked from this repo `extension/`) | `extension/manifest.json` |
 | Backend | main @ `f2c1dc4` | Render (auto-deploy from GitHub `main`) | `/health` `commit` field |
 | Dashboard/site | main @ `dcc17c8` | Vercel (auto-deploy from GitHub `main`) | bundle `REACT_APP_VERCEL_GIT_COMMIT_SHA` |
 | Webapp Bot (mobile proof) | v1.5-expiry-confirmed | Mac WKWebView shell / mobile webview | `mobile-proof/` |
@@ -18,6 +18,25 @@
 ⚠️ **The repo `extension/` folder is LIVE** — Mr. Oil's Chrome loads it unpacked.
 Never leave it broken or mid-refactor. Smoke test (`node test/extension-settings-smoke.test.js`)
 must pass before any commit that touches it. The AGE dispatcher enforces this (fail-closed revert).
+
+## 2.4.19 — 2026-09-11 — Local candidate, unpublished
+
+Adds read-only market context for every strategy, exact attributed PO deal facts,
+execution timing, attempt/pause/stop and session balance events, and a throttled
+30-second market candle archive. Backend adds authenticated ingestion, admin
+candle export and telemetry statistics. Privacy text updated. Additive SQL files
+must be applied by hand before any future deploy; not applied in this task.
+Signal rules and martingale sizing are unchanged. Telemetry is best-effort and
+never awaited by trade execution.
+
+Safety revision (CEO review, same day): new tables enable row-level security like
+every existing table; MarketCandle uses a composite primary key (pair, periodSec,
+time) with no surrogate id; the server prunes candles older than 30 days and events
+older than 180 days daily in bounded windows (never overlapping); a 1.5M-row cap
+(MARKET_CANDLE_MAX_ROWS) answers 202 archive_full and /health reports only a boolean;
+the extension uploads candles only while the bot is running, only for the pair it
+is on, and backs off for an hour on archive_full. Migration folder renamed to
+20260911010000_trade_telemetry_candles.
 
 ## 2.4.18 — 2026-09-11 — Local candidate, not published
 

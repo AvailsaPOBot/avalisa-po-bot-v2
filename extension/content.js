@@ -48,6 +48,11 @@ function parseWsMessage(raw) {
   let payload;
   try { payload = JSON.parse(m[2]); } catch { return; }
 
+  if (['updateHistoryNewFast', 'updateCharts', 'successloadHistory'].includes(event) &&
+      typeof AvalisaTelemetry !== 'undefined') {
+    AvalisaTelemetry.frame(payload);
+  }
+
   if (/^successopenOrder$/i.test(event)) recordWsOpen(payload);
 
   // Capture close-like events for trade result detection
@@ -70,6 +75,7 @@ function parseWsMessage(raw) {
 }
 
 function ingestCandle(c) {
+  if (typeof AvalisaTelemetry !== 'undefined') AvalisaTelemetry.candle(c);
   if (!c || !c.asset || !c.period || !c.time) return;
   const key = `${c.asset}:${c.period}`;
   if (!state.candleBuffer[key]) state.candleBuffer[key] = [];
@@ -87,6 +93,7 @@ function ingestCandle(c) {
 
 // Build OHLCV candles from raw ticks (asset, unix_ts_float, price)
 function ingestTick(asset, timestamp, price) {
+  if (typeof AvalisaTelemetry !== 'undefined') AvalisaTelemetry.tick(asset, timestamp, price);
   if (!asset || !timestamp || !price) return;
   // PO streams many numeric asset ids in the same socket. Avalisa should only
   // build candles for the active named pair; otherwise buffers balloon and AI
@@ -225,6 +232,7 @@ function persistRuntimeSession(phase = 'running') {
 // next Start can resume the recovery instead of restarting at step 0 — an
 // abandoned half-ladder is realized loss for the user. Manual Stop clears it.
 function preservePausedLadder(reason) {
+  if (typeof AvalisaTelemetry !== 'undefined') AvalisaTelemetry.event('pause', reason);
   if (typeof chrome === 'undefined' || !chrome.storage?.local) return Promise.resolve(false);
   const startAmount = parseFloat(state.settings?.startAmount) || 1.0;
   const midLadder = (state.martingaleStep || 0) > 0 || (state.currentAmount || 0) > startAmount;
@@ -338,6 +346,7 @@ async function restoreRuntimeSession() {
 
   updateUI();
   updateTradeCounter();
+  if (typeof AvalisaTelemetry !== 'undefined') AvalisaTelemetry.session('session_start');
   updateStatus('running', `Recovered session — continuing $${state.currentAmount.toFixed(2)} recovery`);
   const gen = state.cycleGeneration;
   setTimeout(() => {
@@ -352,6 +361,7 @@ async function restoreRuntimeSession() {
 // PO sometimes re-fires updateHistoryNewFast with fewer ticks (tab refocus, chart
 // re-render). Old replace-seed logic clobbered larger buffers down to smaller ones.
 function seedCandleBufferFromHistory(asset, period, ticks) {
+  if (typeof AvalisaTelemetry !== 'undefined') AvalisaTelemetry.history(asset, ticks);
   const key = `${asset}:${period}`;
   // Start from existing buffer (preserves real-time tick data and prior history)
   const byTime = new Map();
@@ -555,6 +565,7 @@ function isAvalisaNoProgressReason(reason) {
 }
 
 function stopAvalisaForDecision(message) {
+  if (typeof AvalisaTelemetry !== 'undefined') AvalisaTelemetry.event('pause', 'pair_changed');
   console.warn('[Avalisa] Avalisa stopping for decision:', message);
   state.running = false;
   state.stopRequested = true;
@@ -880,6 +891,7 @@ async function runTradeCycleUnsafe(generation) {
     if (!isCycleActive(generation)) return;
     if (!pay.proceed) {
       if (pay.halt) {
+        if (typeof AvalisaTelemetry !== 'undefined') AvalisaTelemetry.event('pause', 'payout_halt');
         console.warn('[Avalisa] Payout Monitor: halting bot —', pay.reason);
         updateStatus('error', `Payout Monitor: ${pay.reason}`);
         state.running = false;
@@ -906,6 +918,7 @@ async function runTradeCycleUnsafe(generation) {
   let aiSuggestedTimeframe = null;
   let signalAsset = null;
   let signalSource = null;
+  let signalAt = Date.now();
   if (state.settings.strategy === 'ai') {
     // Wait for warmup — normally satisfied instantly by the updateHistoryNewFast seed
     const intensity = state.settings.intensity || state.settings.aiIntensity || 'mid';
@@ -943,6 +956,7 @@ async function runTradeCycleUnsafe(generation) {
     const opportunity = await chooseAvalisaOpportunity(intensity, generation);
     if (!isCycleActive(generation)) return;
     const sig = opportunity?.sig || { action: 'SKIP', reason: opportunity?.reason || 'not_enough_rules' };
+    signalAt = Date.now();
     aiSignalSnapshot = sig.snapshot || null;
     signalAsset = opportunity?.asset || null;
     signalSource = opportunity?.source || null;
@@ -1082,9 +1096,19 @@ async function runTradeCycleUnsafe(generation) {
     extVersion: chrome.runtime.getManifest().version,
     source: signalSource,
     intensity: aiSignalSnapshot?.intensity || null,
+    ...(typeof AvalisaTelemetry !== 'undefined' ? {
+      market: AvalisaTelemetry.market(executionAsset),
+      expirySeconds: expiryMs / 1000,
+      entryDelayMs: Math.max(0, Date.now() - signalAt),
+    } : {}),
   };
+  const orderStrategy = state.settings?.strategy || 'martingale';
+  const orderIsDemo = isDemoMode();
+  const clickedAt = Date.now();
+  if (typeof AvalisaTelemetry !== 'undefined') AvalisaTelemetry.event('order_attempt', null, { pair: executionAsset, amount: safeAmount });
   const placed = direction === 'call' ? clickCall() : clickPut();
   if (!placed) {
+    if (typeof AvalisaTelemetry !== 'undefined') AvalisaTelemetry.event('open_unconfirmed', 'button_missing');
     if (!isCycleActive(generation)) return;
     updateStatus('error', `Could not find ${direction.toUpperCase()} button`);
     return;
@@ -1106,6 +1130,7 @@ async function runTradeCycleUnsafe(generation) {
     if (!isCycleActive(generation)) return;
     if (!openResult.opened) {
       console.warn('[Avalisa] No late balance confirmation — clearing lock and continuing without counting trade:', openResult.method);
+      if (typeof AvalisaTelemetry !== 'undefined') AvalisaTelemetry.event('open_unconfirmed', openResult.method);
       clearTradeLock();
       if (state.stopAfterTrade) { stopBot(); return; }
       const canContinue = await recoverAfterUnconfirmedOrder();
@@ -1148,19 +1173,24 @@ async function runTradeCycleUnsafe(generation) {
   const balanceAfter = await getBalance();
   if (!isCycleActive(generation)) return;
 
+  if (typeof AvalisaTelemetry !== 'undefined') {
+    tradeMeta.po = AvalisaTelemetry.po();
+    tradeMeta.timeToResultMs = Math.max(0, Date.now() - clickedAt);
+    if (result === 'unknown') AvalisaTelemetry.event('result_unknown', state.lastTradeResultDebug?.method || 'unknown');
+  }
   const detectedResultMethod = state.lastTradeResultDebug?.method || 'unknown';
   tradeMeta.resultMethod = ['ws', 'balance', 'dom-late', 'unknown'].includes(detectedResultMethod)
     ? detectedResultMethod : 'other';
   if (state.jwt) {
     withRetry(() => apiPost('/api/trades/log', {
-      pair: getCurrentPair(),
+      pair: executionAsset,
       direction,
       amount: safeAmount,
       result,
       balanceBefore,
       balanceAfter,
-      isDemo: isDemoMode(),
-      strategy: state.settings?.strategy || 'martingale',
+      isDemo: orderIsDemo,
+      strategy: orderStrategy,
       timeframe: executionTimeframe
         ? executionTimeframe
         : (state.activePeriod ? `${state.activePeriod}s` : (state.settings?.timeframe || 'M1')),
@@ -1814,12 +1844,14 @@ async function startBot() {
   updateStatus('running', pausedLadder
     ? `Resuming recovery at $${state.currentAmount.toFixed(2)} (step ${state.martingaleStep})`
     : 'Starting...');
+  if (typeof AvalisaTelemetry !== 'undefined') AvalisaTelemetry.session('session_start');
   await persistRuntimeSession('started');
   warmupCandleHistory().catch(console.error);
   runTradeCycle(gen);
 }
 
 function stopBot() {
+  if (typeof AvalisaTelemetry !== 'undefined' && !state.stopAfterTrade) AvalisaTelemetry.event('stop', 'manual');
   // Finish tracking an accepted/pending order before unlocking Start.
   if (state.tradeLock || state.isTradeOpen) {
     state.stopAfterTrade = true;
@@ -1827,6 +1859,7 @@ function stopBot() {
     updateStatus('running', 'Stopping — waiting for the current order to resolve');
     return;
   }
+  if (typeof AvalisaTelemetry !== 'undefined') AvalisaTelemetry.session('session_stop');
   state.stopAfterTrade = false;
   state.cycleGeneration++;           // invalidates any running cycle immediately
   state.running = false;

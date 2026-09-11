@@ -15,11 +15,12 @@ test('execution telemetry freezes pre-order payout and step across deferred log 
   const ctx = vm.createContext({
     state: { martingaleStep: 3, jwt: 'test', settings: { strategy: 'martingale' }, lastTradeResultDebug: { method: 'dom-late' } },
     getCurrentPayoutPercent: () => 92,
-    chrome: { runtime: { getManifest: () => ({ version: '2.4.18' }) } },
+    chrome: { runtime: { getManifest: () => ({ version: '2.4.19' }) } },
     signalSource: null, aiSignalSnapshot: null,
     getCurrentPair: () => 'EURUSD', isDemoMode: () => true,
     direction: 'call', safeAmount: 8, result: 'win', balanceBefore: 100, balanceAfter: 107.36,
-    executionTimeframe: 'S30',
+    executionTimeframe: 'S30', executionAsset: 'EURUSD', Date,
+
     withRetry: fn => { retry = fn; return { catch() {} }; },
     apiPost: (url, data) => payloads.push(JSON.parse(JSON.stringify(data))),
     console,
@@ -32,7 +33,7 @@ test('execution telemetry freezes pre-order payout and step across deferred log 
   ctx.state.martingaleStep = 5;
   ctx.state.lastTradeResultDebug.method = 'ws';
   retry();
-  assert.deepEqual(payloads[0].meta, { payoutPct: 92, martingaleStep: 3, extVersion: '2.4.18', source: null, intensity: null, resultMethod: 'dom-late' });
+  assert.deepEqual(payloads[0].meta, { payoutPct: 92, martingaleStep: 3, extVersion: '2.4.19', source: null, intensity: null, resultMethod: 'dom-late' });
   assert.deepEqual(payloads[0].meta, payloads[1].meta);
   assert.equal(payloads[0].signalSnapshot, null);
 });

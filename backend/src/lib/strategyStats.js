@@ -6,14 +6,15 @@ function wilson(wins, n) {
   const half = z * Math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / d;
   return { low: Math.max(0, center - half), high: Math.min(1, center + half) };
 }
-const dimensions = ['strategy', 'intensity', 'regime', 'rulesMatched', 'ruleId', 'timeframe', 'market', 'payoutBucket', 'utcHour', 'extVersion', 'resultMethod'];
+const dimensions = ['strategy', 'intensity', 'regime', 'rulesMatched', 'ruleId', 'timeframe', 'market', 'payoutBucket', 'utcHour', 'extVersion', 'resultMethod', 'martingaleEngineAction', 'martingaleEngineAlignment'];
 function createAccumulator() {
   const groups = Object.fromEntries(dimensions.map(key => [key, new Map()]));
   const users = new Set();
   const total = bucket();
-  function bucket() { return { n: 0, wins: 0, losses: 0, ties: 0, unknown: 0, payoutSum: 0, payoutN: 0 }; }
+  function bucket() { return { n: 0, wins: 0, losses: 0, ties: 0, unknown: 0, payoutSum: 0, payoutN: 0, timeSum: 0, timeN: 0, timeMax: null }; }
   function add(b, t, m) {
     b.n++;
+    if (m.timeToResultMs != null) { b.timeSum += m.timeToResultMs; b.timeN++; b.timeMax = Math.max(b.timeMax ?? 0, m.timeToResultMs); }
     b[t.result === 'win' ? 'wins' : t.result === 'loss' ? 'losses' : t.result === 'tie' ? 'ties' : 'unknown']++;
     if (m.payoutPct != null) { b.payoutSum += m.payoutPct / 100; b.payoutN++; }
   }
@@ -21,13 +22,15 @@ function createAccumulator() {
   const enumValue = (value, allowed) => allowed.includes(value) ? value : 'unknown';
   function ingest(t) {
     users.add(t.userId);
-    const m = sanitizeTradeMeta(t.meta) || {}, s = t.signalSnapshot || {};
+    const m = sanitizeTradeMeta(t.meta) || {}, s = t.signalSnapshot || {}, market = m.market || {};
     const p = m.payoutPct;
+    const marketRules = market.rulesMatched?.[t.direction];
+    const matchedRules = Number.isInteger(marketRules) ? marketRules : s.rulesMatched;
     const values = {
       strategy: enumValue(t.strategy, ['martingale', 'anti-martingale', 'fixed', 'ai-signal', 'ai', 'user-ai']),
-      intensity: enumValue(m.intensity || s.intensity, ['low', 'mid', 'high']),
-      regime: enumValue(s.regime, ['trending', 'ranging']),
-      rulesMatched: Number.isInteger(s.rulesMatched) && s.rulesMatched >= 0 && s.rulesMatched <= 4 ? String(s.rulesMatched) : 'unknown',
+      intensity: enumValue(m.intensity || market.intensity || s.intensity, ['low', 'mid', 'high']),
+      regime: enumValue(market.regime || s.regime, ['trending', 'ranging']),
+      rulesMatched: Number.isInteger(matchedRules) && matchedRules >= 0 && matchedRules <= 4 ? String(matchedRules) : 'unknown',
       ruleId: [...new Set((Array.isArray(s.rules) ? s.rules : []).filter(r => r && r.met === true).map(r => r.id).filter(id => ['trend', 'pullback', 'rsi_zone', 'confirm', 'rsi_extreme', 'bb_break', 'momentum'].includes(id)))],
       timeframe: enumValue(t.timeframe, ['S15', 'S30', 'M1', 'M3', 'M5', 'M30', 'H1']),
       market: /otc/i.test(t.pair || '') ? 'OTC' : 'non-OTC',
@@ -35,6 +38,8 @@ function createAccumulator() {
       utcHour: String(new Date(t.createdAt).getUTCHours()),
       extVersion: m.extVersion || 'unknown',
       resultMethod: m.resultMethod || 'unknown',
+      martingaleEngineAction: t.strategy === 'martingale' ? enumValue(market.action, ['CALL', 'PUT', 'SKIP']) : [],
+      martingaleEngineAlignment: t.strategy !== 'martingale' ? [] : market.action === 'SKIP' ? 'skip' : ['CALL', 'PUT'].includes(market.action) && ['call', 'put'].includes(t.direction) ? (market.action.toLowerCase() === t.direction ? 'aligned' : 'opposed') : 'unknown',
     };
     add(total, t, m);
     for (const key of dimensions) for (const value of Array.isArray(values[key]) ? values[key] : [values[key]]) {
@@ -43,10 +48,10 @@ function createAccumulator() {
     }
   }
   function finish(b) {
-    const { payoutSum, payoutN, ...counts } = b;
+    const { payoutSum, payoutN, timeSum, timeN, timeMax, ...counts } = b;
     const decided = b.wins + b.losses;
     const avgPayout = payoutN ? payoutSum / payoutN : null;
-    return { ...counts, winRate: decided ? b.wins / decided : null, wilson95: wilson(b.wins, decided), payoutKnown: payoutN, avgPayout, breakEven: avgPayout == null ? null : 1 / (1 + avgPayout) };
+    return { ...counts, unknownRate: b.n ? b.unknown / b.n : null, timeToResultMs: { known: timeN, mean: timeN ? timeSum / timeN : null, max: timeMax }, winRate: decided ? b.wins / decided : null, wilson95: wilson(b.wins, decided), payoutKnown: payoutN, avgPayout, breakEven: avgPayout == null ? null : 1 / (1 + avgPayout) };
   }
   return { ingest, result: () => ({ distinctUsers: users.size, total: finish(total), groups: Object.fromEntries(dimensions.map(key => [key, [...groups[key]].map(([value, b]) => ({ value, ...finish(b) }))])) }) };
 }
@@ -60,7 +65,7 @@ async function getStrategyStats(prisma, query, now = new Date()) {
   let cursor;
   while (true) {
     const rows = await prisma.trade.findMany({ where, orderBy: { id: 'asc' }, take: 1000, ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-      select: { id: true, userId: true, strategy: true, signalSnapshot: true, meta: true, result: true, timeframe: true, pair: true, createdAt: true } });
+      select: { id: true, userId: true, strategy: true, direction: true, signalSnapshot: true, meta: true, result: true, timeframe: true, pair: true, createdAt: true } });
     rows.forEach(acc.ingest);
     if (rows.length < 1000) break;
     cursor = rows.at(-1).id;

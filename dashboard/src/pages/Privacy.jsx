@@ -16,7 +16,7 @@ export default function Privacy() {
         },
         {
           subtitle: 'Trade History',
-          text: 'When the Avalisa Bot extension is active, trade records are logged to your account. Each record includes: timestamp, direction (call/put), amount, result (win/loss), and strategy used. No account credentials from Pocket Option are ever collected.',
+          text: 'When the Avalisa Bot extension is active, trade records are logged to your account. Each record includes: timestamp, direction (call/put), amount, result (win/loss), and strategy used. Trade results, balances at trade time and session start/stop, and market candles are recorded to improve the bot. No account credentials from Pocket Option are ever collected.',
         },
         {
           subtitle: 'Device Fingerprint',
