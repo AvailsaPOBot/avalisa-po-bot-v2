@@ -10,7 +10,7 @@
 |---|---|---|---|
 | Extension (CWS **public shelf**) | **2.4.12** | Users' Chrome via Web Store | CWS listing `mkcpdbnlofljijfjiglkodddicpgdapa` |
 | Extension (CWS **package**, in review) | **2.4.19** | uploaded 12 Sep, awaiting Google | CWS API `crxVersion` (`projection=DRAFT`) |
-| Extension (repo / local dev) | **2.4.20** | Mr. Oil's Chrome (unpacked from this repo `extension/`) | `extension/manifest.json` |
+| Extension (repo / local dev) | **2.4.21** | Mr. Oil's Chrome (unpacked from this repo `extension/`) | `extension/manifest.json` |
 | Backend | main @ `f2c1dc4` | Render (auto-deploy from GitHub `main`) | `/health` `commit` field |
 | Dashboard/site | main @ `dcc17c8` | Vercel (auto-deploy from GitHub `main`) | bundle `REACT_APP_VERCEL_GIT_COMMIT_SHA` |
 | Webapp Bot (mobile proof) | v1.5-expiry-confirmed | Mac WKWebView shell / mobile webview | `mobile-proof/` |
@@ -18,6 +18,33 @@
 ⚠️ **The repo `extension/` folder is LIVE** — Mr. Oil's Chrome loads it unpacked.
 Never leave it broken or mid-refactor. Smoke test (`node test/extension-settings-smoke.test.js`)
 must pass before any commit that touches it. The AGE dispatcher enforces this (fail-closed revert).
+
+## 2.4.21 — 2026-09-12 — audit pass: nothing known left open
+
+Full bug hunt over everything shipped tonight (Codex audit + CEO review), each fix
+written as a test that failed first.
+
+Trade safety:
+- An `unknown` result used to persist phase `resolved`, an auto-resume phase, so a
+  reload could re-fire the same martingale rung while the original order was still
+  open. Unknown now quarantines: the bot stops, the ladder is untouched, and Start
+  requires an explicit confirmation that PO shows no open orders.
+- Deferred Stop could wait forever on a cycle that never resolved, leaving Start
+  disabled. A 60s watchdog now ends it into the same quarantine.
+- `order_pending` is written durably BEFORE the click; if that write fails, no click.
+- A late DOM verdict is attributed by identity (new row + same pair + same stake +
+  unique), never by "some row changed" — PO's rows carry no deal id at all
+  (measured), so the id-only tier written during the audit was dead code.
+- Non-finite per-deal profit (NaN/Infinity) can no longer become a money verdict.
+- The deal-identity ledger stops trading when full instead of reusing ids.
+
+Robustness:
+- Malformed history/send frames can no longer throw out of the WS listener and kill
+  later frames.
+- Telemetry and its retries cancel when the account changes, so one account's facts
+  can never post under another's credentials.
+- Candle ingestion and the archive bound their key cardinality; archive requests cap
+  at four in flight and never redispatch a key already in flight.
 
 ## 2.4.20 — 2026-09-12 — the candle archive actually collects
 

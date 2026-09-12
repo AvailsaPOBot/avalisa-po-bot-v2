@@ -47,7 +47,7 @@ function validate(data) {
   for (const [pair, candles] of Object.entries(data)) {
     if (!Array.isArray(candles) || !candles.length) throw new Error(`${pair}: candles must be a nonempty array`);
     candles.forEach((c, i) => {
-      if (!c || !['time', 'open', 'high', 'low', 'close'].every(k => Number.isFinite(c[k])) ||
+      if (!c || !Number.isSafeInteger(c.time) || c.time < 0 || c.time % 30 !== 0 || !['time', 'open', 'high', 'low', 'close'].every(k => Number.isFinite(c[k])) ||
           c.low <= 0 || c.high < Math.max(c.open, c.close, c.low) || c.low > Math.min(c.open, c.close) ||
           (i && c.time - candles[i - 1].time !== 30)) {
         throw new Error(`${pair}: invalid OHLC or noncontiguous 30-second timestamps at candle ${i}`);

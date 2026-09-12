@@ -34,67 +34,79 @@ router.post('/event', authMiddleware, capBody, userRateLimit(), async (req, res)
 // POST /api/trades/log
 router.post('/log', authMiddleware, async (req, res) => {
   try {
-    const { pair, direction, amount, result, balanceBefore, balanceAfter, isDemo, strategy, signalSnapshot } = req.body;
-    const timeframe = normalizeTimeframe(req.body.timeframe);
-    const meta = sanitizeTradeMeta(req.body.meta);
-
-    if (!direction || amount == null || amount === '' || !result) {
-      return res.status(400).json({ error: 'Missing required fields: direction, amount, result' });
+    const body = req.body;
+    const finiteMoney = value => (typeof value === 'number' || typeof value === 'string' && value.trim() !== '') && Number.isFinite(Number(value));
+    const validResults = ['win', 'loss', 'tie', 'unknown', 'pending'];
+    if (!body || typeof body !== 'object' || Array.isArray(body) ||
+        !['call', 'put'].includes(body.direction) || !validResults.includes(body.result) ||
+        !finiteMoney(body.amount) || Number(body.amount) <= 0 ||
+        (body.pair != null && (typeof body.pair !== 'string' || !/^[A-Za-z0-9_. /-]{1,80}$/.test(body.pair))) ||
+        ['balanceBefore', 'balanceAfter'].some(key => body[key] != null && !finiteMoney(body[key])) ||
+        (body.isDemo != null && ![true, false, 'true', 'false'].includes(body.isDemo)) ||
+        (body.strategy != null && !['martingale', 'anti-martingale', 'fixed', 'ai-signal', 'ai', 'user-ai'].includes(body.strategy)) ||
+        (body.signalSnapshot != null && (typeof body.signalSnapshot !== 'object' || Array.isArray(body.signalSnapshot) || Buffer.byteLength(JSON.stringify(body.signalSnapshot)) > 16384))) {
+      return res.status(400).json({ error: 'Invalid trade data' });
     }
-    if (timeframe && !VALID_TIMEFRAMES.includes(timeframe)) {
-      return res.status(400).json({ error: 'Invalid timeframe' });
-    }
+    const { pair, direction, amount, result, balanceBefore, balanceAfter, isDemo, strategy, signalSnapshot } = body;
+    const timeframe = normalizeTimeframe(body.timeframe);
+    const meta = sanitizeTradeMeta(body.meta);
+    if (timeframe && !VALID_TIMEFRAMES.includes(timeframe)) return res.status(400).json({ error: 'Invalid timeframe' });
 
     const isDemoVal = isDemo === true || isDemo === 'true';
     const isAiTrade = !!signalSnapshot;
-    let unlimitedAi = false;
+    const persistTrade = async tx => {
+      let unlimitedAi = false;
 
-    // Gate AI trades on real accounts against the license allowance.
-    // Atomic check-and-increment (conditional updateMany) so concurrent logs
-    // can't overshoot the cap — fixes the previous read-then-write race and the
-    // unawaited fire-and-forget increment that ran after trade creation.
-    if (isAiTrade && !isDemoVal) {
-      const license = await prisma.license.findUnique({ where: { userId: req.userId } });
-      unlimitedAi = req.user?.isAdmin || license?.plan === PLAN_IDS.PRO;
-      if (!unlimitedAi) {
-        const aiTradesAllowance = getAiTradesAllowanceForLicense(license);
-        const consumed = await prisma.license.updateMany({
-          where: { userId: req.userId, aiTradesUsed: { lt: aiTradesAllowance } },
-          data: { aiTradesUsed: { increment: 1 } },
-        });
-        if (consumed.count === 0) {
-          return res.status(403).json({
-            success: false,
-            allowed: false,
-            reason: 'AI trade allowance exhausted',
-            aiTradesUsed: license?.aiTradesUsed ?? aiTradesAllowance,
-            aiTradesAllowance,
+      // Gate AI trades on real accounts against the license allowance.
+      // Atomic check-and-increment (conditional updateMany) so concurrent logs
+      // can't overshoot the cap — fixes the previous read-then-write race and the
+      // unawaited fire-and-forget increment that ran after trade creation.
+      if (isAiTrade && !isDemoVal) {
+        const license = await tx.license.findUnique({ where: { userId: req.userId } });
+        unlimitedAi = req.user?.isAdmin || license?.plan === PLAN_IDS.PRO;
+        if (!unlimitedAi) {
+          const aiTradesAllowance = getAiTradesAllowanceForLicense(license);
+          const consumed = await tx.license.updateMany({
+            where: { userId: req.userId, aiTradesUsed: { lt: aiTradesAllowance } },
+            data: { aiTradesUsed: { increment: 1 } },
           });
+          if (consumed.count === 0) {
+            const error = new Error('AI trade allowance exhausted');
+            error.allowance = {
+              success: false,
+              allowed: false,
+              reason: 'AI trade allowance exhausted',
+              aiTradesUsed: license?.aiTradesUsed ?? aiTradesAllowance,
+              aiTradesAllowance,
+            };
+            throw error;
+          }
         }
       }
-    }
 
-    const trade = await prisma.trade.create({
-      data: {
-        userId: req.userId,
-        pair: pair || 'UNKNOWN',
-        direction: String(direction),
-        amount: parseFloat(amount),
-        result: String(result),
-        balanceBefore: balanceBefore != null ? parseFloat(balanceBefore) : null,
-        balanceAfter: balanceAfter != null ? parseFloat(balanceAfter) : null,
-        isDemo: isDemoVal,
-        strategy: strategy || 'martingale',
-        timeframe,
-        signalSnapshot: signalSnapshot || null,
-        ...(meta ? { meta } : {}),
-      },
-    });
-
-    // (AI allowance was already consumed atomically above, before trade creation.)
+      return tx.trade.create({
+        data: {
+          userId: req.userId,
+          pair: pair || 'UNKNOWN',
+          direction: String(direction),
+          amount: Number(amount),
+          result: String(result),
+          balanceBefore: balanceBefore != null ? Number(balanceBefore) : null,
+          balanceAfter: balanceAfter != null ? Number(balanceAfter) : null,
+          isDemo: isDemoVal,
+          strategy: strategy || 'martingale',
+          timeframe,
+          signalSnapshot: signalSnapshot || null,
+          ...(meta ? { meta } : {}),
+        },
+      });
+    };
+    // Quota and insert commit together or both roll back. Plain logs need one write.
+    const trade = isAiTrade && !isDemoVal ? await prisma.$transaction(persistTrade) : await persistTrade(prisma);
 
     return res.json({ success: true, trade });
   } catch (err) {
+    if (err.allowance) return res.status(403).json(err.allowance);
     console.error('[trades/log] Error:', err.message, err.code);
     return res.status(500).json({ error: 'Failed to log trade' });
   }
@@ -102,13 +114,17 @@ router.post('/log', authMiddleware, async (req, res) => {
 
 // PUT /api/trades/:id — update trade result when it closes
 router.put('/:id', authMiddleware, async (req, res) => {
-  const { result, balanceAfter } = req.body;
+  const { result, balanceAfter } = req.body || {};
+  if (!['win', 'loss', 'tie', 'unknown', 'pending'].includes(result) ||
+      (balanceAfter != null && (!(typeof balanceAfter === 'number' || typeof balanceAfter === 'string' && balanceAfter.trim() !== '') || !Number.isFinite(Number(balanceAfter))))) {
+    return res.status(400).json({ error: 'Invalid trade result or balance' });
+  }
   try {
     await prisma.trade.updateMany({
       where: { id: req.params.id, userId: req.userId },
       data: {
         result,
-        balanceAfter: balanceAfter ? parseFloat(balanceAfter) : undefined,
+        balanceAfter: balanceAfter != null ? Number(balanceAfter) : undefined,
       },
     });
     res.json({ success: true });

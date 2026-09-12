@@ -4,7 +4,9 @@ function capBody(req, res, next) {
   if (Buffer.byteLength(JSON.stringify(req.body || {})) > 4096) return res.status(413).json({ error: 'Event payload exceeds 4096 bytes' });
   next();
 }
-// Authenticated per-user fixed window, bounded by expiry cleanup; no DB access.
+// Authenticated per-user fixed window on THIS PROCESS, bounded by expiry cleanup.
+// N instances permit up to N times the quota; restart resets it. This is telemetry
+// load shedding, not a global user quota or a trade/AI-allowance enforcement gate.
 function userRateLimit(limit = 120, now = Date.now) {
   const windows = new Map();
   return (req, res, next) => {
@@ -67,9 +69,10 @@ function candleData(body, now = Date.now()) {
   }
   return [...candles.values()];
 }
-// Hard cap on the archive so a telemetry table can never fill the database the
-// money path lives in. Row count is a cheap planner estimate, refreshed at most
-// every 10 minutes; a failed estimate keeps the previous reading.
+// Best-effort archive load shedding, NOT a hard storage cap. The planner row
+// estimate can lag inserts, and the 10-minute process-local cache permits overshoot
+// across uploads/instances. A failed estimate retains the previous reading (initially
+// open). Age-based retention below bounds age, not row count or database size.
 const CAP_REFRESH_MS = 10 * 60 * 1000;
 const capCache = { at: 0, capped: false };
 function maxCandleRows() {
@@ -81,7 +84,7 @@ async function isArchiveFull(prisma, now = Date.now()) {
   try {
     const rows = await prisma.$queryRaw`SELECT reltuples::bigint AS n FROM pg_class WHERE relname = 'MarketCandle'`;
     const n = Number(rows?.[0]?.n);
-    capCache.capped = Number.isFinite(n) && n > maxCandleRows();
+    capCache.capped = Number.isFinite(n) && n >= maxCandleRows();
     capCache.at = now;
   } catch (_) {}
   return capCache.capped;

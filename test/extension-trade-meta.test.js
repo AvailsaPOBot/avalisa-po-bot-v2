@@ -6,9 +6,9 @@ const src = fs.readFileSync(require.resolve('../extension/content.js'), 'utf8');
 
 test('execution telemetry freezes pre-order payout and step across deferred log retries', () => {
   const start = src.indexOf('  const tradeMeta = {');
-  const end = src.indexOf('  const placed =', start);
+  const end = src.indexOf("  setTradeLock('order_pending');", start);
   const resultStart = src.indexOf('  const detectedResultMethod =');
-  const resultEnd = src.indexOf('  applyMartingaleLogic(result);', resultStart);
+  const resultEnd = src.indexOf("  if (result === 'unknown') {", resultStart);
   assert.ok(start > 0 && end > start && resultStart > end && resultEnd > resultStart);
   const payloads = [];
   let retry;

@@ -12,6 +12,7 @@
 const AvalisaTelemetry = (() => {
   const sentTimes = new Map();  // "pair:period" -> Set of uploaded candle times
   const nextPost = new Map();   // "pair:period" -> earliest next POST
+  const archiveInFlight = new Set();
   let pending = 0;
   let sessionId = null;
   let pausedUntil = 0; // set when the server reports archive_full
@@ -19,10 +20,14 @@ const AvalisaTelemetry = (() => {
   const version = () => chrome.runtime.getManifest().version;
   function post(path, payload) {
     if (!state.jwt || pending >= 120) return;
+    const jwt = state.jwt;
     // Freeze facts before retries; even a synchronous transport error stays detached.
     const body = JSON.parse(JSON.stringify(payload));
     pending++;
-    Promise.resolve().then(() => withRetry(() => apiPost(path, body)))
+    Promise.resolve().then(() => withRetry(() => {
+      if (state.jwt !== jwt) return;
+      return apiPost(path, body);
+    }))
       .catch(() => {}).finally(() => { pending--; });
   }
   function event(type, reason = null, extra = {}) {
@@ -36,14 +41,19 @@ const AvalisaTelemetry = (() => {
     } catch (_) {}
   }
   function session(type) {
+    const jwt = state.jwt;
+    if (!jwt) return;
     if (type === 'session_start') sessionId = globalThis.crypto?.randomUUID?.() || String(Date.now());
     const id = sessionId;
     const demo = isDemoMode();
     const facts = { pair: getCurrentPair(), amount: state.currentAmount, step: state.martingaleStep || 0, at: new Date().toISOString() };
     // Read balance asynchronously, never make Start/Stop wait for DOM or network.
-    Promise.resolve().then(() => getBalance()).then(balance => {
+    Promise.resolve().then(() => state.jwt === jwt ? getBalance() : null).then(balance => {
+      if (state.jwt !== jwt) return;
       event(type, null, { ...facts, sessionId: id, isDemo: demo, balance });
-    }).catch(() => event(type, 'balance_unavailable', { ...facts, sessionId: id, isDemo: demo }));
+    }).catch(() => {
+      if (state.jwt === jwt) event(type, 'balance_unavailable', { ...facts, sessionId: id, isDemo: demo });
+    });
   }
   function market(pair) {
     const intensity = state.settings?.intensity || state.settings?.aiIntensity || 'mid';
@@ -96,7 +106,7 @@ const AvalisaTelemetry = (() => {
   }
   function uploadBuffer(pair, period) {
     const key = `${pair}:${period}`;
-    if (Date.now() < (nextPost.get(key) || 0)) return;
+    if (archiveInFlight.size >= 4 || archiveInFlight.has(key) || Date.now() < (nextPost.get(key) || 0)) return;
     const seen = sentTimes.get(key) || new Set();
     const buffer = state.candleBuffer?.[key] || [];
     // "Closed" is decided by PO's own series, never by this machine's clock.
@@ -113,13 +123,20 @@ const AvalisaTelemetry = (() => {
     // Reserve the interval before dispatch, including failed requests: never
     // faster than one POST per pair+period per 5 minutes.
     nextPost.set(key, Date.now() + 300000);
-    Promise.resolve().then(() => apiPost('/api/market/candles', { pair, periodSec: period, candles }))
+    if (nextPost.size > 20) nextPost.delete(nextPost.keys().next().value);
+    archiveInFlight.add(key);
+    const jwt = state.jwt;
+    Promise.resolve().then(() => {
+      if (!state.running || state.jwt !== jwt) return null;
+      return apiPost('/api/market/candles', { pair, periodSec: period, candles });
+    })
       .then(res => {
+        if (res === null) return;
         remember(key, candles.map(c => c.time));
         // Server archive is full: treat as delivered and stop all uploads for 1h.
         if (res && res.accepted === false && res.reason === 'archive_full') pausedUntil = Date.now() + 3600000;
       })
-      .catch(() => {});
+      .catch(() => {}).finally(() => { archiveInFlight.delete(key); });
   }
   // Archive only while the bot runs, and only the pair it is actually trading
   // (state.activePair is the pair its own buffers belong to).

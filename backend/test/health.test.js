@@ -221,3 +221,13 @@ test('health does not expose a dormant AI token budget', async () => {
     loaded.restore();
   }
 });
+
+test('public health omits operational counts, timestamps and raw affiliate event labels', async () => {
+  const loaded = loadHealthHandler();
+  try {
+    const { body } = await loaded.health();
+    for (const key of ['claims', 'funnelWindow7d', 'affiliateFunnelAllTime', 'grantGapAllTime']) {
+      assert.equal(Object.hasOwn(body, key), false, `${key} belongs behind admin authorization`);
+    }
+  } finally { loaded.restore(); }
+});

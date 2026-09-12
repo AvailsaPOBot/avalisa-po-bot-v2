@@ -10,7 +10,7 @@ test('Stop keeps pending/open order locked and blocks a quick Start', async () =
   for (const phase of ['order_pending', 'trade_open', 'resolving_result']) {
     const state = {running:true, tradeLock:true, isTradeOpen:true, tradeLockPhase:phase, cycleGeneration:7};
     let cleared = 0;
-    const ctx = vm.createContext({state, updateUI(){}, updateStatus(){}, updateBottomStatus(){},
+    const ctx = vm.createContext({state, setTimeout:()=>1, clearTimeout(){}, updateUI(){}, updateStatus(){}, updateBottomStatus(){},
       clearTradeLock(){cleared++;}, clearRuntimeSession:async()=>{}, clearPausedLadder:async()=>{}});
     vm.runInContext(extract('async function startBot()', 'async function saveCurrentSettings()'), ctx);
     ctx.stopBot();

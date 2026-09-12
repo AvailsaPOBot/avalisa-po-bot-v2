@@ -185,3 +185,16 @@ test('stats uses market intensity and actual-side rule count with AI snapshot fa
   assert.equal(g.rulesMatched.find(b=>b.value==='3').wins,1);
   assert.equal(g.rulesMatched.find(b=>b.value==='4').losses,1);
 });
+
+test('archive threshold blocks writes at the configured limit, not only above it', async () => {
+  resetArchiveCap();
+  const previous = process.env.MARKET_CANDLE_MAX_ROWS;
+  process.env.MARKET_CANDLE_MAX_ROWS = '100';
+  try {
+    const db = { $queryRaw: async () => [{ n: 100n }], marketCandle: { createMany: async () => assert.fail('threshold reached') } };
+    assert.deepEqual(await uploadCandles(db, { pair: 'EURUSD', periodSec: 30, candles: [candle(start)] }, now), { accepted: false, reason: 'archive_full' });
+  } finally {
+    resetArchiveCap();
+    if (previous === undefined) delete process.env.MARKET_CANDLE_MAX_ROWS; else process.env.MARKET_CANDLE_MAX_ROWS = previous;
+  }
+});

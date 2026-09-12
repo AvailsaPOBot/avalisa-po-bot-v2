@@ -12,18 +12,18 @@ function extractResultFromCloseEvent(payload) {
   // froze the martingale ladder, so the deal list always wins.
   if (Array.isArray(payload.deals) && payload.deals.length > 0) {
     const deal = payload.deals[payload.deals.length - 1];
-    if (deal && typeof deal.profit === 'number') {
+    if (deal && Number.isFinite(deal.profit)) {
       if (deal.profit > 0) return 'win';
       if (deal.profit < 0) return 'loss';
       return 'tie';
     }
   }
 
-  if (typeof payload.profit === 'number') {
+  if (Number.isFinite(payload.profit)) {
     if (payload.profit === 0) return 'tie';
     return payload.profit > 0 ? 'win' : 'loss';
   }
-  if (typeof payload.profitAmount === 'number') {
+  if (Number.isFinite(payload.profitAmount)) {
     if (payload.profitAmount === 0) return 'tie';
     return payload.profitAmount > 0 ? 'win' : 'loss';
   }
@@ -75,15 +75,47 @@ function readDealResult(el) {
   return null;
 }
 
-function findResolvedNewDealResult(preTradeSignatures) {
+// "AED/CNY OTC +92% 07:26 $1 $0 $0" — pair, payout %, PO-clock time, then
+// stake, payout and profit. The first $ figure is the stake we placed.
+function parseDealRow(el) {
+  const text = (el?.innerText || '').replace(/\s+/g, ' ').trim();
+  if (!text) return null;
+  const pair = text.match(/^(.+?)\s+[+-]?\d+%/);
+  const amounts = [...text.matchAll(/\$\s*([0-9]+(?:\.[0-9]+)?)/g)].map(m => Number(m[1]));
+  if (!pair || !amounts.length || !Number.isFinite(amounts[0])) return null;
+  return { pair: normalizeAssetName(pair[1].trim()), stake: amounts[0] };
+}
+
+function findResolvedNewDealResult(preTradeSignatures, dealId = state.currentDealId, identity = state.currentTradeIdentity) {
+  const items = getDealItems(6);
+  // Prefer a real deal id if PO ever exposes one in the DOM.
+  if (dealId) {
+    for (const item of items) {
+      const ids = ['data-id', 'data-deal-id', 'data-order-id'].map(name => item.getAttribute?.(name));
+      if (!ids.includes(String(dealId))) continue;
+      const result = readDealResult(item);
+      if (result) return { result, signature: getDealSignature(item) };
+    }
+  }
+  // Measured live 2026-09-12: PO's rows carry ONLY class="deals-list__item" — no
+  // id attribute anywhere — so an id-only tier is dead code, and every result the
+  // socket and balance tiers miss would fall to quarantine. Attribute by identity
+  // instead of by "some row changed" (the 2026-08-17 stale-verdict bug): the row
+  // must be new since this trade started, on the same pair, for the same stake,
+  // and it must be the ONLY such row. Ambiguity stays unresolved.
+  const stake = Number(identity?.amount);
+  if (!identity?.asset || !Number.isFinite(stake)) return null;
   const previous = new Set(preTradeSignatures || []);
-  for (const item of getDealItems(5)) {
+  const matches = [];
+  for (const item of items) {
     const sig = getDealSignature(item);
     if (!sig || previous.has(sig)) continue;
+    const row = parseDealRow(item);
+    if (!row || row.pair !== identity.asset || Math.abs(row.stake - stake) > 0.005) continue;
     const result = readDealResult(item);
-    if (result) return { result, signature: sig };
+    if (result) matches.push({ result, signature: sig });
   }
-  return null;
+  return matches.length === 1 ? matches[0] : null;
 }
 
 // Pull the result for ONE specific deal id out of a close event, ignoring any
@@ -94,7 +126,7 @@ function resultForDealId(payload, dealId) {
     : (Array.isArray(payload) ? payload : null);
   if (!deals) return null;
   const deal = deals.find(d => d && d.id === dealId);
-  if (!deal || typeof deal.profit !== 'number') return null;
+  if (!deal || !Number.isFinite(deal.profit)) return null;
   if (deal.profit > 0) return 'win';
   if (deal.profit < 0) return 'loss';
   return 'tie';

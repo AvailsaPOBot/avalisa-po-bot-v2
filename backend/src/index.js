@@ -210,117 +210,19 @@ async function affiliateLiveness() {
   return value;
 }
 
-async function claimQueue() {
-  try {
-    const pending = await prisma.license.count({ where: { claimStatus: 'pending' } });
-    if (pending === 0) return { pending: 0 };
-    const oldest = await prisma.license.findFirst({
-      where: { claimStatus: 'pending' },
-      orderBy: { updatedAt: 'asc' },
-      select: { updatedAt: true },
-    });
-    const oldestTouchedHours = oldest
-      ? Math.floor((Date.now() - new Date(oldest.updatedAt).getTime()) / 3600000)
-      : null;
-    return { pending, oldestTouchedHours };
-  } catch {
-    return { pending: null };
-  }
-}
-
-// 680 installs and $0. Nobody could say whether that is a REACH problem or a CONVERSION
-// problem, because the events that answer it are recorded and then only readable behind the
-// Board's admin login. Cycles have been picking work on an assumption about which it is.
-//
-// Deliberately BUCKETS, not counts. /health is public and exact commercial figures do not
-// belong on it — but this file already publishes liveness booleans there, and a bucket is the
-// same kind of statement. Buckets are enough to choose between reach and conversion, which is
-// the only decision this needs to serve.
-//
-// GATED ON `enabled`: if analytics is off this returns null rather than zeros. "No events"
-// and "not recording" are opposite conclusions and must never share a representation.
-async function funnelWindow() {
-  try {
-    const { funnelEnabled } = require('./lib/funnel');
-    if (!(await funnelEnabled(prisma))) return null;
-    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const rows = await prisma.funnelEvent.groupBy({
-      by: ['type'],
-      where: { createdAt: { gte: since } },
-      _count: { _all: true },
-    });
-    const bucket = (n) => (n === 0 ? 'none' : n < 10 ? '1-9' : n < 100 ? '10-99' : '100+');
-    const out = { days: 7 };
-    for (const type of ['affiliate_link_served', 'signup', 'pricing_view', 'checkout_click']) {
-      const hit = rows.find((r) => r.type === type);
-      out[type] = bucket(hit ? hit._count._all : 0);
-    }
-    return out;
-  } catch {
-    return null;
-  }
-}
-// The affiliate numbers were a HUMAN SURFACE: log into PocketPartners, read Regs/FTD, write the
-// date in surface-checks.md. It had never once been done in 80 cycles, and the Board's objection
-// is the reason why — their session expires hourly, so it needs a person at a keyboard every
-// time. That is not a surface anyone will keep checking.
-//
-// We do not need their dashboard. routes/pocketpartners.js upserts EVERY postback event into
-// AffiliateReferral (`event: event || 'unknown'`), so our own database already holds whatever
-// PocketPartners sends us. This reads it back.
-//
-// HONEST LIMIT: this can only ever show what they actually POST. If they send Registration but
-// not FTD, no FTD will appear here — and that absence would mean 'not sent', never 'zero'. The
-// event names are printed verbatim rather than mapped, so a missing stage is visible as a
-// missing KEY instead of a confident zero.
-async function affiliateFunnel() {
-  try {
-    const rows = await prisma.affiliateReferral.groupBy({ by: ['event'], _count: { _all: true } });
-    if (!rows.length) return { events: {}, note: 'no postbacks received yet' };
-    const bucket = (n) => (n === 0 ? 'none' : n < 10 ? '1-9' : n < 100 ? '10-99' : '100+');
-    const events = {};
-    for (const r of rows) events[r.event] = bucket(r._count._all);
-    return { events };
-  } catch {
-    return null;
-  }
-}
-// Board directive, 2026-09-02: "recheck everytime you can grant pro plan to any users" and
-// "check if we missed new user to grant pro access in our avalisa db". This began as a
-// one-off diagnostic and I reverted it after reading the number once; he asked for it
-// STANDING, and he is right — a referral that arrives tomorrow creates the same gap.
-//
-// WHAT IT DOES NOT PROVE, and this decided a real decision on 2 Sep: AffiliateReferral.poUid
-// is authoritative (signed postback), but User.poUserId is SELF-ASSERTED — /api/auth/register
-// accepts it from the request body with no ownership check. So a match is a CANDIDATE, never
-// a proof of entitlement. Counts only, no ids or emails: this sizes a decision the Board makes.
-async function grantGap() {
-  try {
-    const referrals = await prisma.affiliateReferral.findMany({ select: { poUid: true } });
-    const uids = referrals.map((r) => r.poUid);
-    const [usersWithLinkedUid, matchedUsers, matchedAndStillFree] = await Promise.all([
-      prisma.user.count({ where: { poUserId: { not: null } } }),
-      prisma.user.count({ where: { poUserId: { in: uids } } }),
-      prisma.user.count({ where: { poUserId: { in: uids }, license: { plan: 'free' } } }),
-    ]);
-    return { referralUids: uids.length, usersWithLinkedUid, matchedUsers, matchedAndStillFree };
-  } catch {
-    return null;
-  }
-}
 // Boolean only: whether the candle archive has hit its row cap (never a count).
 const { startRetention, archiveCapState } = require('./lib/tradingTelemetry');
 app.get('/health', async (req, res) => {
-  const [funnel, affiliate, claims, funnelWindow7d, affiliateFunnelAllTime, grantGapAllTime] = await Promise.all([
-    funnelLiveness(), affiliateLiveness(), claimQueue(), funnelWindow(), affiliateFunnel(), grantGap(),
+  const [funnel, affiliate] = await Promise.all([
+    funnelLiveness(), affiliateLiveness(),
   ]);
   try {
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ status: 'ok', db: 'up', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, affiliate, claims, funnelWindow7d, affiliateFunnelAllTime, grantGapAllTime, marketCandles: archiveCapState(), timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', db: 'up', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, affiliate, marketCandles: archiveCapState(), timestamp: new Date().toISOString() });
   } catch (err) {
     // The commit belongs on the failure path too: a degraded backend is exactly
     // when you need to know which build is live.
-    res.status(503).json({ status: 'degraded', db: 'down', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, affiliate, claims, funnelWindow7d, affiliateFunnelAllTime, grantGapAllTime, marketCandles: archiveCapState(), timestamp: new Date().toISOString() });
+    res.status(503).json({ status: 'degraded', db: 'down', commit: RUNNING_COMMIT, alerting: alertingReadiness(), funnel, affiliate, marketCandles: archiveCapState(), timestamp: new Date().toISOString() });
   }
 });
 

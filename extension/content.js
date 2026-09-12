@@ -79,6 +79,7 @@ function ingestCandle(c) {
   if (!c || !c.asset || !c.period || !c.time) return;
   const key = `${c.asset}:${c.period}`;
   if (!state.candleBuffer[key]) state.candleBuffer[key] = [];
+  pruneInactiveCandleBuffers(key);
   const buf = state.candleBuffer[key];
   // Deduplicate by time
   const existing = buf.findIndex(x => x.time === c.time);
@@ -88,6 +89,19 @@ function ingestCandle(c) {
   } else {
     buf.push(entry);
     if (buf.length > 50) buf.shift(); // keep last 50
+  }
+}
+
+// Preserve the active series while bounding unsolicited/pre-selection streams.
+function pruneInactiveCandleBuffers(keepKey) {
+  const keys = Object.keys(state.candleBuffer);
+  const activeKey = `${state.activePair}:${state.activePeriod}`;
+  let count = keys.length;
+  for (const key of keys) {
+    if (count <= 20) break;
+    if (key === activeKey || key === keepKey) continue;
+    delete state.candleBuffer[key];
+    count--;
   }
 }
 
@@ -106,6 +120,7 @@ function ingestTick(asset, timestamp, price) {
     const key = `${asset}:${period}`;
     const candleTime = Math.floor(timestamp / period) * period;
     if (!state.candleBuffer[key]) state.candleBuffer[key] = [];
+    pruneInactiveCandleBuffers(key);
     const buf = state.candleBuffer[key];
     const last = buf[buf.length - 1];
     if (last && last.time === candleTime) {
@@ -214,6 +229,9 @@ function persistRuntimeSession(phase = 'running') {
     savedAt: Date.now(),
     version: chrome.runtime?.getManifest?.().version || null,
     phase,
+    reconciliationRequired: !!state.reconciliationRequired,
+    currentTradeIdentity: state.currentTradeIdentity || null,
+    currentDealId: state.currentDealId || null,
     running: state.running,
     stopRequested: state.stopRequested,
     currentAmount: state.currentAmount,
@@ -225,7 +243,11 @@ function persistRuntimeSession(phase = 'running') {
     recoveryReloads: state.recoveryReloads || 0,
     cycleErrorReloads: state.cycleErrorReloads || 0,
   };
-  return new Promise(resolve => chrome.storage.local.set({ [RUNTIME_SESSION_KEY]: payload }, () => resolve(true)));
+  return new Promise(resolve => chrome.storage.local.set({ [RUNTIME_SESSION_KEY]: payload }, () => {
+    const error = chrome.runtime?.lastError;
+    if (error) console.error('[Avalisa] Cannot persist trade recovery state:', error.message);
+    resolve(!error);
+  }));
 }
 
 // v2.4.8: when a safety stop fires mid-ladder, keep the ladder position so the
@@ -293,9 +315,14 @@ function loadRuntimeSession() {
 }
 
 async function restoreRuntimeSession() {
+  const restoreGeneration = state.cycleGeneration;
   const saved = await loadRuntimeSession();
-  if (!saved?.running || saved.stopRequested) return false;
-  if (Date.now() - Number(saved.savedAt || 0) > RUNTIME_SESSION_MAX_AGE_MS) {
+  if (state.running || state.cycleGeneration !== restoreGeneration) return false;
+  if (!saved) return false;
+  const unresolved = saved.reconciliationRequired || !['started', 'amount_retry', 'auto_reload_amount',
+    'cycle_error_retry', 'auto_reload_error', 'resolved'].includes(saved.phase);
+  if (!unresolved && (!saved.running || saved.stopRequested)) return false;
+  if (!unresolved && Date.now() - Number(saved.savedAt || 0) > RUNTIME_SESSION_MAX_AGE_MS) {
     await clearRuntimeSession();
     return false;
   }
@@ -328,14 +355,17 @@ async function restoreRuntimeSession() {
     'auto_reload_error',
     'resolved',
   ]);
-  if (!safeResumePhases.has(savedPhase)) {
+  if (unresolved || !safeResumePhases.has(savedPhase)) {
     state.running = false;
     state.stopRequested = true;
     state.cycleGeneration += 1;
+    state.reconciliationRequired = true;
+    state.currentTradeIdentity = saved.currentTradeIdentity || null;
+    state.currentDealId = saved.currentDealId || null;
     clearTradeLock();
     updateUI();
     updateTradeCounter();
-    updateStatus('error', 'Recovered an unresolved trade. Check Pocket Option trade history and reconcile its result before starting again.');
+    updateStatus('error', 'Recovered an unresolved trade. Start requires confirmation that all Pocket Option orders are closed; it resets the ladder.');
     return false;
   }
 
@@ -591,6 +621,11 @@ async function handleTradeCycleError(err, generation) {
 
   if (generation !== state.cycleGeneration) return;
 
+  if (state.tradeLock || state.isTradeOpen) {
+    await quarantineUnresolvedTrade('Trade tracking failed. Check Pocket Option history before restarting.');
+    return;
+  }
+
   state.cycleErrorStreak = (state.cycleErrorStreak || 0) + 1;
 
   if (!state.isTradeOpen && state.cycleErrorStreak <= MAX_CYCLE_ERROR_RETRIES) {
@@ -609,7 +644,7 @@ async function handleTradeCycleError(err, generation) {
     clearTradeLock();
     await persistRuntimeSession('auto_reload_error');
     updateStatus('running', 'Repeated page errors — reloading PO to recover, ladder continues');
-    setTimeout(() => window.location.reload(), 1500);
+    setTimeout(() => { if (isCycleActive(generation)) window.location.reload(); }, 1500);
     return;
   }
 
@@ -706,6 +741,24 @@ function clearTradeLock() {
   state.isTradeOpen = false;
 }
 
+// Quarantine keeps durable evidence while invalidating every outstanding continuation.
+// Restart is an explicit manual reset, never a guessed trade result.
+async function quarantineUnresolvedTrade(message) {
+  state.reconciliationRequired = true;
+  state.running = false;
+  state.stopRequested = true;
+  clearTimeout(state.stopWatchdog);
+  state.stopWatchdog = null;
+  state.stopAfterTrade = false;
+  state.cycleGeneration++;
+  clearTimeout(state.stopWatchdog);
+  state.stopWatchdog = null;
+  clearTradeLock();
+  updateUI();
+  updateStatus('error', message + ' Start requires checking that all orders are closed and resets the ladder.');
+  await persistRuntimeSession('unresolved');
+}
+
 // v2.4.8: a single balance read is not enough evidence to kill a live ladder —
 // PO re-renders and overlays can produce one-off misreads. Require two reads,
 // a beat apart, that agree with each other before trusting the number.
@@ -749,7 +802,7 @@ async function retryAfterAmountSetFailure(generation, safeAmount) {
     state.amountSetFailures = 0;
     await persistRuntimeSession('auto_reload_amount');
     updateStatus('running', `Amount control stuck — reloading PO (${state.recoveryReloads}/${MAX_RECOVERY_RELOADS}), then continuing $${safeAmount.toFixed(2)} recovery`);
-    setTimeout(() => window.location.reload(), 1500);
+    setTimeout(() => { if (isCycleActive(generation)) window.location.reload(); }, 1500);
     return;
   }
 
@@ -855,6 +908,19 @@ async function runTradeCycleUnsafe(generation) {
     updateStatus('running', 'Trade locked — waiting...');
     await sleep(3000);
     if (isCycleActive(generation)) runTradeCycle(generation).catch(err => console.error('[Avalisa] Cycle error:', err));
+    return;
+  }
+
+  // Keep the never-reuse ledger bounded without evicting safety evidence.
+  // This guard runs between trades, so a fresh page can safely begin a new ledger.
+  if ((state.usedDealIds?.size || 0) >= 4096) {
+    await preservePausedLadder('identity_capacity');
+    state.running = false;
+    state.stopRequested = true;
+    state.cycleGeneration++;
+    await clearRuntimeSession();
+    updateUI();
+    updateStatus('error', 'Session identity limit reached. Reload Pocket Option, then Start to continue.');
     return;
   }
 
@@ -1106,16 +1172,22 @@ async function runTradeCycleUnsafe(generation) {
   const orderIsDemo = isDemoMode();
   const clickedAt = Date.now();
   if (typeof AvalisaTelemetry !== 'undefined') AvalisaTelemetry.event('order_attempt', null, { pair: executionAsset, amount: safeAmount });
+  setTradeLock('order_pending');
+  if (!await persistRuntimeSession('order_pending')) {
+    await quarantineUnresolvedTrade('Recovery storage unavailable; no order was sent.');
+    return;
+  }
+  if (!isCycleActive(generation)) return;
   const placed = direction === 'call' ? clickCall() : clickPut();
   if (!placed) {
     if (typeof AvalisaTelemetry !== 'undefined') AvalisaTelemetry.event('open_unconfirmed', 'button_missing');
     if (!isCycleActive(generation)) return;
+    clearTradeLock();
+    stopBot();
     updateStatus('error', `Could not find ${direction.toUpperCase()} button`);
     return;
   }
 
-  setTradeLock('order_pending');
-  await persistRuntimeSession('order_pending');
   updateStatus('running', 'Order sent — confirming open...');
 
   // PO can delay stake deduction under load/background throttling. Waiting
@@ -1129,16 +1201,7 @@ async function runTradeCycleUnsafe(generation) {
     openResult = await waitForTradeOpen(balanceBefore, safeAmount, LATE_OPEN_WATCH_MS, preTradeDealCount);
     if (!isCycleActive(generation)) return;
     if (!openResult.opened) {
-      console.warn('[Avalisa] No late balance confirmation — clearing lock and continuing without counting trade:', openResult.method);
-      if (typeof AvalisaTelemetry !== 'undefined') AvalisaTelemetry.event('open_unconfirmed', openResult.method);
-      clearTradeLock();
-      if (state.stopAfterTrade) { stopBot(); return; }
-      const canContinue = await recoverAfterUnconfirmedOrder();
-      if (!canContinue || !isCycleActive(generation)) return;
-      const cooldownMs = Math.min(Math.max(AI_NO_PROGRESS_RETRY_MS, 5000), 15000);
-      updateStatus('running', `No confirmed order — refreshed controls, retrying in ${Math.round(cooldownMs / 1000)}s`);
-      await sleep(cooldownMs);
-      if (isCycleActive(generation)) runTradeCycle(generation).catch(console.error);
+      await quarantineUnresolvedTrade('Order was sent but its status could not be confirmed.');
       return;
     }
   }
@@ -1170,7 +1233,8 @@ async function runTradeCycleUnsafe(generation) {
 
   // 3-tier result detection: WS close event → DOM scrape → balance diff
   const result = await resolveTradeResult(balanceBefore, balanceDuringTrade, safeAmount, tradeStartTs, preTradeSignatures);
-  const balanceAfter = await getBalance();
+  if (!isCycleActive(generation)) return;
+  const balanceAfter = result === 'unknown' ? null : await getBalance();
   if (!isCycleActive(generation)) return;
 
   if (typeof AvalisaTelemetry !== 'undefined') {
@@ -1199,8 +1263,13 @@ async function runTradeCycleUnsafe(generation) {
     })).catch(console.error);
   }
 
+  if (result === 'unknown') {
+    await quarantineUnresolvedTrade('Trade result is unknown.');
+    return;
+  }
   applyMartingaleLogic(result);
   await persistRuntimeSession('resolved');
+  if (!isCycleActive(generation)) return;
   clearTradeLock();
   if (state.stopAfterTrade) { stopBot(); return; }
 
@@ -1747,7 +1816,7 @@ function updateBottomStatus() {
 
   // Idle AI status: reflect candle-buffer readiness in the main status line.
   // Skip while running — runTradeCycle drives the status text itself.
-  if (isAi && !state.running) {
+  if (isAi && !state.running && !state.reconciliationRequired) {
     const n = getBufferedCandles().length;
     const intensity = getCurrentAiIntensity();
     const requiredCandles = getRequiredCandles(intensity);
@@ -1782,6 +1851,21 @@ function updateBottomStatus() {
 
 async function startBot() {
   if (state.running) return;
+  // Also read storage here: Start is clickable before delayed startup restore.
+  const guardGeneration = state.cycleGeneration;
+  const pendingSession = await loadRuntimeSession();
+  if (state.running || state.cycleGeneration !== guardGeneration) return;
+  if (pendingSession && (pendingSession.reconciliationRequired || !['started', 'amount_retry',
+    'auto_reload_amount', 'cycle_error_retry', 'auto_reload_error', 'resolved'].includes(pendingSession.phase))) {
+    state.reconciliationRequired = true;
+  }
+  if (state.reconciliationRequired) {
+    if (!window.confirm('An earlier order has no confirmed result. Check Pocket Option open orders AND trade history first. Continue only if ALL orders are closed. OK resets the recovery ladder and starts a new session; Cancel keeps trading stopped.')) return;
+    await clearRuntimeSession();
+    await clearPausedLadder();
+    if (state.cycleGeneration !== guardGeneration) return;
+    state.reconciliationRequired = false;
+  }
 
   const startGeneration = state.cycleGeneration + 1;
   state.cycleGeneration = startGeneration; // invalidates stale cycles and marks this pending start
@@ -1851,10 +1935,22 @@ async function startBot() {
 }
 
 function stopBot() {
+  if (state.reconciliationRequired) {
+    updateStatus('error', 'Unresolved order retained. Start requires checking Pocket Option history and confirming all orders are closed.');
+    return;
+  }
   if (typeof AvalisaTelemetry !== 'undefined' && !state.stopAfterTrade) AvalisaTelemetry.event('stop', 'manual');
   // Finish tracking an accepted/pending order before unlocking Start.
   if (state.tradeLock || state.isTradeOpen) {
     state.stopAfterTrade = true;
+    if (!state.stopWatchdog) {
+      const generation = state.cycleGeneration;
+      state.stopWatchdog = setTimeout(() => {
+        if (generation === state.cycleGeneration && state.stopAfterTrade) {
+          quarantineUnresolvedTrade('Stopped tracking after 60 seconds without a result.').catch(console.error);
+        }
+      }, 60000);
+    }
     updateUI();
     updateStatus('running', 'Stopping — waiting for the current order to resolve');
     return;
@@ -2179,6 +2275,7 @@ window.addEventListener('message', (e) => {
       }
     } catch (_) {}
   } else if (t === 'AVALISA_WS_HISTORY') {
+    if (typeof e.data.data !== 'string') return;
     debugLog('[Avalisa] HISTORY binary received, length:', e.data.data.length);
     try {
       const parsed = JSON.parse(e.data.data);
@@ -2271,7 +2368,7 @@ window.addEventListener('message', (e) => {
     }
   } else if (t === 'AVALISA_WS_SEND') {
     // Log outgoing WS — helps identify what PO sends to trigger AI
-    if (e.data.data && !e.data.data.startsWith('2') && !e.data.data.startsWith('3')) {
+    if (typeof e.data.data === 'string' && !e.data.data.startsWith('2') && !e.data.data.startsWith('3')) {
       debugLog('[Avalisa] WS SEND:', e.data.data.substring(0, 300));
     }
   } else if (t === 'AVALISA_FETCH') {
