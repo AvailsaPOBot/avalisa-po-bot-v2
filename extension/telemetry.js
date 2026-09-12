@@ -98,9 +98,14 @@ const AvalisaTelemetry = (() => {
     const key = `${pair}:${period}`;
     if (Date.now() < (nextPost.get(key) || 0)) return;
     const seen = sentTimes.get(key) || new Set();
-    const nowSec = Date.now() / 1000;
-    const candles = (state.candleBuffer?.[key] || [])
-      .filter(c => c && Number.isFinite(c.time) && c.time % period === 0 && c.time + period <= nowSec
+    const buffer = state.candleBuffer?.[key] || [];
+    // "Closed" is decided by PO's own series, never by this machine's clock.
+    // Measured live 2026-09-12: PO stamps candles ~2h ahead of local time, so a
+    // wall-clock test marked every candle as still open and archived nothing.
+    // The newest candle in the buffer is the forming one; everything before it is done.
+    const newest = buffer.reduce((max, c) => (c && Number.isFinite(c.time) && c.time > max ? c.time : max), -Infinity);
+    const candles = buffer
+      .filter(c => c && Number.isFinite(c.time) && c.time % period === 0 && c.time < newest
         && !seen.has(c.time) && [c.open, c.high, c.low, c.close].every(v => Number.isFinite(v) && v > 0))
       .sort((a, b) => a.time - b.time).slice(-500)
       .map(c => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close }));

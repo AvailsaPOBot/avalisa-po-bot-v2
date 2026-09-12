@@ -69,6 +69,17 @@ test('archives the bot own buffer for the active pair, skipping the still-open c
   assert.equal(posts[0].body.candles.length,4,'four closed candles, the open one held back');
   assert.ok(posts[0].body.candles.every(c=>c.time<open));
 });
+// Measured live 2026-09-12: PO stamps candles ~2h AHEAD of local time. A wall-clock
+// "is it closed yet" test marked every candle open and archived nothing at all.
+test('archives PO candles stamped in the future by PO own clock',async()=>{
+  const posts=[];const {ctx,telemetry,now}=harness(async(path,body)=>{posts.push(body);return {};});
+  const skewed=Math.floor((now()/1000+7200)/30)*30; // PO ~2h ahead
+  ctx.state.candleBuffer['EURUSD:30']=Array.from({length:6},(_,i)=>({time:skewed+i*30,open:1,high:1.01,low:0.99,close:1.005}));
+  telemetry.snapshot();await settle();
+  assert.equal(posts.length,1,'future-stamped candles still archive');
+  assert.equal(posts[0].candles.length,5,'all but the newest, which is still forming');
+  assert.ok(posts[0].candles.every(c=>c.time<skewed+5*30));
+});
 test('archives M1 too: whatever period the bot is actually trading',async()=>{
   const posts=[];const {ctx,telemetry,now}=harness(async(path,body)=>{posts.push(body);return {};});
   ctx.state.activePeriod=60;
@@ -96,13 +107,11 @@ test('uploads only while running, only for the pair the bot trades, deduped and 
   const firstTimes=posts[0].candles.map(c=>c.time);
   advance(300001);
   telemetry.snapshot();await settle();
-  // The candle that was still open at the first upload has closed by now, so it
-  // is sent once — and the already-uploaded ones are never resent.
-  assert.equal(posts.length,2);
-  assert.ok(posts[1].candles.every(c=>!firstTimes.includes(c.time)),'no duplicates across posts');
-  advance(300001);
+  assert.equal(posts.length,1,'time passing alone adds nothing: closure comes from the series');
+  fillBuffer(ctx,'EURUSD',30,8,now());
   telemetry.snapshot();await settle();
-  assert.equal(posts.length,2,'nothing new in the buffer: no empty POST');
+  assert.equal(posts.length,2,'new candles in the buffer are archived');
+  assert.ok(posts[1].candles.every(c=>!firstTimes.includes(c.time)),'no duplicates across posts');
 });
 test('archive_full counts as delivered and pauses uploads for an hour',async()=>{
   const posts=[];const {ctx,telemetry,advance,now}=harness(async(path,body)=>{posts.push(body);return {success:true,accepted:false,reason:'archive_full'};});

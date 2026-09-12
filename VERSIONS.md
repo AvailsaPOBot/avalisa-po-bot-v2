@@ -37,6 +37,15 @@ one hour of back-off on `archive_full`.
 Lesson recorded: a collector that silently collects nothing looks exactly like a
 quiet market. It needed a row count from production, not a passing test.
 
+Second cause, found only by probing the LIVE buffer: PO stamps candles on its own
+clock, ~2h AHEAD of local time (measured 7,075s ahead on 2026-09-12). Every
+"has this candle closed yet?" test against the local clock said no, so even with
+the period and pair fixed the archive stayed empty — and the backend would have
+rejected the same rows as future-dated. Closure is now decided by PO's own series
+(the newest candle in the buffer is the forming one, everything before it is
+closed) and the backend only bounds clock skew (+2 days, -90 days). Archived
+candle times are PO's timestamps, not UTC; spacing is what backtests use.
+
 ## 2.4.19 — 2026-09-11 — Local candidate, unpublished
 
 Adds read-only market context for every strategy, exact attributed PO deal facts,

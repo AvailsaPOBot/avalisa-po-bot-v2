@@ -26,7 +26,21 @@ test('candle upload dedupes and uses createMany skipDuplicates with bounded vali
   let args;const db={marketCandle:{createMany:async q=>(args=q,{count:q.data.length})}};
   assert.deepEqual(await uploadCandles(db,{pair:'EURUSD_otc',periodSec:30,candles:[candle(start),candle(start)]},now),{accepted:true,count:1});
   assert.equal(args.skipDuplicates,true);assert.equal(args.data.length,1);
-  for (const changes of [{periodSec:45},{periodSec:'30'},{candles:Array(501).fill(candle(start))},{candles:[candle(now/1000)]},{candles:[{...candle(start),low:3}]}]) await assert.rejects(uploadCandles(db,{pair:'EURUSD',periodSec:30,candles:[candle(start)],...changes},now),RangeError);
+  // NOTE: "closed yet?" is the client's call now (PO's clock runs ahead of ours),
+  // so a candle timed at our own now is valid; misalignment and bad OHLC are not.
+  for (const changes of [{periodSec:45},{periodSec:'30'},{candles:Array(501).fill(candle(start))},{candles:[candle(start+7)]},{candles:[{...candle(start),low:3}]}]) await assert.rejects(uploadCandles(db,{pair:'EURUSD',periodSec:30,candles:[candle(start)],...changes},now),RangeError);
+});
+// PO stamps candles on its own clock, measured ~2h ahead of UTC. Judging closure by
+// OUR clock rejected every real candle; we only bound the skew now.
+test('accepts PO clock skew ahead of server time, rejects implausible futures', async () => {
+  resetArchiveCap();
+  const db={marketCandle:{createMany:async q=>({count:q.data.length})}};
+  const ahead=Math.floor((now/1000+7200)/30)*30; // ~2h ahead, as measured live
+  assert.deepEqual(await uploadCandles(db,{pair:'EURUSD',periodSec:30,candles:[candle(ahead)]},now),{accepted:true,count:1});
+  const tooFar=Math.floor((now/1000+3*86400)/30)*30;
+  await assert.rejects(uploadCandles(db,{pair:'EURUSD',periodSec:30,candles:[candle(tooFar)]},now),RangeError);
+  const tooOld=Math.floor((now/1000-91*86400)/30)*30;
+  await assert.rejects(uploadCandles(db,{pair:'EURUSD',periodSec:30,candles:[candle(tooOld)]},now),RangeError);
 });
 // The bot trades M1: rejecting period 60 archived nothing at all in the live 2.4.19 run.
 test('60-second candles are archived with their own period and alignment', async () => {

@@ -51,13 +51,18 @@ function eventData(body, userId) {
 // The bot trades S30 and M1, so both periods are archivable. Accepting only 30
 // silently discarded every M1 session (measured: 0 rows after a live run).
 const ARCHIVED_PERIODS = new Set([30, 60]);
+const MAX_CLOCK_SKEW_SEC = 2 * 86400; // PO's clock offset plus any user clock drift
 function candleData(body, now = Date.now()) {
   if (!body || !validPair(body.pair) || !ARCHIVED_PERIODS.has(body.periodSec) || !Array.isArray(body.candles) || !body.candles.length || body.candles.length > 500) throw new RangeError('Expected pair, periodSec 30 or 60, and 1-500 candles');
   if (Buffer.byteLength(JSON.stringify(body)) > 100000) throw new RangeError('Candle payload exceeds 100000 bytes');
   const period = body.periodSec;
+  // Candle times are PO's own clock, which runs ~2h ahead of UTC (measured
+  // 2026-09-12). Judging "closed" by OUR clock rejected every real candle, so
+  // the client decides closure from its series and we only bound the skew.
+  const nowSec = Math.floor(now / 1000);
   const candles = new Map();
   for (const c of body.candles) {
-    if (!c || !Number.isSafeInteger(c.time) || c.time % period || c.time < Math.floor(now / 1000) - 90 * 86400 || c.time + period > Math.floor(now / 1000) || !['open', 'high', 'low', 'close'].every(k => typeof c[k] === 'number' && Number.isFinite(c[k]) && c[k] > 0) || c.high < Math.max(c.open, c.close, c.low) || c.low > Math.min(c.open, c.close)) throw new RangeError('Invalid, open, or older-than-90-days candle');
+    if (!c || !Number.isSafeInteger(c.time) || c.time % period || c.time < nowSec - 90 * 86400 || c.time > nowSec + MAX_CLOCK_SKEW_SEC || !['open', 'high', 'low', 'close'].every(k => typeof c[k] === 'number' && Number.isFinite(c[k]) && c[k] > 0) || c.high < Math.max(c.open, c.close, c.low) || c.low > Math.min(c.open, c.close)) throw new RangeError('Invalid, older-than-90-days, or implausibly future candle');
     candles.set(c.time, { pair: body.pair, periodSec: period, time: c.time, open: c.open, high: c.high, low: c.low, close: c.close });
   }
   return [...candles.values()];
