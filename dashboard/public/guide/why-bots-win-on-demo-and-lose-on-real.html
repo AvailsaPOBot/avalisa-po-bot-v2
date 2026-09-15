@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Why a Trading Bot Can Win on Demo and Struggle on a Real Account</title>
+  <meta name="description" content="Why a bot can look profitable on a Pocket Option demo and struggle on real money: sizing, Martingale streaks, result detection, and a pre-live checklist.">
+  <meta property="og:title" content="Why a Trading Bot Can Win on Demo and Struggle on a Real Account">
+  <meta property="og:description" content="Why a bot can look profitable on a Pocket Option demo and struggle on real money: sizing, Martingale streaks, result detection, and a pre-live checklist.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://avalisabot.vercel.app/guide/why-bots-win-on-demo-and-lose-on-real.html">
+  <link rel="canonical" href="https://avalisabot.vercel.app/guide/why-bots-win-on-demo-and-lose-on-real.html">
+  <link rel="icon" href="/favicon.ico">
+  <style>
+    :root {
+      --bg: #060606;
+      --surface: #0e1216;
+      --surface-deep: #07090b;
+      --text: #f3eee6;
+      --muted: rgba(243, 238, 230, 0.7);
+      --gold: #d8a24a;
+      --gold-light: #f1c878;
+      --line: rgba(216, 162, 74, 0.24);
+      --jade: #4a9b7e;
+      --display: Georgia, 'Times New Roman', serif;
+      --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 78% 3%, rgba(216, 162, 74, 0.18), transparent 26rem),
+        radial-gradient(circle at 5% 22%, rgba(74, 155, 126, 0.12), transparent 30rem),
+        linear-gradient(180deg, var(--bg), #090c0e 48%, #040404);
+      color: var(--text);
+      font: 16px/1.7 var(--sans);
+    }
+    a { color: var(--gold-light); text-underline-offset: 0.2em; }
+    a:hover { color: #ffe1a8; }
+    a:focus-visible { outline: 2px solid var(--gold-light); outline-offset: 4px; }
+    .shell { width: min(calc(100% - 2rem), 860px); margin: 0 auto; }
+    header {
+      border-bottom: 1px solid var(--line);
+      background: rgba(6, 6, 6, 0.88);
+    }
+    nav {
+      display: flex;
+      min-height: 4.35rem;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .brand img { display: block; width: auto; height: 3.1rem; }
+    .nav-link { color: var(--muted); font-size: 0.86rem; font-weight: 700; text-decoration: none; }
+    .hero { padding: clamp(3.5rem, 8vw, 6.5rem) 0 clamp(2rem, 5vw, 4rem); }
+    .kicker {
+      margin: 0;
+      color: var(--gold);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+    h1, h2 { font-family: var(--display); font-weight: 500; line-height: 1.08; }
+    h1 { max-width: 820px; margin: 0.75rem 0 1.25rem; font-size: clamp(2.5rem, 7vw, 5rem); }
+    h2 { margin: 0 0 1rem; font-size: clamp(1.8rem, 4vw, 2.55rem); }
+    h3 { margin: 1.75rem 0 0.35rem; color: var(--gold-light); font-size: 1.05rem; }
+    p, li { color: var(--muted); }
+    .lede { max-width: 740px; margin: 0; font-size: clamp(1.05rem, 2.5vw, 1.24rem); }
+    .quick-links { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.6rem; }
+    .button {
+      display: inline-flex;
+      min-height: 2.8rem;
+      align-items: center;
+      border: 1px solid rgba(241, 200, 120, 0.55);
+      border-radius: 0.48rem;
+      padding: 0.7rem 1rem;
+      background: linear-gradient(180deg, #f1c878, #d0933c 52%, #9c6423);
+      color: #130d05;
+      font-weight: 800;
+      text-decoration: none;
+    }
+    .button.secondary { background: rgba(10, 10, 15, 0.6); color: var(--gold-light); }
+    .toc, article section, .risk, .final-cta {
+      border: 1px solid var(--line);
+      border-radius: 0.7rem;
+      background:
+        radial-gradient(circle at 92% 0%, rgba(216, 162, 74, 0.08), transparent 15rem),
+        linear-gradient(180deg, rgba(14, 18, 22, 0.92), rgba(7, 9, 11, 0.94));
+    }
+    .toc { margin-bottom: 1rem; padding: 1.35rem clamp(1.1rem, 3vw, 1.8rem); }
+    .toc strong { font-family: var(--display); font-size: 1.2rem; }
+    .toc ol { columns: 2; margin-bottom: 0; padding-left: 1.25rem; }
+    .toc li { break-inside: avoid; margin: 0.25rem 0; }
+    article { display: grid; gap: 1rem; padding-bottom: 4rem; }
+    article section { padding: clamp(1.3rem, 4vw, 2.2rem); scroll-margin-top: 1rem; }
+    article section > :last-child { margin-bottom: 0; }
+    ol, ul { padding-left: 1.45rem; }
+    li + li { margin-top: 0.5rem; }
+    strong { color: var(--text); }
+    .risk { border-color: rgba(241, 200, 120, 0.42); }
+    .risk h2 { color: var(--gold-light); }
+    .final-cta { text-align: left; }
+    footer { border-top: 1px solid var(--line); padding: 2rem 0; color: var(--muted); font-size: 0.86rem; }
+    footer .shell { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.75rem 1.5rem; }
+    @media (max-width: 620px) {
+      .toc ol { columns: 1; }
+      .brand img { height: 2.7rem; }
+      .nav-link { font-size: 0.78rem; }
+    }
+    .checklist { list-style: none; padding-left: 0; }
+    .checklist li { display: flex; gap: 0.65rem; align-items: flex-start; }
+    .checklist li::before {
+      content: "\2610";
+      flex: none;
+      color: var(--gold-light);
+      font-size: 1.15rem;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <nav class="shell" aria-label="Primary navigation">
+      <a class="brand" href="/" aria-label="Avalisa PO Bot home">
+        <img src="/images/brand/avalisa-signature-logo-gold.png" alt="Avalisa PO Bot">
+      </a>
+      <a class="nav-link" href="https://avalisabot.vercel.app/guide">Setup guide</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="hero shell">
+      <p class="kicker">Demo versus real accounts</p>
+      <h1>Why a Trading Bot Can Win on Demo and Struggle on a Real Account</h1>
+      <p class="lede">If your bot made money on a demo account and stopped doing so on a real one, the difference is usually not magic or luck — it is a small number of mechanical factors that only show up when real money and real stress are involved. This guide explains what typically breaks between demo and live trading, and how to close each gap before you risk more.</p>
+      <div class="quick-links">
+        <a class="button" href="https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa">Add to Chrome</a>
+        <a class="button secondary" href="https://avalisabot.vercel.app/guide">Open the setup guide</a>
+      </div>
+    </div>
+
+    <div class="shell">
+      <aside class="toc" aria-label="On this page">
+        <strong>On this page</strong>
+        <ol>
+          <li><a href="#risk">Risk statement — read this first</a></li>
+          <li><a href="#demo-vs-real">Demo versus a real account</a></li>
+          <li><a href="#martingale">The Martingale trap</a></li>
+          <li><a href="#mechanics">What breaks mechanically</a></li>
+          <li><a href="#checklist">The pre-live checklist</a></li>
+          <li><a href="#faq">Frequently asked questions</a></li>
+          <li><a href="#try-demo">Try it on a demo account first</a></li>
+        </ol>
+      </aside>
+
+      <article>
+        <section id="risk" class="risk">
+          <h2>Risk statement — read this first</h2>
+          <p>Trading binary options is high risk. Most active traders lose money, and a trading bot does not guarantee profit — no setting, mode, or signal does. Demo results do not predict real-account results. Only trade money you can genuinely afford to lose, and use a demo account to test any setting change before applying it to a real balance.</p>
+        </section>
+
+        <section id="demo-vs-real">
+          <h2>What is different between demo and a real account</h2>
+          <p>The demo account removes the cost of being wrong. That changes everything:</p>
+          <ul>
+            <li><strong>Sizing decisions feel free on demo.</strong> You will let stakes climb because the balance refills. On a real account the same climb is taken straight out of your money.</li>
+            <li><strong>You tolerate noise on demo.</strong> A losing streak that would stop a human trader cold gets waved through on demo with a shrug. On real money, the same streak happens — but now decisions are made under stress, with fatigue, and often late at night.</li>
+            <li><strong>The market is identical, your behavior is not.</strong> Payouts vary by pair, timeframe and moment; results vary with the market. A strategy that “worked” over ten demo trades has proven almost nothing, in either direction.</li>
+          </ul>
+          <p>Bots add their own dynamics on top of this. The most common of these is Martingale.</p>
+        </section>
+
+        <section id="martingale">
+          <h2>The Martingale trap: why losing streaks look worse on real</h2>
+          <p>Martingale strategy doubles (or multiplies) the stake after each loss. Because of how that arithmetic works:</p>
+          <ul>
+            <li>A losing streak erodes a balance much faster than one sequence of trades would suggest, because every failed trade gets more expensive than the one before it.</li>
+            <li>A streak that ends after three losses on a top-up demo balance can erase months of small real-account gains.</li>
+          </ul>
+          <p>This is why the difference between “works on demo” and “kills the account” so often shows up in Martingale mode. Practical protections:</p>
+          <ol>
+            <li><strong>Limit the steps.</strong> A capped step count is the actual mechanism for limiting a losing streak — it is the only built-in cap. “Infinite” steps means no cap: the sequence keeps escalating until the next stake exceeds your balance and the bot pauses.</li>
+            <li><strong>Prefer the lower multipliers</strong> (2x) when testing, since they escalate more slowly than aggressive multipliers.</li>
+            <li><strong>Check the math before going live.</strong> At a 92% payout, break-even needs roughly a 52.1% successful-trade percentage. That is a useful number to keep in your head whenever you evaluate whether something is actually winning.</li>
+            <li><strong>Keep stakes small enough that a full capped sequence is survivable.</strong> Size the entry stake so that even the worst allowed sequence costs an amount you planned for, not an amount you will notice.</li>
+          </ol>
+        </section>
+
+        <section id="mechanics">
+          <h2>What breaks mechanically between demo and live</h2>
+          <p>Beyond psychology, there are concrete mechanical differences worth checking before you blame luck:</p>
+          <ul>
+            <li><strong>Result detection.</strong> If the trading tab is backgrounded, minimized or throttled, trade-result detection can be delayed. A bot that mis-reads when a trade settled behaves very differently from one that tracks every result in real time — and demo runs are often done with the tab in front. Keep the trading tab visible while the bot runs.</li>
+            <li><strong>Payout differences.</strong> Minimum payout filtering and the payout you actually receive on the chosen pair and timeframe affect break-even math. A pair/timeframe combination that is acceptable under one payout can be unfavorable under another.</li>
+            <li><strong>Balance constraints.</strong> On demo, a stake sequence that exceeds the balance never mattered. On a real account, the sequence pauses when the next stake would exceed your balance — so long capped sequences interact badly with small balances.</li>
+          </ul>
+        </section>
+
+        <section id="checklist">
+          <h2>A checklist before moving from demo to real</h2>
+          <ul class="checklist">
+            <li>The setting was run long enough on demo to survive several losing streaks, not just one good run.</li>
+            <li>Martingale steps are capped, and you can state the maximum cost of a full sequence out loud.</li>
+            <li>Your stakes are sized for that maximum cost, not for the average trade.</li>
+            <li>You know the payout on the pair and timeframe you are using, and the break-even it implies.</li>
+            <li>You will keep the trading tab visible while the bot runs.</li>
+            <li>The money at stake is money you can afford to lose entirely.</li>
+          </ul>
+          <p>If any box is unchecked, keep trading the demo account. That is what the demo account is for.</p>
+        </section>
+
+        <section id="faq">
+          <h2>Frequently asked questions</h2>
+
+          <h3>Why did my bot win on demo for two weeks and lose on real from day one?</h3>
+          <p>Most likely variance plus Martingale sizing. Two weeks of small demo stakes proves very little about expectancy, and losing streaks cost proportionally more when the stakes have grown. Shrink the stakes, cap the steps, and re-test.</p>
+
+          <h3>Does a higher payout setting make the bot safer on a real account?</h3>
+          <p>Payout changes the break-even math, so a lower payout makes the same success percentage less viable. Treat any payout change as a new strategy that needs fresh demo testing rather than an automatic improvement.</p>
+
+          <h3>Is it safer to trade smaller stakes more often, or bigger stakes with caps?</h3>
+          <p>Smaller entry stakes with hard caps are the safer arithmetic. The danger is not any single trade; it is the accumulated cost of an escalating sequence. Size so the capped maximum is affordable, then reduce until it is comfortably affordable.</p>
+
+          <h3>Can the bot tell when a losing streak is happening and stop?</h3>
+          <p>The built-in protection is the step cap: when the sequence reaches its limit, or when the next stake would exceed your balance, escalation stops and the bot pauses. There is no separate automatic stop-loss to configure beyond that cap, which is exactly why the cap should never be “infinite” on a real account.</p>
+
+          <h3>Should I ever trust the demo results at all?</h3>
+          <p>Yes — as a test of settings and behavior, never as a prediction of profit. If a setting behaves badly on demo it will behave worse on real. If it behaves well on demo, it merely has not been disproved yet.</p>
+        </section>
+
+        <section id="try-demo" class="final-cta">
+          <h2>Try it on a demo account first</h2>
+          <p>Avalisa PO Bot runs on Pocket Option's own demo accounts as well as real ones, so you can run the checks above without putting real money at stake. Install the extension from the Chrome Web Store, start on a demo account, cap your steps, and give the setting time before drawing any conclusions.</p>
+          <ul>
+            <li>Install from the Chrome Web Store: <a href="https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa">Avalisa PO Bot</a></li>
+            <li>Setup guide: <a href="https://avalisabot.vercel.app/guide">avalisabot.vercel.app/guide</a></li>
+          </ul>
+          <p>The free Demo plan includes 10 Martingale trades at no cost; paid plans exist if you later want them. Remember the position this entire page rests on: the demo account exists so you can find out what goes wrong before the version of you with real money does.</p>
+        </section>
+      </article>
+    </div>
+  </main>
+
+  <footer>
+    <div class="shell">
+      <span>© Avalisa PO Bot</span>
+      <a href="mailto:avalisapobot@gmail.com">avalisapobot@gmail.com</a>
+    </div>
+  </footer>
+</body>
+</html>

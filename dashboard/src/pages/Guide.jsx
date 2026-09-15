@@ -288,6 +288,12 @@ export default function Guide() {
               does Pocket Option allow trading bots, and how to keep your account safe
             </a>.
           </p>
+          <p>
+            Good on demo, bad on real? Read{' '}
+            <a href="/guide/why-bots-win-on-demo-and-lose-on-real.html">
+              why a trading bot can win on demo and struggle on a real account
+            </a>.
+          </p>
         </div>
         <aside>
           <BookOpen size={34} />
