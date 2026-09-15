@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Martingale Explained: Why It Can Wipe Out a Balance, and How to Set Limits</title>
+  <meta name="description" content="What a full Martingale losing cycle actually costs at 2x and 3x, why a streak can empty a balance, and how to cap steps and base stake before it does.">
+  <meta property="og:title" content="Martingale Explained: Why It Can Wipe Out a Balance, and How to Set Limits">
+  <meta property="og:description" content="What a full Martingale losing cycle actually costs at 2x and 3x, why a streak can empty a balance, and how to cap steps and base stake before it does.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://avalisabot.vercel.app/guide/martingale-risk-explained.html">
+  <link rel="canonical" href="https://avalisabot.vercel.app/guide/martingale-risk-explained.html">
+  <link rel="icon" href="/favicon.ico">
+  <style>
+    :root {
+      --bg: #060606;
+      --surface: #0e1216;
+      --surface-deep: #07090b;
+      --text: #f3eee6;
+      --muted: rgba(243, 238, 230, 0.7);
+      --gold: #d8a24a;
+      --gold-light: #f1c878;
+      --line: rgba(216, 162, 74, 0.24);
+      --jade: #4a9b7e;
+      --display: Georgia, 'Times New Roman', serif;
+      --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 78% 3%, rgba(216, 162, 74, 0.18), transparent 26rem),
+        radial-gradient(circle at 5% 22%, rgba(74, 155, 126, 0.12), transparent 30rem),
+        linear-gradient(180deg, var(--bg), #090c0e 48%, #040404);
+      color: var(--text);
+      font: 16px/1.7 var(--sans);
+    }
+    a { color: var(--gold-light); text-underline-offset: 0.2em; }
+    a:hover { color: #ffe1a8; }
+    a:focus-visible { outline: 2px solid var(--gold-light); outline-offset: 4px; }
+    .shell { width: min(calc(100% - 2rem), 860px); margin: 0 auto; }
+    header {
+      border-bottom: 1px solid var(--line);
+      background: rgba(6, 6, 6, 0.88);
+    }
+    nav {
+      display: flex;
+      min-height: 4.35rem;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .brand img { display: block; width: auto; height: 3.1rem; }
+    .nav-link { color: var(--muted); font-size: 0.86rem; font-weight: 700; text-decoration: none; }
+    .hero { padding: clamp(3.5rem, 8vw, 6.5rem) 0 clamp(2rem, 5vw, 4rem); }
+    .kicker {
+      margin: 0;
+      color: var(--gold);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+    h1, h2 { font-family: var(--display); font-weight: 500; line-height: 1.08; }
+    h1 { max-width: 820px; margin: 0.75rem 0 1.25rem; font-size: clamp(2.5rem, 7vw, 5rem); }
+    h2 { margin: 0 0 1rem; font-size: clamp(1.8rem, 4vw, 2.55rem); }
+    h3 { margin: 1.75rem 0 0.35rem; color: var(--gold-light); font-size: 1.05rem; }
+    p, li { color: var(--muted); }
+    .lede { max-width: 740px; margin: 0; font-size: clamp(1.05rem, 2.5vw, 1.24rem); }
+    .quick-links { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.6rem; }
+    .button {
+      display: inline-flex;
+      min-height: 2.8rem;
+      align-items: center;
+      border: 1px solid rgba(241, 200, 120, 0.55);
+      border-radius: 0.48rem;
+      padding: 0.7rem 1rem;
+      background: linear-gradient(180deg, #f1c878, #d0933c 52%, #9c6423);
+      color: #130d05;
+      font-weight: 800;
+      text-decoration: none;
+    }
+    .button.secondary { background: rgba(10, 10, 15, 0.6); color: var(--gold-light); }
+    .toc, article section, .risk, .final-cta {
+      border: 1px solid var(--line);
+      border-radius: 0.7rem;
+      background:
+        radial-gradient(circle at 92% 0%, rgba(216, 162, 74, 0.08), transparent 15rem),
+        linear-gradient(180deg, rgba(14, 18, 22, 0.92), rgba(7, 9, 11, 0.94));
+    }
+    .toc { margin-bottom: 1rem; padding: 1.35rem clamp(1.1rem, 3vw, 1.8rem); }
+    .toc strong { font-family: var(--display); font-size: 1.2rem; }
+    .toc ol { columns: 2; margin-bottom: 0; padding-left: 1.25rem; }
+    .toc li { break-inside: avoid; margin: 0.25rem 0; }
+    article { display: grid; gap: 1rem; padding-bottom: 4rem; }
+    article section { padding: clamp(1.3rem, 4vw, 2.2rem); scroll-margin-top: 1rem; }
+    article section > :last-child { margin-bottom: 0; }
+    ol, ul { padding-left: 1.45rem; }
+    li + li { margin-top: 0.5rem; }
+    strong { color: var(--text); }
+    .risk { border-color: rgba(241, 200, 120, 0.42); }
+    .risk h2 { color: var(--gold-light); }
+    .final-cta { text-align: left; }
+    footer { border-top: 1px solid var(--line); padding: 2rem 0; color: var(--muted); font-size: 0.86rem; }
+    footer .shell { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.75rem 1.5rem; }
+    @media (max-width: 620px) {
+      .toc ol { columns: 1; }
+      .brand img { height: 2.7rem; }
+      .nav-link { font-size: 0.78rem; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <nav class="shell" aria-label="Primary navigation">
+      <a class="brand" href="/" aria-label="Avalisa PO Bot home">
+        <img src="/images/brand/avalisa-signature-logo-gold.png" alt="Avalisa PO Bot">
+      </a>
+      <a class="nav-link" href="https://avalisabot.vercel.app/guide">Setup guide</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="hero shell">
+      <p class="kicker">Martingale risk</p>
+      <h1>Martingale Explained: Why It Can Wipe Out a Balance, and How to Set Limits</h1>
+      <p class="lede">Martingale is a stake-sizing method: after each loss, the next stake grows (usually doubles) until a win recovers the accumulated losses plus a small net gain. It feels safe, because losses stay small and wins come often &mdash; until one losing streak, sized exponentially, takes out weeks of stakes in a single cycle. This page explains the math honestly and shows where to set the limits.</p>
+      <div class="quick-links">
+        <a class="button" href="https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa">Add to Chrome</a>
+        <a class="button secondary" href="https://avalisabot.vercel.app/guide">Open the setup guide</a>
+      </div>
+    </div>
+
+    <div class="shell">
+      <aside class="toc" aria-label="On this page">
+        <strong>On this page</strong>
+        <ol>
+          <li><a href="#how">How Martingale works</a></li>
+          <li><a href="#streak">Why a losing streak wipes out a balance</a></li>
+          <li><a href="#cost">What a full cycle actually costs</a></li>
+          <li><a href="#limits">How to set limits</a></li>
+          <li><a href="#risk">Risk statement</a></li>
+          <li><a href="#faq">Frequently asked questions</a></li>
+          <li><a href="#start">Try it on demo first</a></li>
+        </ol>
+      </aside>
+
+      <article>
+        <section id="how">
+          <h2>How Martingale works</h2>
+          <p>You pick a base stake and a multiplier (2x is the classic; some tools offer 2.2x up to 3x). Each step after a loss, the stake is multiplied. A win resets the cycle back to the base stake; a loss advances to the next step.</p>
+          <p>At typical binary-option payouts (around 90%), a win on an early step covers the accumulated losses of the cycle and leaves a small net gain &mdash; roughly the size of the base stake. That symmetry is exactly why it is tempting: many small wins, rare big losses.</p>
+        </section>
+
+        <section id="streak">
+          <h2>Why a losing streak wipes out a balance</h2>
+          <p>The exposure of a cycle grows exponentially, not linearly. With a 2x multiplier and a $1 base, the stakes across a full 5-step cycle are $1, $2, $4, $8, $16 &mdash; total $31. After just 5 losses in a row, one cycle costs 31 times your starting stake. Add a payout below 100%, and even a win on the later steps recovers only part of what went out: at low payouts the required stake exceeds what the win pays, so late steps lose on both sides.</p>
+          <p>The uncomfortable arithmetic: if each individual trade is wrong roughly half the time, a 5-loss streak is common enough that an uncapped cycle will hit it regularly. Martingale does not change how often you lose trades. It moves the losses from many-small to few-large. Cap the cycle and you have defined your worst day; leave it uncapped and the wipeout is only a matter of when.</p>
+          <p>We are not going to dress this up with our own numbers. In our own large-sample measurement (2026-09-11), Martingale trades landed around a <strong>43&ndash;44% hit fraction</strong> &mdash; below the roughly <strong>52%</strong> mark needed to break even at a 92% payout. A larger multiplier makes each step bigger and shortens the streak needed to recover, but it enlarges the total exposure of the cycle. The multiplier changes cycle shape; it does not change the underlying odds.</p>
+        </section>
+
+        <section id="cost">
+          <h2>What a full cycle actually costs</h2>
+          <p>The cost of losing every step of a cycle, as a multiple of your base stake, is the sum of the stakes &mdash; a geometric series. These are the exact totals, not estimates:</p>
+          <ul>
+            <li><strong>At 2x:</strong> 3 steps = 7&times; the base, 4 steps = 15&times;, 5 steps = 31&times;, 6 steps = 63&times;, 7 steps = 127&times;.</li>
+            <li><strong>At 3x:</strong> 3 steps = 13&times; the base, 4 steps = 40&times;, 5 steps = 121&times;, 6 steps = 364&times;, 7 steps = 1,093&times;.</li>
+          </ul>
+          <p>Multiply the figure for your own settings by your base stake, and that is the worst-case cost of one cycle. It is the single most useful number on this page: if you cannot afford to lose it several times over, the settings are too large, not the odds too unlucky.</p>
+        </section>
+
+        <section id="limits">
+          <h2>How to set limits (practical steps)</h2>
+          <ol>
+            <li><strong>Pick a base stake that is small relative to your balance.</strong> A single-digit percentage of your total balance, no higher. Every other number below scales from this one.</li>
+            <li><strong>Cap the number of steps &mdash; never leave it on &ldquo;Infinite.&rdquo;</strong> A steps cap is the real way to bound a losing streak. For example: 4 steps at 2x means any one cycle costs at most $1 + $2 + $4 + $8 = $15 per base-dollar. That number, times your base stake, is your worst-case cycle loss. Write it down before you start.</li>
+            <li><strong>Choose the multiplier deliberately.</strong> 2x is the most forgiving of the options (2x, 2.2x, 2.4x, 2.6x, 2.8x, 3x). Higher multipliers recover in fewer steps but each step is larger. Pick based on the total cycle exposure you are willing to lose, not on how fast a win feels.</li>
+            <li><strong>Set a per-cycle exposure ceiling for the account.</strong> If your balance is $500 and your worst cycle is $150 (a $10 base at 4 steps &times; 2x, since 4 steps at 2x costs 15&times; the base), that is three failed cycles per balance. Fewer is safer. When a cycle completes in full (all steps lost), go back to the base stake &mdash; chasing at a larger base compounds the exposure.</li>
+            <li><strong>Respect the built-in brake.</strong> In Avalisa PO Bot the bot pauses when the next stake would exceed the available balance. That is a last-resort tripwire, not a plan; your plan is the steps cap in step 2.</li>
+            <li><strong>Trade the tab visibly.</strong> Keep the Pocket Option tab open and visible while the bot runs &mdash; a minimised or backgrounded tab can delay trade-result detection, which matters most exactly when you are deep into a cycle.</li>
+            <li><strong>Test the settings on a demo account first.</strong> Run your exact cap and multiplier on demo until the worst-case cycle has actually happened at least once, so you have seen the number, not imagined it.</li>
+          </ol>
+        </section>
+
+        <section id="risk" class="risk">
+          <h2>Risk statement</h2>
+          <p>Trading binary options is <strong>high risk</strong>, and payouts below 100% make recovering accumulated losses harder the deeper a cycle goes. Martingale converts frequent small losses into rare large losses &mdash; it does not change your odds on any individual trade, and the bot does not guarantee profit. Only stake money you can afford to lose entirely. If you have not watched a full losing cycle happen on demo, you have not yet priced what you are risking on real money.</p>
+        </section>
+
+        <section id="faq">
+          <h2>Frequently asked questions</h2>
+
+          <h3>Is Martingale ever &ldquo;safe&rdquo;?</h3>
+          <p>Only with a hard steps cap, a small base stake, and a payout you have checked. Without a cap, a streak ends your account; that is arithmetic, not bad luck.</p>
+
+          <h3>What should my steps cap be?</h3>
+          <p>Start at 4. At 2x, that bounds any cycle at 15&times; the base stake, which is survivable if the base is small. Higher caps cost 31&times; (5 steps) or 63&times; (6 steps) &mdash; check your balance against that number before deciding it is worth it.</p>
+
+          <h3>Should I use a 3x multiplier instead of 2x?</h3>
+          <p>3x recovers a loss in fewer steps, but exposure grows much faster: a six-step 3x cycle costs 364&times; the base versus 63&times; at 2x &mdash; nearly six times worse at the same step count. Choose by total exposure budget, and cap steps either way.</p>
+
+          <h3>What happens if my balance runs low mid-cycle?</h3>
+          <p>The bot pauses when the next stake would exceed the available balance, rather than overcommitting. Still, a steps cap means you will rarely reach that situation.</p>
+
+          <h3>Where should a beginner start?</h3>
+          <p>On a demo account. Avalisa PO Bot's free demo access includes 10 Martingale trades &mdash; enough to watch a full losing cycle happen and confirm your caps before any real money is at stake.</p>
+        </section>
+
+        <section id="start" class="final-cta">
+          <h2>Try it on demo first</h2>
+          <p>Install the extension from the <a href="https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa">Chrome Web Store</a>, read the <a href="https://avalisabot.vercel.app/guide">setup guide</a>, and start on a Pocket Option demo account. Pick a base stake, a steps cap of 4, and a multiplier you can justify &mdash; then let a full losing cycle happen on demo before you move a cent of real money. Questions: <a href="mailto:avalisapobot@gmail.com">avalisapobot@gmail.com</a>.</p>
+        </section>
+      </article>
+    </div>
+  </main>
+
+  <footer>
+    <div class="shell">
+      <span>© Avalisa PO Bot</span>
+      <a href="mailto:avalisapobot@gmail.com">avalisapobot@gmail.com</a>
+    </div>
+  </footer>
+</body>
+</html>

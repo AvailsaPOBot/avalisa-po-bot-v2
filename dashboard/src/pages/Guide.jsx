@@ -312,6 +312,12 @@ export default function Guide() {
               how to test a trading bot on a demo account
             </a>.
           </p>
+          <p>
+            Using Martingale? Read{' '}
+            <a href="/guide/martingale-risk-explained.html">
+              what a full Martingale losing cycle costs, and how to cap it
+            </a>.
+          </p>
         </div>
         <aside>
           <BookOpen size={34} />
