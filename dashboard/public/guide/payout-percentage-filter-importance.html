@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Why a Payout-Percentage Filter Matters for Automated Trading Math</title>
+  <meta name="description" content="At a 92% payout, break-even is 1/(1+p) = 52.1% of trades. Why a payout floor changes the math of every automated trade, and what it costs to skip it.">
+  <meta property="og:title" content="Why a Payout-Percentage Filter Matters for Automated Trading Math">
+  <meta property="og:description" content="At a 92% payout, break-even is 1/(1+p) = 52.1% of trades. Why a payout floor changes the math of every automated trade, and what it costs to skip it.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://avalisabot.vercel.app/guide/payout-percentage-filter-importance.html">
+  <link rel="canonical" href="https://avalisabot.vercel.app/guide/payout-percentage-filter-importance.html">
+  <link rel="icon" href="/favicon.ico">
+  <style>
+    :root {
+      --bg: #060606;
+      --surface: #0e1216;
+      --surface-deep: #07090b;
+      --text: #f3eee6;
+      --muted: rgba(243, 238, 230, 0.7);
+      --gold: #d8a24a;
+      --gold-light: #f1c878;
+      --line: rgba(216, 162, 74, 0.24);
+      --jade: #4a9b7e;
+      --display: Georgia, 'Times New Roman', serif;
+      --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 78% 3%, rgba(216, 162, 74, 0.18), transparent 26rem),
+        radial-gradient(circle at 5% 22%, rgba(74, 155, 126, 0.12), transparent 30rem),
+        linear-gradient(180deg, var(--bg), #090c0e 48%, #040404);
+      color: var(--text);
+      font: 16px/1.7 var(--sans);
+    }
+    a { color: var(--gold-light); text-underline-offset: 0.2em; }
+    a:hover { color: #ffe1a8; }
+    a:focus-visible { outline: 2px solid var(--gold-light); outline-offset: 4px; }
+    .shell { width: min(calc(100% - 2rem), 860px); margin: 0 auto; }
+    header {
+      border-bottom: 1px solid var(--line);
+      background: rgba(6, 6, 6, 0.88);
+    }
+    nav {
+      display: flex;
+      min-height: 4.35rem;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .brand img { display: block; width: auto; height: 3.1rem; }
+    .nav-link { color: var(--muted); font-size: 0.86rem; font-weight: 700; text-decoration: none; }
+    .hero { padding: clamp(3.5rem, 8vw, 6.5rem) 0 clamp(2rem, 5vw, 4rem); }
+    .kicker {
+      margin: 0;
+      color: var(--gold);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+    h1, h2 { font-family: var(--display); font-weight: 500; line-height: 1.08; }
+    h1 { max-width: 820px; margin: 0.75rem 0 1.25rem; font-size: clamp(2.5rem, 7vw, 5rem); }
+    h2 { margin: 0 0 1rem; font-size: clamp(1.8rem, 4vw, 2.55rem); }
+    h3 { margin: 1.75rem 0 0.35rem; color: var(--gold-light); font-size: 1.05rem; }
+    p, li { color: var(--muted); }
+    .lede { max-width: 740px; margin: 0; font-size: clamp(1.05rem, 2.5vw, 1.24rem); }
+    .quick-links { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.6rem; }
+    .button {
+      display: inline-flex;
+      min-height: 2.8rem;
+      align-items: center;
+      border: 1px solid rgba(241, 200, 120, 0.55);
+      border-radius: 0.48rem;
+      padding: 0.7rem 1rem;
+      background: linear-gradient(180deg, #f1c878, #d0933c 52%, #9c6423);
+      color: #130d05;
+      font-weight: 800;
+      text-decoration: none;
+    }
+    .button.secondary { background: rgba(10, 10, 15, 0.6); color: var(--gold-light); }
+    .toc, article section, .risk, .final-cta {
+      border: 1px solid var(--line);
+      border-radius: 0.7rem;
+      background:
+        radial-gradient(circle at 92% 0%, rgba(216, 162, 74, 0.08), transparent 15rem),
+        linear-gradient(180deg, rgba(14, 18, 22, 0.92), rgba(7, 9, 11, 0.94));
+    }
+    .toc { margin-bottom: 1rem; padding: 1.35rem clamp(1.1rem, 3vw, 1.8rem); }
+    .toc strong { font-family: var(--display); font-size: 1.2rem; }
+    .toc ol { columns: 2; margin-bottom: 0; padding-left: 1.25rem; }
+    .toc li { break-inside: avoid; margin: 0.25rem 0; }
+    article { display: grid; gap: 1rem; padding-bottom: 4rem; }
+    article section { padding: clamp(1.3rem, 4vw, 2.2rem); scroll-margin-top: 1rem; }
+    article section > :last-child { margin-bottom: 0; }
+    ol, ul { padding-left: 1.45rem; }
+    li + li { margin-top: 0.5rem; }
+    strong { color: var(--text); }
+    .risk { border-color: rgba(241, 200, 120, 0.42); }
+    .risk h2 { color: var(--gold-light); }
+    .final-cta { text-align: left; }
+    .table-wrap { overflow-x: auto; margin: 1.25rem 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+    caption {
+      margin-bottom: 0.6rem;
+      color: var(--gold);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-align: left;
+      text-transform: uppercase;
+    }
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 0.6rem 0.75rem;
+      color: var(--muted);
+      text-align: right;
+    }
+    th:first-child, td:first-child { text-align: left; }
+    thead th {
+      border-bottom: 1px solid rgba(241, 200, 120, 0.42);
+      color: var(--gold-light);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
+    tbody th { color: var(--text); font-weight: 700; }
+    footer { border-top: 1px solid var(--line); padding: 2rem 0; color: var(--muted); font-size: 0.86rem; }
+    footer .shell { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.75rem 1.5rem; }
+    @media (max-width: 620px) {
+      .toc ol { columns: 1; }
+      .brand img { height: 2.7rem; }
+      .nav-link { font-size: 0.78rem; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <nav class="shell" aria-label="Primary navigation">
+      <a class="brand" href="/" aria-label="Avalisa PO Bot home">
+        <img src="/images/brand/avalisa-signature-logo-gold.png" alt="Avalisa PO Bot">
+      </a>
+      <a class="nav-link" href="https://avalisabot.vercel.app/guide">Setup guide</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="hero shell">
+      <p class="kicker">Payout floors and break-even</p>
+      <h1>Why a Payout-Percentage Filter Matters for Automated Trading Math</h1>
+      <p class="lede">A payout-percentage filter decides which pairs an automated bot is allowed to trade, and that single setting changes the result percentage you would need just to break even. Skipping it means letting the automation trade on numbers that work against you before a single trade is placed.</p>
+      <div class="quick-links">
+        <a class="button" href="https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa">Add to Chrome</a>
+        <a class="button secondary" href="https://avalisabot.vercel.app/guide">Open the setup guide</a>
+      </div>
+    </div>
+
+    <div class="shell">
+      <aside class="toc" aria-label="On this page">
+        <strong>On this page</strong>
+        <ol>
+          <li><a href="#what">What the payout percentage is</a></li>
+          <li><a href="#math">The math the filter protects</a></li>
+          <li><a href="#martingale">Why recovery strategies raise the stakes</a></li>
+          <li><a href="#steps">Practical steps</a></li>
+          <li><a href="#faq">Frequently asked questions</a></li>
+          <li><a href="#start">Get started</a></li>
+        </ol>
+      </aside>
+
+      <article>
+        <section id="what">
+          <h2>What the payout percentage actually is</h2>
+          <p>Pocket Option is a binary-options broker: each trade either pays out your stake plus a percentage of it, or you lose the stake. The payout percentage is quoted per pair and can vary between pairs and conditions, so two pairs on the same screen can have genuinely different economics. That variation is exactly why a filter exists.</p>
+        </section>
+
+        <section id="math">
+          <h2>The math the filter is protecting</h2>
+          <p>For a fixed payout, there is a break-even point: the win percentage at which you neither gain nor lose money over a long sequence of trades. A win gains the payout <em>p</em> per 1.00 risked; a loss costs the full 1.00. Setting expected value to zero gives:</p>
+          <p><strong>break-even win rate = 1 / (1 + p)</strong>, where <em>p</em> is the payout written as a decimal (92% &rarr; 0.92).</p>
+          <div class="table-wrap">
+            <table>
+              <caption>Break-even win rate by payout &mdash; 1 / (1 + p)</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Payout</th>
+                  <th scope="col">Arithmetic</th>
+                  <th scope="col">Break-even win rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><th scope="row">92%</th><td>1 &divide; 1.92 = 0.5208</td><td><strong>about 52.1%</strong></td></tr>
+                <tr><th scope="row">90%</th><td>1 &divide; 1.90 = 0.5263</td><td><strong>about 52.6%</strong></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>At a 92% payout that works out to about 52.1% of trades needing to win before anything is left over. At 90% it is about 52.6%, and every point of payout below that pushes the required result further away. Our own break-even analysis, verified 2026-09-11, found no setting has beaten break-even over large samples &mdash; which is precisely why the arithmetic, not optimism, has to come first.</p>
+          <p>A payout-percentage filter &mdash; the kind built into the bot's <strong>Minimum payout %</strong> setting, working with its <strong>Pair Scan</strong> modes &mdash; keeps the automation off pairs whose payout is below your floor. That is a simple arithmetic decision: a pair paying less simply requires more right calls to compensate for each wrong one. Filtering by payout therefore changes the expected math of every subsequent trade, even before considering anything about direction or timing.</p>
+        </section>
+
+        <section id="martingale">
+          <h2>Why this matters more when a recovery strategy is involved</h2>
+          <p>If the bot is running Martingale, the stakes rise after each loss, and the break-even question stops being per-trade and becomes per-cycle. A full N-step losing cycle costs, as a multiple of the base stake:</p>
+          <div class="table-wrap">
+            <table>
+              <caption>Full losing-cycle cost, as a multiple of the base stake</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Steps</th>
+                  <th scope="col">2x multiplier</th>
+                  <th scope="col">3x multiplier</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><th scope="row">1</th><td>1&times; base</td><td>1&times; base</td></tr>
+                <tr><th scope="row">2</th><td>3&times; base</td><td>4&times; base</td></tr>
+                <tr><th scope="row">3</th><td>7&times; base</td><td>13&times; base</td></tr>
+                <tr><th scope="row">4</th><td>15&times; base</td><td>40&times; base</td></tr>
+                <tr><th scope="row">5</th><td>31&times; base</td><td>121&times; base</td></tr>
+                <tr><th scope="row">6</th><td>63&times; base</td><td>364&times; base</td></tr>
+                <tr><th scope="row">7</th><td>127&times; base</td><td>1,093&times; base</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>A cycle that costs 364&times; the base stake is a very different animal from one that costs 3&times;. Every percentage point of payout below your floor makes each of those multipliers harder to offset. This is not a theoretical concern: with a measured result distribution around 43&ndash;44% across recent samples, a low-payout pair plus an uncapped losing streak is the fastest route to a wiped balance.</p>
+          <p>The practical consequence is two settings used together &mdash; the payout floor, and a hard limit on <strong>Martingale Steps</strong>. Limiting steps is the real way to cap a losing streak; there is no separate stop-loss or daily-loss-limit setting in the bot, and when the next stake would exceed the balance it pauses.</p>
+        </section>
+
+        <section id="steps">
+          <h2>Practical steps</h2>
+          <ol>
+            <li><strong>Set a payout floor before anything else.</strong> Treat any pair paying below 90% as automatically off-limits for your own math. Support-side recommendation across our ticket history has consistently been: prefer payout above 90%, and avoid sub-minute real trades.</li>
+            <li><strong>Do the break-even calculation yourself</strong> for the payout you are actually looking at. 1 / (1 + p) is ten seconds of arithmetic and tells you how much margin you would need.</li>
+            <li><strong>If you run Martingale, cap Steps explicitly.</strong> Decide the maximum losing streak you can absorb at your base stake, count the cycle cost from the table above, and confirm the total fits comfortably inside your bankroll. Infinite steps is not a setting choice, it is a risk choice.</li>
+            <li><strong>Start on a demo account.</strong> The bot runs identically on demo and real Pocket Option accounts &mdash; same trade logic, whichever balance is active. Demo lets you watch what pairs are actually being offered, at what payouts, in your own timeframes, without money on the line.</li>
+            <li><strong>Keep the Pocket Option tab visible</strong> while the bot is running. A background or minimised tab can delay trade-result detection, and a delayed result read on a Martingale sequence is a real operational problem.</li>
+          </ol>
+        </section>
+
+        <section id="faq">
+          <h2>Frequently asked questions</h2>
+
+          <h3>Why do payouts differ between pairs and times?</h3>
+          <p>That is broker-side configuration, not something we set or can speak to. What we can say is that the number differs in practice, which is why the filter exists at all &mdash; compare before you commit.</p>
+
+          <h3>Is a higher minimum payout always better?</h3>
+          <p>A higher floor means fewer tradable pairs. Very restrictive floors leave the bot idle more often. The point is not maximising the number; it is refusing pairs whose economics you cannot defend in arithmetic.</p>
+
+          <h3>Does the filter eliminate the risk?</h3>
+          <p>No. Binary options trading is high risk, and the bot does not guarantee profit &mdash; no setting does, including ours, as measured over our own samples. The filter changes which pairs enter the calculation; it does not change how markets move.</p>
+
+          <h3>How do I verify the math before I trust it?</h3>
+          <p>Start on demo. Run the configuration you intend to use, watch which pairs get selected at your floor, and check the payout each time a trade is placed against what you computed by hand. The extension's settings are visible in the overlay at all times.</p>
+
+          <h3>Is demo identical to real behaviour?</h3>
+          <p>For our extension, yes: it does not run separate logic per account type. We cannot speak for the broker's own backend, but on our side the trades are placed the same way either way.</p>
+        </section>
+
+        <section id="start" class="final-cta">
+          <h2>Get started</h2>
+          <p>Avalisa PO Bot installs from the <a href="https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa">Chrome Web Store</a> and starts on a free plan that includes demo-account access. The <a href="https://avalisabot.vercel.app/guide">setup guide</a> walks through installation and account setup. Set your payout floor first, cap your steps, and let the demo account show you what your own pairs actually pay before a real stake is placed. Binary options are high risk; only use money you can afford to lose. Questions: <a href="mailto:avalisapobot@gmail.com">avalisapobot@gmail.com</a>.</p>
+        </section>
+      </article>
+    </div>
+  </main>
+
+  <footer>
+    <div class="shell">
+      <span>© Avalisa PO Bot</span>
+      <a href="mailto:avalisapobot@gmail.com">avalisapobot@gmail.com</a>
+    </div>
+  </footer>
+</body>
+</html>

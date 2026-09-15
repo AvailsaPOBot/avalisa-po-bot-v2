@@ -366,6 +366,12 @@ export default function Guide() {
               what to know about OTC pairs before you automate weekend trading
             </a>.
           </p>
+          <p>
+            Not sure what payout floor to use? Read{' '}
+            <a href="/guide/payout-percentage-filter-importance.html">
+              why a payout-percentage filter matters for the math
+            </a>.
+          </p>
         </div>
         <aside>
           <BookOpen size={34} />
