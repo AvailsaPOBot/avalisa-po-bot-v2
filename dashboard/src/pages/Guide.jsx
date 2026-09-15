@@ -278,6 +278,10 @@ export default function Guide() {
             </a>{' '}
             <Link className="lux-button lux-button--ghost" to="/pricing">See pricing</Link>
           </p>
+          <p>
+            New here? Read the full{' '}
+            <a href="/guide/how-to-install-avalisa-po-bot.html">step-by-step install walkthrough</a>.
+          </p>
         </div>
         <aside>
           <BookOpen size={34} />

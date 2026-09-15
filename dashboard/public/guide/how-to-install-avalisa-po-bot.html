@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>How to Install Avalisa PO Bot on Chrome and Connect It to Pocket Option (Step by Step)</title>
+  <meta name="description" content="Install Avalisa PO Bot on Chrome, connect a Pocket Option demo account, and run your first supervised demo trades step by step.">
+  <meta property="og:title" content="How to Install Avalisa PO Bot on Chrome and Connect It to Pocket Option (Step by Step)">
+  <meta property="og:description" content="Install Avalisa PO Bot on Chrome, connect a Pocket Option demo account, and run your first supervised demo trades step by step.">
+  <meta property="og:type" content="article">
+  <link rel="canonical" href="https://avalisabot.vercel.app/guide/how-to-install-avalisa-po-bot.html">
+  <link rel="icon" href="/favicon.ico">
+  <style>
+    :root {
+      --bg: #060606;
+      --surface: #0e1216;
+      --surface-deep: #07090b;
+      --text: #f3eee6;
+      --muted: rgba(243, 238, 230, 0.7);
+      --gold: #d8a24a;
+      --gold-light: #f1c878;
+      --line: rgba(216, 162, 74, 0.24);
+      --jade: #4a9b7e;
+      --display: Georgia, 'Times New Roman', serif;
+      --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 78% 3%, rgba(216, 162, 74, 0.18), transparent 26rem),
+        radial-gradient(circle at 5% 22%, rgba(74, 155, 126, 0.12), transparent 30rem),
+        linear-gradient(180deg, var(--bg), #090c0e 48%, #040404);
+      color: var(--text);
+      font: 16px/1.7 var(--sans);
+    }
+    a { color: var(--gold-light); text-underline-offset: 0.2em; }
+    a:hover { color: #ffe1a8; }
+    a:focus-visible { outline: 2px solid var(--gold-light); outline-offset: 4px; }
+    .shell { width: min(calc(100% - 2rem), 860px); margin: 0 auto; }
+    header {
+      border-bottom: 1px solid var(--line);
+      background: rgba(6, 6, 6, 0.88);
+    }
+    nav {
+      display: flex;
+      min-height: 4.35rem;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .brand img { display: block; width: auto; height: 3.1rem; }
+    .nav-link { color: var(--muted); font-size: 0.86rem; font-weight: 700; text-decoration: none; }
+    .hero { padding: clamp(3.5rem, 8vw, 6.5rem) 0 clamp(2rem, 5vw, 4rem); }
+    .kicker {
+      margin: 0;
+      color: var(--gold);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+    h1, h2 { font-family: var(--display); font-weight: 500; line-height: 1.08; }
+    h1 { max-width: 820px; margin: 0.75rem 0 1.25rem; font-size: clamp(2.5rem, 7vw, 5rem); }
+    h2 { margin: 0 0 1rem; font-size: clamp(1.8rem, 4vw, 2.55rem); }
+    h3 { margin: 1.75rem 0 0.35rem; color: var(--gold-light); font-size: 1.05rem; }
+    p, li { color: var(--muted); }
+    .lede { max-width: 740px; margin: 0; font-size: clamp(1.05rem, 2.5vw, 1.24rem); }
+    .quick-links { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.6rem; }
+    .button {
+      display: inline-flex;
+      min-height: 2.8rem;
+      align-items: center;
+      border: 1px solid rgba(241, 200, 120, 0.55);
+      border-radius: 0.48rem;
+      padding: 0.7rem 1rem;
+      background: linear-gradient(180deg, #f1c878, #d0933c 52%, #9c6423);
+      color: #130d05;
+      font-weight: 800;
+      text-decoration: none;
+    }
+    .button.secondary { background: rgba(10, 10, 15, 0.6); color: var(--gold-light); }
+    .toc, article section, .risk, .final-cta {
+      border: 1px solid var(--line);
+      border-radius: 0.7rem;
+      background:
+        radial-gradient(circle at 92% 0%, rgba(216, 162, 74, 0.08), transparent 15rem),
+        linear-gradient(180deg, rgba(14, 18, 22, 0.92), rgba(7, 9, 11, 0.94));
+    }
+    .toc { margin-bottom: 1rem; padding: 1.35rem clamp(1.1rem, 3vw, 1.8rem); }
+    .toc strong { font-family: var(--display); font-size: 1.2rem; }
+    .toc ol { columns: 2; margin-bottom: 0; padding-left: 1.25rem; }
+    .toc li { break-inside: avoid; margin: 0.25rem 0; }
+    article { display: grid; gap: 1rem; padding-bottom: 4rem; }
+    article section { padding: clamp(1.3rem, 4vw, 2.2rem); scroll-margin-top: 1rem; }
+    article section > :last-child { margin-bottom: 0; }
+    ol, ul { padding-left: 1.45rem; }
+    li + li { margin-top: 0.5rem; }
+    strong { color: var(--text); }
+    .risk { border-color: rgba(241, 200, 120, 0.42); }
+    .risk h2 { color: var(--gold-light); }
+    .final-cta { text-align: left; }
+    footer { border-top: 1px solid var(--line); padding: 2rem 0; color: var(--muted); font-size: 0.86rem; }
+    footer .shell { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.75rem 1.5rem; }
+    @media (max-width: 620px) {
+      .toc ol { columns: 1; }
+      .brand img { height: 2.7rem; }
+      .nav-link { font-size: 0.78rem; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <nav class="shell" aria-label="Primary navigation">
+      <a class="brand" href="/" aria-label="Avalisa PO Bot home">
+        <img src="/images/brand/avalisa-signature-logo-gold.png" alt="Avalisa PO Bot">
+      </a>
+      <a class="nav-link" href="https://avalisabot.vercel.app/guide">Setup guide</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="hero shell">
+      <p class="kicker">Installation walkthrough</p>
+      <h1>How to Install Avalisa PO Bot on Chrome and Connect It to Pocket Option (Step by Step)</h1>
+      <p class="lede">Avalisa PO Bot is a Google Chrome extension that automates your Pocket Option trades inside your own browser. This page walks through the install, the account connection, and how to try everything on a free demo account first — no payments and no experience required.</p>
+      <div class="quick-links">
+        <a class="button" href="https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa">Add to Chrome</a>
+        <a class="button secondary" href="https://avalisabot.vercel.app/guide">Open the setup guide</a>
+      </div>
+    </div>
+
+    <div class="shell">
+      <aside class="toc" aria-label="On this page">
+        <strong>On this page</strong>
+        <ol>
+          <li><a href="#before-you-start">Before you start</a></li>
+          <li><a href="#install">Install the extension</a></li>
+          <li><a href="#avalisa-account">Create your account</a></li>
+          <li><a href="#connect">Connect Pocket Option</a></li>
+          <li><a href="#first-trades">Run demo trades</a></li>
+          <li><a href="#risk">Read the risk statement</a></li>
+          <li><a href="#faq">Frequently asked questions</a></li>
+        </ol>
+      </aside>
+
+      <article>
+        <section id="before-you-start">
+          <h2>Before you start: what the bot is (and is not)</h2>
+          <p>Avalisa PO Bot runs in your browser and places automated trades on Pocket Option (a binary-options broker) on your behalf. It works with both Martingale mode and the rule-based Avalisa Bot mode (Pro plan), on both demo and real Pocket Option accounts.</p>
+          <p>Be clear about one thing before you install anything: trading binary options is high risk, and the bot does not guarantee profit. No setting and no bot can promise results on a binary-options market, so the honest way to start is on a demo account, where losing costs nothing.</p>
+          <h3>What you will need</h3>
+          <ul>
+            <li>Google Chrome on a desktop computer (the extension installs in Chrome, not on phones).</li>
+            <li>A Pocket Option account. If you do not have one, register a demo account on Pocket Option's site first — that takes a couple of minutes and you will never need real money for this walkthrough.</li>
+            <li>An Avalisa PO Bot account (free).</li>
+          </ul>
+        </section>
+
+        <section id="install">
+          <h2>Step 1: Install the extension from the Chrome Web Store</h2>
+          <ol>
+            <li>Open the <a href="https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa">Chrome Web Store page for Avalisa PO Bot</a>.</li>
+            <li>Click <strong>Add to Chrome</strong>, then confirm <strong>Add extension</strong> in the popup.</li>
+            <li>Pin the extension icon next to your address bar (puzzle-piece icon → pin) so you can open it quickly.</li>
+          </ol>
+          <p>The extension lives only in your browser. It does not move accounts or funds anywhere; it simply operates the Pocket Option interface already open in your own tabs, logged in as you.</p>
+        </section>
+
+        <section id="avalisa-account">
+          <h2>Step 2: Create your Avalisa account and open the bot</h2>
+          <ol>
+            <li>Create an Avalisa PO Bot account if you do not have one (email-based, free).</li>
+            <li>Click the extension icon in Chrome and sign in with that account.</li>
+            <li>If the panel never loads after an install or update, fully quit Chrome and relaunch it before trying again — a restart fixes most “nothing happens” cases.</li>
+          </ol>
+          <p>With the panel open, the free demo tier is already active: 10 Martingale trades, webapp bot access, dashboard access, all supported timeframes, and basic trade history. That is enough to see exactly how the bot behaves before you spend anything.</p>
+        </section>
+
+        <section id="connect">
+          <h2>Step 3: Connect your Pocket Option account</h2>
+          <ol>
+            <li>Make sure you are logged into Pocket Option in the same Chrome browser (demo account recommended at this stage).</li>
+            <li>In the Avalisa panel, link your Pocket Option account / PO ID as the panel's flow asks. The full instructions, including how to find your PO ID, are in the <a href="https://avalisabot.vercel.app/guide">setup guide</a>.</li>
+            <li>Use the “Already bought? Check your Pocket Option ID” box on the <a href="https://avalisabot.vercel.app/guide">setup guide</a> at any time to see whether your PO ID already has a plan attached.</li>
+          </ol>
+          <p>Once linked, the extension reads the markets of your open Pocket Option session and places trades according to your chosen mode and settings.</p>
+        </section>
+
+        <section id="first-trades">
+          <h2>Step 4: Run your first trades on demo</h2>
+          <ol>
+            <li>Pick Martingale mode and conservative settings: a small fixed stake, a low number of Martingale Steps (that is the real cap on a losing streak — there is no separate stop-loss setting), and a timeframe you can watch from start to finish.</li>
+            <li>Keep the browser window visible while trades run. Minimized or backgrounded windows can miss result detection, which is why the panel may appear to stop mid-sequence.</li>
+            <li>Watch at least a full cycle of trades on demo before changing anything. Note what happens to your balance on a losing streak (see below).</li>
+          </ol>
+          <p>Only when you understand the behaviour on demo should you consider a paid plan. Basic is a $69 one-time payment that unlocks unlimited Martingale trades, cloud settings sync, and full trade history. Pro adds the rule-based Avalisa Bot mode on top of unlimited trades, and you choose at checkout between $119 one-time (never billed again) or $29/month (renews automatically until cancelled). Payment is card, Apple Pay, or Google Pay through the checkout on the website.</p>
+        </section>
+
+        <section id="risk" class="risk">
+          <h2>Honest risk statement — read before any real-money use</h2>
+          <ul>
+            <li><strong>Binary options are high risk.</strong> Most retail traders lose money over time; treat every real deposit as money you can afford to lose.</li>
+            <li><strong>The bot does not guarantee profit.</strong> Our own measurements show no setting has beaten break-even over large samples, and Martingale measured well below break-even. We will not print a number suggesting otherwise.</li>
+            <li><strong>Martingale doubles the stake after each loss.</strong> That means one long enough losing streak can wipe out your balance. Always set a low number of Martingale Steps — that is the only setting that caps a losing streak — keep stakes small, and test any new setting on demo first.</li>
+            <li>Win or loss rates vary by market pair, payout, timeframe, and settings. Any result you read anywhere, including from us, describes one past sample — not what will happen to you.</li>
+          </ul>
+          <p>If anything in this page conflicts with behaviour you actually observe, trust what you see on screen and write to <a href="mailto:avalisapobot@gmail.com">support</a> with a screenshot of the extension panel; we fix bugs and answer straight questions.</p>
+        </section>
+
+        <section id="faq">
+          <h2>Frequently asked questions</h2>
+          <h3>Is there anything free?</h3>
+          <p>Yes. Your free tier includes 10 Martingale trades, webapp bot access, dashboard access, all supported timeframes, and basic trade history. You can complete the entire walkthrough above without paying.</p>
+          <h3>Do I need a real Pocket Option account to try it?</h3>
+          <p>No. The extension works on demo Pocket Option accounts, and that is how we recommend everyone starts. Connect the demo account first and only think about a real account later.</p>
+          <h3>What does the paid plan add?</h3>
+          <p>Basic ($69 one-time) gives unlimited Martingale trades, cloud settings sync, and full trade history — a single payment, never billed again. Pro is $119 one-time (also a single payment) OR $29/month, and you choose which at checkout. The $29/month option is a real recurring subscription that renews automatically each month until you cancel; the $119 option never renews.</p>
+          <h3>Why did the bot stop after some trades?</h3>
+          <p>Usually the browser window was minimized or the tab backgrounded during results, which breaks result detection. Keep the window visible, fully relaunch Chrome, and re-run on demo before concluding anything is broken.</p>
+          <h3>Will it make me money?</h3>
+          <p>No one can promise that, and we will not. Treat it as automation you supervise, start on demo, cap your Martingale Steps, and decide with your own eyes after watching real cycles.</p>
+        </section>
+
+        <section class="final-cta">
+          <h2>Install and start on demo</h2>
+          <ol>
+            <li><a href="https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa">Add the extension</a>.</li>
+            <li>Follow the connection steps in the <a href="https://avalisabot.vercel.app/guide">guide</a>.</li>
+            <li>Sign in, link a <strong>demo</strong> Pocket Option account, run your first Martingale session with a low Steps limit, and watch the whole thing before you consider spending anything.</li>
+          </ol>
+          <p>That is the entire safe path: install free, connect a demo account, learn the behaviour with money at stake of zero, and decide afterwards. If you get stuck at any step, email <a href="mailto:avalisapobot@gmail.com">avalisapobot@gmail.com</a> with a screenshot of the panel — support replies in plain English.</p>
+        </section>
+      </article>
+    </div>
+  </main>
+
+  <footer>
+    <div class="shell">
+      <span>© Avalisa PO Bot</span>
+      <a href="mailto:avalisapobot@gmail.com">avalisapobot@gmail.com</a>
+    </div>
+  </footer>
+</body>
+</html>
