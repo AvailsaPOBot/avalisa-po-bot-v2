@@ -354,6 +354,12 @@ export default function Guide() {
               bankroll rules for automated trading, and what a full losing cycle really costs
             </a>.
           </p>
+          <p>
+            Deciding whether to automate at all? Read{' '}
+            <a href="/guide/what-automation-cannot-do.html">
+              what a trading bot can and cannot do for you
+            </a>.
+          </p>
         </div>
         <aside>
           <BookOpen size={34} />
