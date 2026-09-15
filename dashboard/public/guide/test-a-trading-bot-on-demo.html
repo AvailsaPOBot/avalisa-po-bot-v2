@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>How to Test a Trading Bot on a Demo Account Before Risking Money</title>
+  <meta name="description" content="A practical routine for testing a Pocket Option trading bot on a demo account: conservative settings, capped Martingale steps, and how to read the session.">
+  <meta property="og:title" content="How to Test a Trading Bot on a Demo Account Before Risking Money">
+  <meta property="og:description" content="A practical routine for testing a Pocket Option trading bot on a demo account: conservative settings, capped Martingale steps, and how to read the session.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://avalisabot.vercel.app/guide/test-a-trading-bot-on-demo.html">
+  <link rel="canonical" href="https://avalisabot.vercel.app/guide/test-a-trading-bot-on-demo.html">
+  <link rel="icon" href="/favicon.ico">
+  <style>
+    :root {
+      --bg: #060606;
+      --surface: #0e1216;
+      --surface-deep: #07090b;
+      --text: #f3eee6;
+      --muted: rgba(243, 238, 230, 0.7);
+      --gold: #d8a24a;
+      --gold-light: #f1c878;
+      --line: rgba(216, 162, 74, 0.24);
+      --jade: #4a9b7e;
+      --display: Georgia, 'Times New Roman', serif;
+      --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 78% 3%, rgba(216, 162, 74, 0.18), transparent 26rem),
+        radial-gradient(circle at 5% 22%, rgba(74, 155, 126, 0.12), transparent 30rem),
+        linear-gradient(180deg, var(--bg), #090c0e 48%, #040404);
+      color: var(--text);
+      font: 16px/1.7 var(--sans);
+    }
+    a { color: var(--gold-light); text-underline-offset: 0.2em; }
+    a:hover { color: #ffe1a8; }
+    a:focus-visible { outline: 2px solid var(--gold-light); outline-offset: 4px; }
+    .shell { width: min(calc(100% - 2rem), 860px); margin: 0 auto; }
+    header {
+      border-bottom: 1px solid var(--line);
+      background: rgba(6, 6, 6, 0.88);
+    }
+    nav {
+      display: flex;
+      min-height: 4.35rem;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .brand img { display: block; width: auto; height: 3.1rem; }
+    .nav-link { color: var(--muted); font-size: 0.86rem; font-weight: 700; text-decoration: none; }
+    .hero { padding: clamp(3.5rem, 8vw, 6.5rem) 0 clamp(2rem, 5vw, 4rem); }
+    .kicker {
+      margin: 0;
+      color: var(--gold);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+    h1, h2 { font-family: var(--display); font-weight: 500; line-height: 1.08; }
+    h1 { max-width: 820px; margin: 0.75rem 0 1.25rem; font-size: clamp(2.5rem, 7vw, 5rem); }
+    h2 { margin: 0 0 1rem; font-size: clamp(1.8rem, 4vw, 2.55rem); }
+    h3 { margin: 1.75rem 0 0.35rem; color: var(--gold-light); font-size: 1.05rem; }
+    p, li { color: var(--muted); }
+    .lede { max-width: 740px; margin: 0; font-size: clamp(1.05rem, 2.5vw, 1.24rem); }
+    .quick-links { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.6rem; }
+    .button {
+      display: inline-flex;
+      min-height: 2.8rem;
+      align-items: center;
+      border: 1px solid rgba(241, 200, 120, 0.55);
+      border-radius: 0.48rem;
+      padding: 0.7rem 1rem;
+      background: linear-gradient(180deg, #f1c878, #d0933c 52%, #9c6423);
+      color: #130d05;
+      font-weight: 800;
+      text-decoration: none;
+    }
+    .button.secondary { background: rgba(10, 10, 15, 0.6); color: var(--gold-light); }
+    .toc, article section, .risk, .final-cta {
+      border: 1px solid var(--line);
+      border-radius: 0.7rem;
+      background:
+        radial-gradient(circle at 92% 0%, rgba(216, 162, 74, 0.08), transparent 15rem),
+        linear-gradient(180deg, rgba(14, 18, 22, 0.92), rgba(7, 9, 11, 0.94));
+    }
+    .toc { margin-bottom: 1rem; padding: 1.35rem clamp(1.1rem, 3vw, 1.8rem); }
+    .toc strong { font-family: var(--display); font-size: 1.2rem; }
+    .toc ol { columns: 2; margin-bottom: 0; padding-left: 1.25rem; }
+    .toc li { break-inside: avoid; margin: 0.25rem 0; }
+    article { display: grid; gap: 1rem; padding-bottom: 4rem; }
+    article section { padding: clamp(1.3rem, 4vw, 2.2rem); scroll-margin-top: 1rem; }
+    article section > :last-child { margin-bottom: 0; }
+    ol, ul { padding-left: 1.45rem; }
+    li + li { margin-top: 0.5rem; }
+    strong { color: var(--text); }
+    .risk { border-color: rgba(241, 200, 120, 0.42); }
+    .risk h2 { color: var(--gold-light); }
+    .final-cta { text-align: left; }
+    footer { border-top: 1px solid var(--line); padding: 2rem 0; color: var(--muted); font-size: 0.86rem; }
+    footer .shell { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.75rem 1.5rem; }
+    @media (max-width: 620px) {
+      .toc ol { columns: 1; }
+      .brand img { height: 2.7rem; }
+      .nav-link { font-size: 0.78rem; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <nav class="shell" aria-label="Primary navigation">
+      <a class="brand" href="/" aria-label="Avalisa PO Bot home">
+        <img src="/images/brand/avalisa-signature-logo-gold.png" alt="Avalisa PO Bot">
+      </a>
+      <a class="nav-link" href="https://avalisabot.vercel.app/guide">Setup guide</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="hero shell">
+      <p class="kicker">Demo testing</p>
+      <h1>How to Test a Trading Bot on a Demo Account Before Risking Money</h1>
+      <p class="lede">A demo account lets you learn exactly how a Pocket Option trading bot behaves — its stake plan, its reaction to losing streaks, and its setup — without any real money on the line. This guide walks through a practical demo-testing routine and explains why you should never skip it.</p>
+      <div class="quick-links">
+        <a class="button" href="https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa">Add to Chrome</a>
+        <a class="button secondary" href="https://avalisabot.vercel.app/guide">Open the setup guide</a>
+      </div>
+    </div>
+
+    <div class="shell">
+      <aside class="toc" aria-label="On this page">
+        <strong>On this page</strong>
+        <ol>
+          <li><a href="#why">Why a demo account first, not later</a></li>
+          <li><a href="#free">What is free on a demo account</a></li>
+          <li><a href="#step-1">Step 1: Install and connect</a></li>
+          <li><a href="#step-2">Step 2: Conservative settings</a></li>
+          <li><a href="#step-3">Step 3: Run and read the session</a></li>
+          <li><a href="#step-4">Step 4: Decide what it told you</a></li>
+          <li><a href="#mistakes">Common mistakes</a></li>
+          <li><a href="#risk">Risk statement</a></li>
+          <li><a href="#faq">Frequently asked questions</a></li>
+          <li><a href="#start">Try it where money cannot get hurt</a></li>
+        </ol>
+      </aside>
+
+      <article>
+        <section id="why">
+          <h2>Why a demo account first, not later</h2>
+          <p>A Pocket Option demo account uses virtual money, so every outcome costs nothing. That sounds trivial, but it is the only cheap way to answer questions you cannot answer by reading documentation:</p>
+          <ul>
+            <li>How does the stake plan behave in a real losing streak, and how far can a streak run before it exhausts your balance?</li>
+            <li>Does the bot keep working the way you expect while your tab is visible?</li>
+            <li>Do the pair, timeframe and payout settings you chose actually trade at all, or do filters like a minimum payout % block most signals?</li>
+            <li>Do you understand the results well enough to judge a session on its own merits?</li>
+          </ul>
+          <p>There is no shortcut that makes these answers free except doing the trading itself on virtual money.</p>
+        </section>
+
+        <section id="free">
+          <h2>What Avalisa PO Bot offers for free on a demo account</h2>
+          <p>Avalisa PO Bot is a Google Chrome extension that automates trades on Pocket Option in your own browser, and it works on both demo and real accounts. The free Demo plan already gives you enough to run a genuine test: <strong>10 Martingale trades</strong>, webapp bot access, dashboard access, all supported timeframes, and basic trade history. You do not need to pay anything to run a basic demo test. You can check whether a Pocket Option ID already has a plan on the setup guide at <a href="https://avalisabot.vercel.app/guide">avalisabot.vercel.app/guide</a> (&ldquo;Check my Pocket Option ID&rdquo;).</p>
+        </section>
+
+        <section id="step-1">
+          <h2>Step 1: Install and connect with a demo account</h2>
+          <ol>
+            <li>Install the extension from the <a href="https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa">Chrome Web Store</a>.</li>
+            <li>Log in to Pocket Option with your <strong>demo</strong> account and keep that tab open. Keep the Pocket Option tab visible while the bot trades — a backgrounded or minimised tab can delay trade-result detection.</li>
+            <li>Follow the setup guide at <a href="https://avalisabot.vercel.app/guide">avalisabot.vercel.app/guide</a> to link your Pocket Option account to the bot.</li>
+          </ol>
+        </section>
+
+        <section id="step-2">
+          <h2>Step 2: Choose conservative settings for the test</h2>
+          <p>The Martingale strategy doubles (or multiplies) the stake after each loss. That means a losing streak of several trades can erase a large share of your balance quickly — which is exactly what you want to watch happen to virtual money, not real money. For a test session:</p>
+          <ul>
+            <li><strong>Cap the Martingale Steps.</strong> Steps can be set to a number or to Infinite. There is no separate stop-loss or daily-loss-limit setting; limiting the number of steps is the real way to cap how far a losing streak can run. Pick a small number for testing. If the next stake would exceed your balance, the bot pauses — watch that happen deliberately.</li>
+            <li><strong>Start with the smallest multiplier</strong> (2x) rather than 2.2x&ndash;3x.</li>
+            <li><strong>Set a Minimum payout %</strong> so trades only fire when the payout is high enough to matter.</li>
+            <li><strong>Pick one timeframe</strong> you actually intend to use, and one pair-scanning mode (current pair only, auto scan favorites, or auto-switch favorite). Changing several things at once makes every result meaningless.</li>
+          </ul>
+        </section>
+
+        <section id="step-3">
+          <h2>Step 3: Run the session and read what actually happens</h2>
+          <p>Let the bot trade through complete win and loss sequences. While it runs, keep the Pocket Option tab visible and check:</p>
+          <ul>
+            <li><strong>Stake escalation.</strong> After each loss, confirm the next stake was multiplied exactly as configured, and that it stopped at your step cap.</li>
+            <li><strong>Payout behaviour.</strong> Were some pairs filtered out by your minimum payout %? That is expected and normal.</li>
+            <li><strong>Result detection.</strong> Did every trade register its outcome promptly? Delayed or missed detection usually means the tab was backgrounded.</li>
+            <li><strong>History.</strong> Open the trade history afterwards. Read a full session end to end — including the losing half. A demo session you would be embarrassed to show someone else is a session you should not replay with real money yet.</li>
+          </ul>
+        </section>
+
+        <section id="step-4">
+          <h2>Step 4: Decide what the test actually told you</h2>
+          <p>A demo test answers process questions, not fortune questions. It can tell you whether the bot executes its plan correctly, whether your caps stop streaks where you want them, and whether your settings even produce trades. It cannot tell you whether the next week will be green or red — nobody's settings can. If the process behaved correctly and you understand every trade in the history, you are ready to decide for yourself what a real-money session's starting size should be, with money you can afford to lose.</p>
+        </section>
+
+        <section id="mistakes">
+          <h2>Common mistakes</h2>
+          <ul>
+            <li><strong>Testing with Infinite Martingale Steps.</strong> Watch the streak cap do its job before you consider removing it.</li>
+            <li><strong>Backgrounding the browser tab</strong> and then concluding the bot &ldquo;missed trades.&rdquo;</li>
+            <li><strong>Changing settings mid-session</strong>, so no session can be attributed to one configuration.</li>
+            <li><strong>Jumping to real money after one good session.</strong> One green demo session measures nothing about the next one.</li>
+          </ul>
+        </section>
+
+        <section id="risk" class="risk">
+          <h2>Risk statement — read before anything else</h2>
+          <p>Trading binary options is <strong>high risk</strong>. The bot does not guarantee profit. Test on a demo account first, and only trade with real money you can afford to lose.</p>
+        </section>
+
+        <section id="faq">
+          <h2>Frequently asked questions</h2>
+
+          <h3>Does anything here — demo account or paid plan — promise that trading will pay out?</h3>
+          <p>No. The bot does not guarantee any result. A demo account costs nothing and shows how the bot behaves; it tells you nothing about future results.</p>
+
+          <h3>Do I need a paid plan to test on a demo account?</h3>
+          <p>No. The free Demo plan includes 10 Martingale trades on a demo account, webapp bot access, the dashboard, all supported timeframes and basic trade history.</p>
+
+          <h3>The Martingale doubled my stake until the balance ran out. Is the bot broken?</h3>
+          <p>No — that is the strategy doing exactly what it is designed to do, uncapped. Set a finite Martingale Steps limit and watch the cap engage. That is what the limit is for.</p>
+
+          <h3>Can I use the bot on a real account straight away?</h3>
+          <p>Yes, it works on real accounts. The advice, ours and the platform's implicit one, is to know the behaviour from demo sessions first.</p>
+
+          <h3>Is using a browser extension allowed on Pocket Option?</h3>
+          <p>Pocket Option's own blog says users can utilise automated strategies as long as they comply with platform rules; it does not name third-party extensions, and this is not their formal Terms of Service. Treat it as a signal to keep things tidy, not as a legal answer.</p>
+        </section>
+
+        <section id="start" class="final-cta">
+          <h2>Try it where money cannot get hurt</h2>
+          <ol>
+            <li>Install Avalisa PO Bot from the <a href="https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa">Chrome Web Store</a>.</li>
+            <li>Log in with a demo account, follow the <a href="https://avalisabot.vercel.app/guide">setup guide</a>, and run a capped Martingale session.</li>
+            <li>Read the full trade history, including the losses. Decide after that.</li>
+          </ol>
+          <p>Questions: <a href="mailto:avalisapobot@gmail.com">avalisapobot@gmail.com</a>.</p>
+        </section>
+      </article>
+    </div>
+  </main>
+
+  <footer>
+    <div class="shell">
+      <span>© Avalisa PO Bot</span>
+      <a href="mailto:avalisapobot@gmail.com">avalisapobot@gmail.com</a>
+    </div>
+  </footer>
+</body>
+</html>

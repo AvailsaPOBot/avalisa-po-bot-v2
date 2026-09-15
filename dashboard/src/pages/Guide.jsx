@@ -306,6 +306,12 @@ export default function Guide() {
               Chrome extension bots vs. Telegram signal bots
             </a>.
           </p>
+          <p>
+            Not ready to use real money? Read{' '}
+            <a href="/guide/test-a-trading-bot-on-demo.html">
+              how to test a trading bot on a demo account
+            </a>.
+          </p>
         </div>
         <aside>
           <BookOpen size={34} />
