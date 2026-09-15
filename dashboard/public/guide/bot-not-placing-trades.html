@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Avalisa PO Bot Not Placing Trades? A Six-Check Troubleshooting Guide</title>
+  <meta name="description" content="The bot runs but no trades appear. Work through six checks: session, activation, balance, filters, tab visibility, and demo vs real, before emailing support.">
+  <meta property="og:title" content="Avalisa PO Bot Not Placing Trades? A Six-Check Troubleshooting Guide">
+  <meta property="og:description" content="The bot runs but no trades appear. Work through six checks: session, activation, balance, filters, tab visibility, and demo vs real, before emailing support.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://avalisabot.vercel.app/guide/bot-not-placing-trades.html">
+  <link rel="canonical" href="https://avalisabot.vercel.app/guide/bot-not-placing-trades.html">
+  <link rel="icon" href="/favicon.ico">
+  <style>
+    :root {
+      --bg: #060606;
+      --surface: #0e1216;
+      --surface-deep: #07090b;
+      --text: #f3eee6;
+      --muted: rgba(243, 238, 230, 0.7);
+      --gold: #d8a24a;
+      --gold-light: #f1c878;
+      --line: rgba(216, 162, 74, 0.24);
+      --jade: #4a9b7e;
+      --display: Georgia, 'Times New Roman', serif;
+      --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 78% 3%, rgba(216, 162, 74, 0.18), transparent 26rem),
+        radial-gradient(circle at 5% 22%, rgba(74, 155, 126, 0.12), transparent 30rem),
+        linear-gradient(180deg, var(--bg), #090c0e 48%, #040404);
+      color: var(--text);
+      font: 16px/1.7 var(--sans);
+    }
+    a { color: var(--gold-light); text-underline-offset: 0.2em; }
+    a:hover { color: #ffe1a8; }
+    a:focus-visible { outline: 2px solid var(--gold-light); outline-offset: 4px; }
+    .shell { width: min(calc(100% - 2rem), 860px); margin: 0 auto; }
+    header {
+      border-bottom: 1px solid var(--line);
+      background: rgba(6, 6, 6, 0.88);
+    }
+    nav {
+      display: flex;
+      min-height: 4.35rem;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .brand img { display: block; width: auto; height: 3.1rem; }
+    .nav-link { color: var(--muted); font-size: 0.86rem; font-weight: 700; text-decoration: none; }
+    .hero { padding: clamp(3.5rem, 8vw, 6.5rem) 0 clamp(2rem, 5vw, 4rem); }
+    .kicker {
+      margin: 0;
+      color: var(--gold);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+    h1, h2 { font-family: var(--display); font-weight: 500; line-height: 1.08; }
+    h1 { max-width: 820px; margin: 0.75rem 0 1.25rem; font-size: clamp(2.5rem, 7vw, 5rem); }
+    h2 { margin: 0 0 1rem; font-size: clamp(1.8rem, 4vw, 2.55rem); }
+    h3 { margin: 1.75rem 0 0.35rem; color: var(--gold-light); font-size: 1.05rem; }
+    p, li { color: var(--muted); }
+    .lede { max-width: 740px; margin: 0; font-size: clamp(1.05rem, 2.5vw, 1.24rem); }
+    .quick-links { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.6rem; }
+    .button {
+      display: inline-flex;
+      min-height: 2.8rem;
+      align-items: center;
+      border: 1px solid rgba(241, 200, 120, 0.55);
+      border-radius: 0.48rem;
+      padding: 0.7rem 1rem;
+      background: linear-gradient(180deg, #f1c878, #d0933c 52%, #9c6423);
+      color: #130d05;
+      font-weight: 800;
+      text-decoration: none;
+    }
+    .button.secondary { background: rgba(10, 10, 15, 0.6); color: var(--gold-light); }
+    .toc, article section, .risk, .final-cta {
+      border: 1px solid var(--line);
+      border-radius: 0.7rem;
+      background:
+        radial-gradient(circle at 92% 0%, rgba(216, 162, 74, 0.08), transparent 15rem),
+        linear-gradient(180deg, rgba(14, 18, 22, 0.92), rgba(7, 9, 11, 0.94));
+    }
+    .toc { margin-bottom: 1rem; padding: 1.35rem clamp(1.1rem, 3vw, 1.8rem); }
+    .toc strong { font-family: var(--display); font-size: 1.2rem; }
+    .toc ol { columns: 2; margin-bottom: 0; padding-left: 1.25rem; }
+    .toc li { break-inside: avoid; margin: 0.25rem 0; }
+    article { display: grid; gap: 1rem; padding-bottom: 4rem; }
+    article section { padding: clamp(1.3rem, 4vw, 2.2rem); scroll-margin-top: 1rem; }
+    article section > :last-child { margin-bottom: 0; }
+    ol, ul { padding-left: 1.45rem; }
+    li + li { margin-top: 0.5rem; }
+    strong { color: var(--text); }
+    .risk { border-color: rgba(241, 200, 120, 0.42); }
+    .risk h2 { color: var(--gold-light); }
+    .final-cta { text-align: left; }
+    .table-wrap { overflow-x: auto; margin: 1.25rem 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+    caption {
+      margin-bottom: 0.6rem;
+      color: var(--gold);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-align: left;
+      text-transform: uppercase;
+    }
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 0.6rem 0.75rem;
+      color: var(--muted);
+      text-align: right;
+    }
+    th:first-child, td:first-child { text-align: left; }
+    thead th {
+      border-bottom: 1px solid rgba(241, 200, 120, 0.42);
+      color: var(--gold-light);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
+    tbody th { color: var(--text); font-weight: 700; }
+    footer { border-top: 1px solid var(--line); padding: 2rem 0; color: var(--muted); font-size: 0.86rem; }
+    footer .shell { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.75rem 1.5rem; }
+    @media (max-width: 620px) {
+      .toc ol { columns: 1; }
+      .brand img { height: 2.7rem; }
+      .nav-link { font-size: 0.78rem; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <nav class="shell" aria-label="Primary navigation">
+      <a class="brand" href="/" aria-label="Avalisa PO Bot home">
+        <img src="/images/brand/avalisa-signature-logo-gold.png" alt="Avalisa PO Bot">
+      </a>
+      <a class="nav-link" href="https://avalisabot.vercel.app/guide">Setup guide</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="hero shell">
+      <p class="kicker">Troubleshooting</p>
+      <h1>Avalisa PO Bot Is Not Placing Trades &mdash; Work Through These Six Checks</h1>
+      <p class="lede">You installed the extension, clicked start, and nothing happens. Most &ldquo;no trades&rdquo; reports trace back to a handful of preventable causes: an outdated browser session, an unactivated account, filters that are too strict, or a balance that cannot cover the next stake. Work through this list top to bottom before contacting support.</p>
+      <div class="quick-links">
+        <a class="button" href="https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa">Add to Chrome</a>
+        <a class="button secondary" href="https://avalisabot.vercel.app/guide">Open the setup guide</a>
+      </div>
+    </div>
+
+    <div class="shell">
+      <aside class="toc" aria-label="On this page">
+        <strong>On this page</strong>
+        <ol>
+          <li><a href="#needs">What the bot needs to trade</a></li>
+          <li><a href="#check-1">Check 1 &mdash; browser and extension session</a></li>
+          <li><a href="#check-2">Check 2 &mdash; activation and plan</a></li>
+          <li><a href="#check-3">Check 3 &mdash; balance covers the next stake</a></li>
+          <li><a href="#check-4">Check 4 &mdash; settings that filter out every trade</a></li>
+          <li><a href="#check-5">Check 5 &mdash; keep the tab visible</a></li>
+          <li><a href="#check-6">Check 6 &mdash; demo vs real account</a></li>
+          <li><a href="#support">When to contact support</a></li>
+          <li><a href="#faq">Frequently asked questions</a></li>
+          <li><a href="#start">Get started safely</a></li>
+        </ol>
+      </aside>
+
+      <article>
+        <section id="needs">
+          <h2>Before you start: what the bot needs to trade</h2>
+          <p>Binary options trading is high risk and can lose your entire balance quickly. Avalisa PO Bot automates trades in your browser; it does not guarantee profit, and it should always be started on a demo account.</p>
+          <p>The bot operates in your own Chrome browser on Pocket Option (Martingale mode, or Avalisa Bot mode &mdash; rule-based signal mode, Pro only). It places trades only when the account is connected and activated, when its settings can find a trade to place, and when your balance covers the stake. If any of those three conditions fails, the bot simply waits. That is usually exactly what you are seeing.</p>
+        </section>
+
+        <section id="check-1">
+          <h2>Check 1: browser and extension session</h2>
+          <p>Extensions can lose their connection to the trading page after updates or crashes. The first step is always mechanical:</p>
+          <ol>
+            <li>Fully quit Chrome (not just close the window) and reopen it.</li>
+            <li>Confirm the Avalisa PO Bot extension is installed and enabled. If it is missing, reinstall it from the <a href="https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa">Chrome Web Store</a> and relaunch the browser afterwards.</li>
+            <li>Re-login to Pocket Option so the extension sees a live session.</li>
+          </ol>
+          <p>A large share of &ldquo;bot stopped working&rdquo; tickets is fixed by nothing more than a browser restart.</p>
+        </section>
+
+        <section id="check-2">
+          <h2>Check 2: account activation and plan</h2>
+          <p>The bot will not trade on an unactivated account. Activation ties your Pocket Option ID to your Avalisa account, and the status is confirmed on our side, not just in your browser. Two quick checks:</p>
+          <ul>
+            <li>On the <a href="https://avalisabot.vercel.app/guide">guide page</a> you can enter your Pocket Option ID under &ldquo;Check my Pocket Option ID&rdquo; to see whether a plan is attached.</li>
+            <li>Free Demo access covers <strong>10 Martingale trades</strong>. If you are on the free plan, have used those trades, and have not paid for Basic or Pro, the bot stopping is expected behaviour, not a fault.</li>
+          </ul>
+          <p>If the ID shows no plan but you believe you are entitled to one, send the problem to support (see below) with your Pocket Option ID and the email on your Avalisa account.</p>
+        </section>
+
+        <section id="check-3">
+          <h2>Check 3: your balance covers the next stake</h2>
+          <p>In Martingale mode the stake after a loss is multiplied (2x to 3x) until you reach the limit in <strong>Martingale Steps</strong>. There is no separate stop-loss or daily-loss-limit setting; limiting Martingale Steps is the only way to cap a losing streak. Relatedly: <strong>when the next stake would exceed your account balance, the bot pauses.</strong> If you are down a streak on a small real account, an &ldquo;idle&rdquo; bot may be doing exactly what it is designed to do. Check your balance against the stakes the bot would place before concluding anything is broken.</p>
+        </section>
+
+        <section id="check-4">
+          <h2>Check 4: settings that quietly filter out every trade</h2>
+          <p>Several settings do not block trading outright &mdash; they simply make every potential trade fail the filter, so the bot never fires:</p>
+          <ul>
+            <li><strong>Minimum payout %</strong> &mdash; set too high and most signals are rejected. Lower it until you see trades.</li>
+            <li><strong>Pair Scan</strong> &mdash; &ldquo;Current pair only&rdquo; limits trading to the pair open on screen. If that pair never triggers, nothing happens. Try &ldquo;Auto scan favorites&rdquo; or &ldquo;Auto-switch favorite&rdquo;.</li>
+            <li><strong>Timeframe</strong> &mdash; if the expiry you selected is not offered on the pair you are trading, the bot cannot place the trade; it retries instead, and the panel status line reads &ldquo;Timeframe &hellip; unavailable &mdash; retrying&rdquo;. Switch to a timeframe the pair actually offers. Shorter expiries are also the riskiest, so prefer a longer supported timeframe while troubleshooting and while trading on real money.</li>
+            <li><strong>Martingale Steps</strong> &mdash; if the current cycle already reached its step limit, the cycle ends; watch for the start of a new one.</li>
+          </ul>
+          <p>Start from known-sane values: a moderate payout threshold, favourite-pair scanning, and a conservative timeframe, and confirm trades appear before tuning anything.</p>
+        </section>
+
+        <section id="check-5">
+          <h2>Check 5: keep the Pocket Option tab visible</h2>
+          <p>A background or minimised tab can delay trade-result detection and stall the cycle. Keep the Pocket Option tab visible in the foreground while testing; if trades flow only when it is, that is the whole story.</p>
+        </section>
+
+        <section id="check-6">
+          <h2>Check 6: demo vs real account</h2>
+          <p>On our side, the extension places trades the same way on demo and real accounts &mdash; it reads whichever balance is active and clicks the same trade controls either way; we do not run separate trade-placement logic for the two. We cannot speak for Pocket Option's own servers, so do not assume total parity &mdash; but the extension itself is not the source of a demo-vs-real difference. Run the exact same settings on a demo account first: if it trades there and not on real, the difference is in account state, activation, or balance, not the extension's behaviour. If it does not trade on either, the problem is in the extension session itself.</p>
+        </section>
+
+        <section id="support">
+          <h2>When to contact support</h2>
+          <p>Email <strong><a href="mailto:avalisapobot@gmail.com">avalisapobot@gmail.com</a></strong> with:</p>
+          <ol>
+            <li>Your Pocket Option ID and the email registered in your Avalisa account.</li>
+            <li>A screenshot of the bot panel showing the current state.</li>
+            <li>Which mode you run (Martingale or Avalisa Bot) and the settings values listed above.</li>
+            <li>What exactly happens: no trades ever, or trades that stop after N trades &mdash; and what your balance showed at that point.</li>
+          </ol>
+          <p>Activation is verified on our backend; we will confirm it before you act on it.</p>
+        </section>
+
+        <section id="faq">
+          <h2>Frequently asked questions</h2>
+
+          <h3>Why did the bot trade for a while and then stop?</h3>
+          <p>Most commonly: the next Martingale stake exceeded your balance (the bot pauses by design), the current cycle hit its Martingale Steps limit, or the filters now reject the market. Check balance and settings in that order.</p>
+
+          <h3>Why does nothing happen on my real account but the demo seems fine?</h3>
+          <p>Real-account session or activation state differs, or your real balance cannot cover the stakes. Verify your plan via &ldquo;Check my Pocket Option ID&rdquo; on the <a href="https://avalisabot.vercel.app/guide">guide page</a> and compare balances before suspecting the extension.</p>
+
+          <h3>Did Pocket Option block the bot?</h3>
+          <p>Pocket Option's own blog states users can use automated strategies as long as they comply with platform rules. If trades were previously working and now nothing happens anywhere, treat it as an account-side or session-side problem and send us the evidence above.</p>
+
+          <h3>Is it normal for the bot to idle for a long time?</h3>
+          <p>Strict filters (high minimum payout, current-pair-only, an expiry the pair does not offer) can reject signals for extended periods. Loosen them on a demo account to confirm trades fire.</p>
+
+          <h3>I finished my free demo trades and the bot stopped. Is it broken?</h3>
+          <p>No. Free Demo access includes 10 Martingale trades. To continue, Basic or Pro is required; prices are on the <a href="https://avalisabot.vercel.app/pricing">pricing page</a>.</p>
+        </section>
+
+        <section id="risk" class="risk">
+          <h2>The honest risk statement</h2>
+          <p>Binary options are high-risk instruments: on a wrong expiry you lose the full stake, and martingale-style staking concentrates that risk into streaks. Avalisa PO Bot automates execution; it does not predict the market and it does not guarantee profit. Real performance varies with market conditions, payout percentage, pair, timeframe, and your settings. Start on a demo account, confirm the bot behaves as configured, and only then consider real money &mdash; with stakes you can afford to lose and Martingale Steps limited rather than left on Infinite.</p>
+        </section>
+
+        <section id="start" class="final-cta">
+          <h2>Get started safely</h2>
+          <p>Install the extension from the <a href="https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa">Chrome Web Store</a>, follow the <a href="https://avalisabot.vercel.app/guide">setup guide</a>, and run your first sessions on a demo account. Plan prices are on the <a href="https://avalisabot.vercel.app/pricing">pricing page</a>. If you get stuck on any check above, contact <a href="mailto:avalisapobot@gmail.com">avalisapobot@gmail.com</a> with the evidence list.</p>
+        </section>
+      </article>
+    </div>
+  </main>
+
+  <footer>
+    <div class="shell">
+      <span>© Avalisa PO Bot</span>
+      <a href="mailto:avalisapobot@gmail.com">avalisapobot@gmail.com</a>
+    </div>
+  </footer>
+</body>
+</html>

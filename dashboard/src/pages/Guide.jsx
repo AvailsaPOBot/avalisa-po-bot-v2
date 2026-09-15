@@ -330,6 +330,12 @@ export default function Guide() {
               win rate, payout and the 52.1% break-even, explained honestly
             </a>.
           </p>
+          <p>
+            Bot running but no trades? Read{' '}
+            <a href="/guide/bot-not-placing-trades.html">
+              the six checks to run when the bot is not placing trades
+            </a>.
+          </p>
         </div>
         <aside>
           <BookOpen size={34} />
