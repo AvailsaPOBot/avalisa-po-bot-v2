@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Do Pocket Option Bots Make Money? Win Rate, Payout and the 52.1% Break-Even</title>
+  <meta name="description" content="No bot moves the break-even line: at a 92% payout you need 52.1% of trades won. The arithmetic, our measured 43-44%, and how to test any bot on demo.">
+  <meta property="og:title" content="Do Pocket Option Bots Make Money? Win Rate, Payout and the 52.1% Break-Even">
+  <meta property="og:description" content="No bot moves the break-even line: at a 92% payout you need 52.1% of trades won. The arithmetic, our measured 43-44%, and how to test any bot on demo.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://avalisabot.vercel.app/guide/honest-win-rate-break-even.html">
+  <link rel="canonical" href="https://avalisabot.vercel.app/guide/honest-win-rate-break-even.html">
+  <link rel="icon" href="/favicon.ico">
+  <style>
+    :root {
+      --bg: #060606;
+      --surface: #0e1216;
+      --surface-deep: #07090b;
+      --text: #f3eee6;
+      --muted: rgba(243, 238, 230, 0.7);
+      --gold: #d8a24a;
+      --gold-light: #f1c878;
+      --line: rgba(216, 162, 74, 0.24);
+      --jade: #4a9b7e;
+      --display: Georgia, 'Times New Roman', serif;
+      --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 78% 3%, rgba(216, 162, 74, 0.18), transparent 26rem),
+        radial-gradient(circle at 5% 22%, rgba(74, 155, 126, 0.12), transparent 30rem),
+        linear-gradient(180deg, var(--bg), #090c0e 48%, #040404);
+      color: var(--text);
+      font: 16px/1.7 var(--sans);
+    }
+    a { color: var(--gold-light); text-underline-offset: 0.2em; }
+    a:hover { color: #ffe1a8; }
+    a:focus-visible { outline: 2px solid var(--gold-light); outline-offset: 4px; }
+    .shell { width: min(calc(100% - 2rem), 860px); margin: 0 auto; }
+    header {
+      border-bottom: 1px solid var(--line);
+      background: rgba(6, 6, 6, 0.88);
+    }
+    nav {
+      display: flex;
+      min-height: 4.35rem;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .brand img { display: block; width: auto; height: 3.1rem; }
+    .nav-link { color: var(--muted); font-size: 0.86rem; font-weight: 700; text-decoration: none; }
+    .hero { padding: clamp(3.5rem, 8vw, 6.5rem) 0 clamp(2rem, 5vw, 4rem); }
+    .kicker {
+      margin: 0;
+      color: var(--gold);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+    h1, h2 { font-family: var(--display); font-weight: 500; line-height: 1.08; }
+    h1 { max-width: 820px; margin: 0.75rem 0 1.25rem; font-size: clamp(2.5rem, 7vw, 5rem); }
+    h2 { margin: 0 0 1rem; font-size: clamp(1.8rem, 4vw, 2.55rem); }
+    h3 { margin: 1.75rem 0 0.35rem; color: var(--gold-light); font-size: 1.05rem; }
+    p, li { color: var(--muted); }
+    .lede { max-width: 740px; margin: 0; font-size: clamp(1.05rem, 2.5vw, 1.24rem); }
+    .quick-links { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.6rem; }
+    .button {
+      display: inline-flex;
+      min-height: 2.8rem;
+      align-items: center;
+      border: 1px solid rgba(241, 200, 120, 0.55);
+      border-radius: 0.48rem;
+      padding: 0.7rem 1rem;
+      background: linear-gradient(180deg, #f1c878, #d0933c 52%, #9c6423);
+      color: #130d05;
+      font-weight: 800;
+      text-decoration: none;
+    }
+    .button.secondary { background: rgba(10, 10, 15, 0.6); color: var(--gold-light); }
+    .toc, article section, .risk, .final-cta {
+      border: 1px solid var(--line);
+      border-radius: 0.7rem;
+      background:
+        radial-gradient(circle at 92% 0%, rgba(216, 162, 74, 0.08), transparent 15rem),
+        linear-gradient(180deg, rgba(14, 18, 22, 0.92), rgba(7, 9, 11, 0.94));
+    }
+    .toc { margin-bottom: 1rem; padding: 1.35rem clamp(1.1rem, 3vw, 1.8rem); }
+    .toc strong { font-family: var(--display); font-size: 1.2rem; }
+    .toc ol { columns: 2; margin-bottom: 0; padding-left: 1.25rem; }
+    .toc li { break-inside: avoid; margin: 0.25rem 0; }
+    article { display: grid; gap: 1rem; padding-bottom: 4rem; }
+    article section { padding: clamp(1.3rem, 4vw, 2.2rem); scroll-margin-top: 1rem; }
+    article section > :last-child { margin-bottom: 0; }
+    ol, ul { padding-left: 1.45rem; }
+    li + li { margin-top: 0.5rem; }
+    strong { color: var(--text); }
+    .risk { border-color: rgba(241, 200, 120, 0.42); }
+    .risk h2 { color: var(--gold-light); }
+    .final-cta { text-align: left; }
+    .table-wrap { overflow-x: auto; margin: 1.25rem 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+    caption {
+      margin-bottom: 0.6rem;
+      color: var(--gold);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-align: left;
+      text-transform: uppercase;
+    }
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 0.6rem 0.75rem;
+      color: var(--muted);
+      text-align: right;
+    }
+    th:first-child, td:first-child { text-align: left; }
+    thead th {
+      border-bottom: 1px solid rgba(241, 200, 120, 0.42);
+      color: var(--gold-light);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
+    tbody th { color: var(--text); font-weight: 700; }
+    footer { border-top: 1px solid var(--line); padding: 2rem 0; color: var(--muted); font-size: 0.86rem; }
+    footer .shell { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.75rem 1.5rem; }
+    @media (max-width: 620px) {
+      .toc ol { columns: 1; }
+      .brand img { height: 2.7rem; }
+      .nav-link { font-size: 0.78rem; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <nav class="shell" aria-label="Primary navigation">
+      <a class="brand" href="/" aria-label="Avalisa PO Bot home">
+        <img src="/images/brand/avalisa-signature-logo-gold.png" alt="Avalisa PO Bot">
+      </a>
+      <a class="nav-link" href="https://avalisabot.vercel.app/guide">Setup guide</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="hero shell">
+      <p class="kicker">Win rate and break-even</p>
+      <h1>Do Pocket Option Bots Make Money? No &mdash; Win Rate, Payout, and the 52.1% Break-Even, Explained Honestly</h1>
+      <p class="lede">A trading bot does not change the underlying math of binary options: at realistic payouts, a trader must succeed on slightly more than half of their trades just to stay flat. This page shows the break-even calculation, what our own large-sample measurement shows, and how to test any bot &mdash; including ours &mdash; on a demo account before risking money.</p>
+      <div class="quick-links">
+        <a class="button" href="https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa">Add to Chrome</a>
+        <a class="button secondary" href="https://avalisabot.vercel.app/guide">Open the setup guide</a>
+      </div>
+    </div>
+
+    <div class="shell">
+      <aside class="toc" aria-label="On this page">
+        <strong>On this page</strong>
+        <ol>
+          <li><a href="#short-answer">The short answer, first</a></li>
+          <li><a href="#payout">What the payout number means</a></li>
+          <li><a href="#expect">What success rate to expect</a></li>
+          <li><a href="#martingale">Why Martingale makes it harder</a></li>
+          <li><a href="#helps">Where a bot genuinely helps</a></li>
+          <li><a href="#test">How to test &mdash; demo first</a></li>
+          <li><a href="#faq">Frequently asked questions</a></li>
+          <li><a href="#start">Start here</a></li>
+        </ol>
+      </aside>
+
+      <article>
+        <section id="short-answer">
+          <h2>The short answer, first</h2>
+          <p><strong>A Pocket Option bot does not make money by itself.</strong> An honest answer has three parts:</p>
+          <ol>
+            <li><strong>The required line is fixed by the payout.</strong> A trade at, say, a 92% payout pays 0.92 against the 1.00 risked; the break-even success rate is set by that ratio, not by who presses the button. A bot executes rules; it does not move the required line.</li>
+            <li><strong>No bot setting we have measured has cleared that line over large samples.</strong> Our own Martingale measurement (2026-09-11, large samples) came in around a 43&ndash;44% success rate &mdash; below the ~52.1% break-even for a 92% payout. Those measured samples lost money. We say that plainly rather than publishing a flattering number.</li>
+            <li><strong>What a bot genuinely provides is execution:</strong> consistent rule-following on a schedule, settings synced across devices, and a complete trade history for review. Execution is useful. It is not an edge upgrade.</li>
+          </ol>
+          <p>Trading binary options is high risk. Nothing on this page is a promise of results, and the bot does not guarantee returns of any kind. Use only money you can afford to lose, and start on a demo account.</p>
+        </section>
+
+        <section id="payout">
+          <h2>What the payout number means &mdash; and why break-even sits above 50%</h2>
+          <p>In binary options you risk a fixed stake per trade. A win gains the payout percentage (e.g. 92% &rarr; you gain 0.92 per 1.00 risked); a loss costs the full 1.00. Break-even &mdash; the share of trades you must win for expected value exactly zero &mdash; is:</p>
+          <p><strong>break-even = 1 / (1 + payout%)</strong></p>
+          <div class="table-wrap">
+            <table>
+              <caption>Break-even success rate by payout</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Payout</th>
+                  <th scope="col">Break-even success rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><th scope="row">80%</th><td>55.6%</td></tr>
+                <tr><th scope="row">85%</th><td>54.1%</td></tr>
+                <tr><th scope="row">90%</th><td>52.6%</td></tr>
+                <tr><th scope="row">92%</th><td><strong>52.1%</strong></td></tr>
+                <tr><th scope="row">100%</th><td>50.0%</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>The practical takeaway: at realistic payouts, the required line is ~52&ndash;56% of trades. A strategy whose long-run success rate sits below that line loses money &mdash; slowly at first, then all at once. If someone shows you a single-day screenshot of a bot's trade history, ask what the success rate has been over months of trades at actual payout levels, because the screenshot tells you almost nothing.</p>
+        </section>
+
+        <section id="expect">
+          <h2>What success rate should you actually expect?</h2>
+          <p>Honesty rule: success rate varies by market conditions, currency pair, timeframe, payout, and settings &mdash; which is exactly why we publish no single number on our site. Our own measurement (2026-09-11, large samples, Martingale mode) came in around 43&ndash;44%, below the break-even line for the payout levels measured. Two consequences follow:</p>
+          <ul>
+            <li><strong>Past performance of any bot, including ours, is not a prediction of the future.</strong> Markets that paid off one quarter did not promise to pay off the next.</li>
+            <li><strong>The number that matters is the break-even line for the payout you actually receive</strong>, not any marketing headline. Check the payout on your own pair and timeframe before running anything real.</li>
+          </ul>
+        </section>
+
+        <section id="martingale">
+          <h2>Why Martingale makes the math harder, not easier</h2>
+          <p>Martingale raises the stake after each loss to recoup the cycle. Cost of a full losing cycle, as a multiple of the base stake:</p>
+          <div class="table-wrap">
+            <table>
+              <caption>Full losing-cycle cost, as a multiple of the base stake</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Steps</th>
+                  <th scope="col">2x multiplier</th>
+                  <th scope="col">3x multiplier</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><th scope="row">3</th><td>7&times; base</td><td>13&times; base</td></tr>
+                <tr><th scope="row">5</th><td>31&times; base</td><td>121&times; base</td></tr>
+                <tr><th scope="row">7</th><td>127&times; base</td><td>1,093&times; base</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>A seven-step losing streak at triple stakes costs the equivalent of 1,093 base stakes; a losing streak can wipe out a balance quickly. That is the real risk of Martingale. Capping the number of Martingale steps is the mitigation &mdash; the bot has no separate stop-loss or daily-loss-limit setting, and limiting steps is the only built-in way to bound a losing streak. Test on a demo account before real money.</p>
+        </section>
+
+        <section id="helps">
+          <h2>Where a bot genuinely helps &mdash; and where it does not</h2>
+          <p>Useful things automation provides: consistent execution of your chosen rules on a schedule, no fatigue or hesitation between trades, synced settings, and full trade history for review. What it does not provide: a success rate above the break-even line, or protection from losing streaks. If a listing or a reviewer implies the bot moves the break-even line for you, weigh that claim against the arithmetic above &mdash; no product configuration changes the ratio between what a win pays and what a loss costs.</p>
+        </section>
+
+        <section id="test">
+          <h2>How to test &mdash; demo first</h2>
+          <ol>
+            <li>Install the extension from the <a href="https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa">Chrome Web Store</a>. The free demo plan covers 10 Martingale trades plus webapp and dashboard access &mdash; enough to learn the workflow without paying.</li>
+            <li>Run the bot on your Pocket Option <strong>demo</strong> account for several days, across pairs and timeframes. Record the actual success rate at the actual payout you see.</li>
+            <li>Compare that number against the break-even table above. Below the line, do not move to real money &mdash; no configuration changes that ratio.</li>
+            <li>If you proceed anyway: cap Martingale steps so the worst-case cycle cost stays trivial against your balance, size base stakes accordingly, and survive a full capped cycle before adding any size.</li>
+            <li>Keep the Pocket Option tab visible while the bot trades; a background or minimised tab can delay trade-result detection.</li>
+          </ol>
+        </section>
+
+        <section id="faq">
+          <h2>Frequently asked questions</h2>
+
+          <h3>Why can't any bot guarantee a fixed success rate?</h3>
+          <p>Because the ratio between the win payout and the loss cost is fixed by the broker's payout percentage, and no execution setting changes it. Our own large-sample Martingale measurement (2026-09-11) sat around 43&ndash;44% &mdash; below break-even &mdash; and we publish that number instead of a flattering one.</p>
+
+          <h3>Why is break-even at 52.1% instead of 50%?</h3>
+          <p>Because the losing side costs the full stake while the winning side pays only the payout percentage. At a 92% payout you gain 0.92 per win but lose 1.00 per loss, so you need 1/(1+0.92) &asymp; 52.1% of trades won to break even. Lower payouts push the line higher still.</p>
+
+          <h3>Is Martingale safer with more steps?</h3>
+          <p>No &mdash; more steps means a larger maximum cycle cost (31&times; base at five steps with 2x multipliers; 1,093&times; at seven steps with 3x). Fewer steps mean smaller worst-case exposure. The bot pauses automatically when the next stake would exceed your balance.</p>
+
+          <h3>Will Pocket Option ban me for using a bot?</h3>
+          <p>Pocket Option's own blog says users can utilize automated strategies as long as they comply with platform rules; it does not specifically name third-party extensions, and that statement is their blog, not their formal Terms of Service. Do not treat either &ldquo;safe&rdquo; or &ldquo;banned&rdquo; as confirmed.</p>
+
+          <h3>How do I know whether my Pocket Option ID already has a plan?</h3>
+          <p>Check on our setup guide at <a href="https://avalisabot.vercel.app/guide">avalisabot.vercel.app/guide</a> (&ldquo;Check my Pocket Option ID&rdquo;). Plan prices are listed at <a href="https://avalisabot.vercel.app/pricing">avalisabot.vercel.app/pricing</a>.</p>
+        </section>
+
+        <section id="start" class="final-cta">
+          <h2>Start here</h2>
+          <p>If you want to see what consistent execution looks like on your own pairs &mdash; at zero cost to your real balance &mdash; <a href="https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa">install the extension from the Chrome Web Store</a> and start on a Pocket Option <strong>demo</strong> account. Run it for days, compare your measured success rate against the break-even table above, and decide from that number rather than from any headline. Binary options trading is high risk; trade only with money you can afford to lose. Questions: <a href="mailto:avalisapobot@gmail.com">avalisapobot@gmail.com</a>.</p>
+        </section>
+      </article>
+    </div>
+  </main>
+
+  <footer>
+    <div class="shell">
+      <span>© Avalisa PO Bot</span>
+      <a href="mailto:avalisapobot@gmail.com">avalisapobot@gmail.com</a>
+    </div>
+  </footer>
+</body>
+</html>

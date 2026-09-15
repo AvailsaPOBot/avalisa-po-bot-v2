@@ -324,6 +324,12 @@ export default function Guide() {
               settings guide to timeframe, starting amount and Martingale steps
             </a>.
           </p>
+          <p>
+            Wondering if a bot makes money? Read{' '}
+            <a href="/guide/honest-win-rate-break-even.html">
+              win rate, payout and the 52.1% break-even, explained honestly
+            </a>.
+          </p>
         </div>
         <aside>
           <BookOpen size={34} />
