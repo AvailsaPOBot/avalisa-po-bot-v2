@@ -348,6 +348,12 @@ export default function Guide() {
               how free Pro access works when you open a new Pocket Option account through our link
             </a>.
           </p>
+          <p>
+            Sizing your stakes? Read the{' '}
+            <a href="/guide/bankroll-rules-automation.html">
+              bankroll rules for automated trading, and what a full losing cycle really costs
+            </a>.
+          </p>
         </div>
         <aside>
           <BookOpen size={34} />

@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bankroll Rules for Automated Binary-Options Trading</title>
+  <meta name="description" content="Stake sizing, loss budgets and hard step caps for running a Pocket Option bot — what a 7-step Martingale cycle really costs as a share of your bankroll.">
+  <meta property="og:title" content="Bankroll Rules for Automated Binary-Options Trading">
+  <meta property="og:description" content="Stake sizing, loss budgets and hard step caps for running a Pocket Option bot — what a 7-step Martingale cycle really costs as a share of your bankroll.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://avalisabot.vercel.app/guide/bankroll-rules-automation.html">
+  <link rel="canonical" href="https://avalisabot.vercel.app/guide/bankroll-rules-automation.html">
+  <link rel="icon" href="/favicon.ico">
+  <style>
+    :root {
+      --bg: #060606;
+      --surface: #0e1216;
+      --surface-deep: #07090b;
+      --text: #f3eee6;
+      --muted: rgba(243, 238, 230, 0.7);
+      --gold: #d8a24a;
+      --gold-light: #f1c878;
+      --line: rgba(216, 162, 74, 0.24);
+      --jade: #4a9b7e;
+      --display: Georgia, 'Times New Roman', serif;
+      --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 78% 3%, rgba(216, 162, 74, 0.18), transparent 26rem),
+        radial-gradient(circle at 5% 22%, rgba(74, 155, 126, 0.12), transparent 30rem),
+        linear-gradient(180deg, var(--bg), #090c0e 48%, #040404);
+      color: var(--text);
+      font: 16px/1.7 var(--sans);
+    }
+    a { color: var(--gold-light); text-underline-offset: 0.2em; }
+    a:hover { color: #ffe1a8; }
+    a:focus-visible { outline: 2px solid var(--gold-light); outline-offset: 4px; }
+    .shell { width: min(calc(100% - 2rem), 860px); margin: 0 auto; }
+    header {
+      border-bottom: 1px solid var(--line);
+      background: rgba(6, 6, 6, 0.88);
+    }
+    nav {
+      display: flex;
+      min-height: 4.35rem;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .brand img { display: block; width: auto; height: 3.1rem; }
+    .nav-link { color: var(--muted); font-size: 0.86rem; font-weight: 700; text-decoration: none; }
+    .hero { padding: clamp(3.5rem, 8vw, 6.5rem) 0 clamp(2rem, 5vw, 4rem); }
+    .kicker {
+      margin: 0;
+      color: var(--gold);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+    h1, h2 { font-family: var(--display); font-weight: 500; line-height: 1.08; }
+    h1 { max-width: 820px; margin: 0.75rem 0 1.25rem; font-size: clamp(2.5rem, 7vw, 5rem); }
+    h2 { margin: 0 0 1rem; font-size: clamp(1.8rem, 4vw, 2.55rem); }
+    h3 { margin: 1.75rem 0 0.35rem; color: var(--gold-light); font-size: 1.05rem; }
+    p, li { color: var(--muted); }
+    .lede { max-width: 740px; margin: 0; font-size: clamp(1.05rem, 2.5vw, 1.24rem); }
+    .quick-links { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.6rem; }
+    .button {
+      display: inline-flex;
+      min-height: 2.8rem;
+      align-items: center;
+      border: 1px solid rgba(241, 200, 120, 0.55);
+      border-radius: 0.48rem;
+      padding: 0.7rem 1rem;
+      background: linear-gradient(180deg, #f1c878, #d0933c 52%, #9c6423);
+      color: #130d05;
+      font-weight: 800;
+      text-decoration: none;
+    }
+    .button.secondary { background: rgba(10, 10, 15, 0.6); color: var(--gold-light); }
+    .toc, article section, .risk, .final-cta {
+      border: 1px solid var(--line);
+      border-radius: 0.7rem;
+      background:
+        radial-gradient(circle at 92% 0%, rgba(216, 162, 74, 0.08), transparent 15rem),
+        linear-gradient(180deg, rgba(14, 18, 22, 0.92), rgba(7, 9, 11, 0.94));
+    }
+    .toc { margin-bottom: 1rem; padding: 1.35rem clamp(1.1rem, 3vw, 1.8rem); }
+    .toc strong { font-family: var(--display); font-size: 1.2rem; }
+    .toc ol { columns: 2; margin-bottom: 0; padding-left: 1.25rem; }
+    .toc li { break-inside: avoid; margin: 0.25rem 0; }
+    article { display: grid; gap: 1rem; padding-bottom: 4rem; }
+    article section { padding: clamp(1.3rem, 4vw, 2.2rem); scroll-margin-top: 1rem; }
+    article section > :last-child { margin-bottom: 0; }
+    ol, ul { padding-left: 1.45rem; }
+    li + li { margin-top: 0.5rem; }
+    strong { color: var(--text); }
+    .risk { border-color: rgba(241, 200, 120, 0.42); }
+    .risk h2 { color: var(--gold-light); }
+    .final-cta { text-align: left; }
+    footer { border-top: 1px solid var(--line); padding: 2rem 0; color: var(--muted); font-size: 0.86rem; }
+    footer .shell { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.75rem 1.5rem; }
+    @media (max-width: 620px) {
+      .toc ol { columns: 1; }
+      .brand img { height: 2.7rem; }
+      .nav-link { font-size: 0.78rem; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <nav class="shell" aria-label="Primary navigation">
+      <a class="brand" href="/" aria-label="Avalisa PO Bot home">
+        <img src="/images/brand/avalisa-signature-logo-gold.png" alt="Avalisa PO Bot">
+      </a>
+      <a class="nav-link" href="https://avalisabot.vercel.app/guide">Setup guide</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="hero shell">
+      <p class="kicker">Bankroll rules</p>
+      <h1>Bankroll Rules for Automated Binary-Options Trading</h1>
+      <p class="lede">A practical bankroll-control checklist for running a Pocket Option bot on your own account: stake sizing, hard caps on losing streaks, and why automated trading should only ever run on money you can afford to lose.</p>
+      <div class="quick-links">
+        <a class="button" href="https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa">Add to Chrome</a>
+        <a class="button secondary" href="https://avalisabot.vercel.app/guide">Open the setup guide</a>
+      </div>
+    </div>
+
+    <div class="shell">
+      <aside class="toc" aria-label="On this page">
+        <strong>On this page</strong>
+        <ol>
+          <li><a href="#risk">Risk statement &mdash; read this first</a></li>
+          <li><a href="#rules">The seven core bankroll rules</a></li>
+          <li><a href="#limits">What these rules can and cannot do</a></li>
+          <li><a href="#faq">Frequently asked questions</a></li>
+          <li><a href="#start">Try it safely</a></li>
+        </ol>
+      </aside>
+
+      <article>
+        <section id="risk" class="risk">
+          <h2>Risk statement &mdash; read this first</h2>
+          <p>Binary-options trading is high risk, and most retail traders lose money. <strong>No bot, setting, or strategy can promise you positive outcomes</strong> &mdash; including ours. Measured in our own large-sample testing (September 2026), no Avalisa setting has beaten break-even: at a 92% payout, break-even requires correctly predicting roughly <strong>52.1%</strong> of trades, and our Martingale mode measured around <strong>43&ndash;44%</strong>. We tell you this so you judge results honestly.</p>
+          <p>The purpose of bankroll rules is simple: they decide how long your account survives. If you size stakes correctly and cap your losing streaks, a bad sequence of trades costs you a defined fraction of your balance instead of wiping the account.</p>
+          <p><strong>Start every setup on a demo account.</strong> Run the bot, the strategy, and these bankroll rules on demo money first. Our extension runs demo and real trades the same way in your own browser, so what you learn on demo transfers directly.</p>
+        </section>
+
+        <section id="rules">
+          <h2>The seven core bankroll rules</h2>
+
+          <h3>1. Define your bankroll and your stake unit</h3>
+          <p>Decide one fixed amount of money that is your trading bankroll &mdash; money you genuinely can afford to lose entirely. Everything below is expressed in units of that bankroll. A commonly used rule of thumb is a fixed percentage stake of <strong>1&ndash;2% of the bankroll per trade</strong>; pick your own figure and never exceed it.</p>
+
+          <h3>2. Never let a single sequence exceed a fixed loss budget</h3>
+          <p>Set a number: &ldquo;one losing sequence may cost me at most X% of my bankroll.&rdquo; For example, with a 1% base stake and a capped strategy, your maximum sequence cost should fit inside that budget. When you reach it, stop, log what happened, and restart from the base stake.</p>
+
+          <h3>3. Cap every losing-streak progression &mdash; no &ldquo;infinite&rdquo; on a live account</h3>
+          <p>If you use Martingale (increasing the stake after each loss), the total cost of a full N-step losing cycle grows quickly, as a multiple of your base stake:</p>
+          <ul>
+            <li><strong>2x multiplier:</strong> 1 step costs 1&times;, 2 steps 3&times;, 3 steps 7&times;, 4 steps 15&times;, 5 steps 31&times;, 6 steps 63&times;, 7 steps 127&times; the base stake.</li>
+            <li><strong>3x multiplier:</strong> 1 step 1&times;, 2 steps 4&times;, 3 steps 13&times;, 4 steps 40&times;, 5 steps 121&times;, 6 steps 364&times;, 7 steps 1,093&times; the base stake.</li>
+          </ul>
+          <p>Convert that into your own money the same way every time: <strong>cycle cost as a share of bankroll = the multiple above &times; your base stake as a share of bankroll</strong>. At a 1% base stake, a 7-step cycle at 2x costs 127 &times; 1% = <strong>127% of your bankroll</strong> in one streak &mdash; more than your entire account. The same 7 steps at 3x costs 1,093 &times; 1% = <strong>over 1,000% of your bankroll</strong>. Those are not typos: a &ldquo;small&rdquo; 1% base stake stops looking small once a cycle runs long enough.</p>
+          <p>If you allow unlimited steps, the math eventually exceeds your balance, which is how balances get wiped. <strong>Limiting the step count is the real way to cap a losing streak &mdash; there is no separate stop-loss or daily-loss-limit setting in the bot.</strong> With a step cap, when the next stake would exceed the balance, the bot pauses instead of trying to force the trade.</p>
+
+          <h3>4. Choose lower multipliers unless you understand the table above</h3>
+          <p>At the same step count, a 3x cycle costs several times what a 2x cycle costs, and the gap widens with every step you allow: at 5 steps it is 121&times; versus 31&times; (about four times worse), at 6 steps 364&times; versus 63&times; (about six times worse), and at 7 steps 1,093&times; versus 127&times; (roughly nine times worse). Do not assume the multiplier options behave alike. If you run Martingale at all, run fewer steps rather than a higher multiplier.</p>
+
+          <h3>5. Match timeframe and payout to your account size</h3>
+          <p>Small accounts should prefer shorter expiries with higher payouts so one trade costs a smaller absolute amount. In our support experience we prefer payouts above 90%, and we caution against under-1-minute live trades. Results vary by market, payout, pair, timeframe, and settings &mdash; another reason the break-even number above is the only honest anchor.</p>
+
+          <h3>6. Keep monitoring rules strict</h3>
+          <ul>
+            <li>Keep the Pocket Option tab <strong>visible</strong> while the bot trades; a background or minimised tab can delay trade-result detection.</li>
+            <li>Do not run parallel long tasks in the same tab you are monitoring.</li>
+            <li>After any losing sequence that hit your cap, review the trade history before restarting.</li>
+          </ul>
+
+          <h3>7. Demo-first, then scale up in small steps</h3>
+          <ol>
+            <li><strong>Demo account:</strong> full setup, capped Martingale or Avalisa Bot mode, at least a substantial session of observation.</li>
+            <li><strong>Live account:</strong> smallest practical bankroll, base stake at the bottom of your comfort range.</li>
+            <li><strong>Scale</strong> the bankroll only after the capped rules have demonstrated their behaviour under live conditions.</li>
+          </ol>
+        </section>
+
+        <section id="limits">
+          <h2>What these rules can and cannot do</h2>
+          <p>Capped bankroll rules control the <em>cost</em> of being wrong: they bound the worst sequence, keep stakes proportional to balance, and force you to stop and re-evaluate at a pre-decided point. They do not change the underlying probability of a trade being right.</p>
+          <p>No configuration turns a losing expectation into a profit &mdash; be wary of anyone, or any ad, that claims otherwise. Paid ads for trading bots are banned by the major ad platforms for exactly this reason.</p>
+        </section>
+
+        <section id="faq">
+          <h2>Frequently asked questions</h2>
+
+          <h3>Can the bot promise positive outcomes or protect your balance?</h3>
+          <p>No. Nothing we sell promises outcomes, and our own large-sample testing has not found a setting that beats break-even. The bot automates execution and enforces your caps consistently.</p>
+
+          <h3>What limits my losses if I don&rsquo;t use Martingale?</h3>
+          <p>With a fixed stake, each loss costs exactly one stake unit, and your daily stop is just a count of trades. Martingale is where uncapped risk enters &mdash; if you use it, cap the steps.</p>
+
+          <h3>Is there a built-in stop-loss?</h3>
+          <p>No separate stop-loss or daily-loss-limit setting exists. The step cap (Martingale) plus your own discipline of stopping at your loss budget is the control, and the bot pauses automatically if the next stake would exceed the balance.</p>
+
+          <h3>Do you have to trade real money to test the bot?</h3>
+          <p>No. Demo accounts work identically from our extension&rsquo;s perspective. Test everything on demo first.</p>
+
+          <h3>Is using an automated bot allowed on Pocket Option?</h3>
+          <p>Pocket Option&rsquo;s own blog says users may use automated strategies as long as they comply with platform rules; it does not explicitly approve or ban third-party extensions (and that blog post is not their formal Terms of Service). We automate inside your own browser on your own account.</p>
+        </section>
+
+        <section id="start" class="final-cta">
+          <h2>Try it safely</h2>
+          <p>Install <a href="https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa">Avalisa PO Bot from the Chrome Web Store</a>, follow the <a href="https://avalisabot.vercel.app/guide">setup guide</a>, set your strategy with a hard step cap, and run it on a <strong>demo account</strong> before you consider real money. Binary options are high risk &mdash; only ever use money you can afford to lose. Questions: <a href="mailto:avalisapobot@gmail.com">avalisapobot@gmail.com</a>.</p>
+        </section>
+      </article>
+    </div>
+  </main>
+
+  <footer>
+    <div class="shell">
+      <span>© Avalisa PO Bot</span>
+      <a href="mailto:avalisapobot@gmail.com">avalisapobot@gmail.com</a>
+    </div>
+  </footer>
+</body>
+</html>
