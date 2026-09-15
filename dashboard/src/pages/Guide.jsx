@@ -342,6 +342,12 @@ export default function Guide() {
               Basic vs Pro, and which one fits how you trade
             </a>.
           </p>
+          <p>
+            New to Pocket Option? Read{' '}
+            <a href="/guide/free-pro-with-new-account.html">
+              how free Pro access works when you open a new Pocket Option account through our link
+            </a>.
+          </p>
         </div>
         <aside>
           <BookOpen size={34} />
