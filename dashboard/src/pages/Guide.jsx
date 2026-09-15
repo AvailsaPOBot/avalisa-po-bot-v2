@@ -300,6 +300,12 @@ export default function Guide() {
               how a Chrome extension automates Pocket Option trading
             </a>.
           </p>
+          <p>
+            Comparing it with signal groups? Read{' '}
+            <a href="/guide/browser-extension-vs-telegram-bots.html">
+              Chrome extension bots vs. Telegram signal bots
+            </a>.
+          </p>
         </div>
         <aside>
           <BookOpen size={34} />
