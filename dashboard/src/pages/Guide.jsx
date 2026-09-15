@@ -378,6 +378,12 @@ export default function Guide() {
               whether using a bot changes how you withdraw from Pocket Option
             </a>.
           </p>
+          <p>
+            Deciding on a trade expiry? Read{' '}
+            <a href="/guide/best-timeframe-for-pocket-option-automation.html">
+              1-minute vs 5-minute, and why noise hurts trading bots
+            </a>.
+          </p>
         </div>
         <aside>
           <BookOpen size={34} />
