@@ -282,6 +282,12 @@ export default function Guide() {
             New here? Read the full{' '}
             <a href="/guide/how-to-install-avalisa-po-bot.html">step-by-step install walkthrough</a>.
           </p>
+          <p>
+            Wondering about the rules? Read{' '}
+            <a href="/guide/does-pocket-option-allow-bots-account-safety.html">
+              does Pocket Option allow trading bots, and how to keep your account safe
+            </a>.
+          </p>
         </div>
         <aside>
           <BookOpen size={34} />
