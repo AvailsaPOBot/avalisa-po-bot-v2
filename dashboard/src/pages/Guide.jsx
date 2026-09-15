@@ -318,6 +318,12 @@ export default function Guide() {
               what a full Martingale losing cycle costs, and how to cap it
             </a>.
           </p>
+          <p>
+            Deciding what to put in each field? Read the{' '}
+            <a href="/guide/settings-guide.html">
+              settings guide to timeframe, starting amount and Martingale steps
+            </a>.
+          </p>
         </div>
         <aside>
           <BookOpen size={34} />
