@@ -336,6 +336,12 @@ export default function Guide() {
               the six checks to run when the bot is not placing trades
             </a>.
           </p>
+          <p>
+            Choosing between plans? Read{' '}
+            <a href="/guide/basic-vs-pro.html">
+              Basic vs Pro, and which one fits how you trade
+            </a>.
+          </p>
         </div>
         <aside>
           <BookOpen size={34} />
