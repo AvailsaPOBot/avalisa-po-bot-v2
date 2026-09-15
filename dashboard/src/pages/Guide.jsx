@@ -294,6 +294,12 @@ export default function Guide() {
               why a trading bot can win on demo and struggle on a real account
             </a>.
           </p>
+          <p>
+            Curious how it works at all? Read{' '}
+            <a href="/guide/how-browser-extensions-automate-trading.html">
+              how a Chrome extension automates Pocket Option trading
+            </a>.
+          </p>
         </div>
         <aside>
           <BookOpen size={34} />

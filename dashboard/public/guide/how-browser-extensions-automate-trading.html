@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>How a Chrome Extension Automates Pocket Option Trading</title>
+  <meta name="description" content="How a Chrome extension automates Pocket Option trades inside your own logged-in tab, why your Pocket Option password is never involved, and what it cannot do.">
+  <meta property="og:title" content="How a Chrome Extension Automates Pocket Option Trading">
+  <meta property="og:description" content="How a Chrome extension automates Pocket Option trades inside your own logged-in tab, why your Pocket Option password is never involved, and what it cannot do.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://avalisabot.vercel.app/guide/how-browser-extensions-automate-trading.html">
+  <link rel="canonical" href="https://avalisabot.vercel.app/guide/how-browser-extensions-automate-trading.html">
+  <link rel="icon" href="/favicon.ico">
+  <style>
+    :root {
+      --bg: #060606;
+      --surface: #0e1216;
+      --surface-deep: #07090b;
+      --text: #f3eee6;
+      --muted: rgba(243, 238, 230, 0.7);
+      --gold: #d8a24a;
+      --gold-light: #f1c878;
+      --line: rgba(216, 162, 74, 0.24);
+      --jade: #4a9b7e;
+      --display: Georgia, 'Times New Roman', serif;
+      --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 78% 3%, rgba(216, 162, 74, 0.18), transparent 26rem),
+        radial-gradient(circle at 5% 22%, rgba(74, 155, 126, 0.12), transparent 30rem),
+        linear-gradient(180deg, var(--bg), #090c0e 48%, #040404);
+      color: var(--text);
+      font: 16px/1.7 var(--sans);
+    }
+    a { color: var(--gold-light); text-underline-offset: 0.2em; }
+    a:hover { color: #ffe1a8; }
+    a:focus-visible { outline: 2px solid var(--gold-light); outline-offset: 4px; }
+    .shell { width: min(calc(100% - 2rem), 860px); margin: 0 auto; }
+    header {
+      border-bottom: 1px solid var(--line);
+      background: rgba(6, 6, 6, 0.88);
+    }
+    nav {
+      display: flex;
+      min-height: 4.35rem;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .brand img { display: block; width: auto; height: 3.1rem; }
+    .nav-link { color: var(--muted); font-size: 0.86rem; font-weight: 700; text-decoration: none; }
+    .hero { padding: clamp(3.5rem, 8vw, 6.5rem) 0 clamp(2rem, 5vw, 4rem); }
+    .kicker {
+      margin: 0;
+      color: var(--gold);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+    h1, h2 { font-family: var(--display); font-weight: 500; line-height: 1.08; }
+    h1 { max-width: 820px; margin: 0.75rem 0 1.25rem; font-size: clamp(2.5rem, 7vw, 5rem); }
+    h2 { margin: 0 0 1rem; font-size: clamp(1.8rem, 4vw, 2.55rem); }
+    h3 { margin: 1.75rem 0 0.35rem; color: var(--gold-light); font-size: 1.05rem; }
+    p, li { color: var(--muted); }
+    .lede { max-width: 740px; margin: 0; font-size: clamp(1.05rem, 2.5vw, 1.24rem); }
+    .quick-links { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.6rem; }
+    .button {
+      display: inline-flex;
+      min-height: 2.8rem;
+      align-items: center;
+      border: 1px solid rgba(241, 200, 120, 0.55);
+      border-radius: 0.48rem;
+      padding: 0.7rem 1rem;
+      background: linear-gradient(180deg, #f1c878, #d0933c 52%, #9c6423);
+      color: #130d05;
+      font-weight: 800;
+      text-decoration: none;
+    }
+    .button.secondary { background: rgba(10, 10, 15, 0.6); color: var(--gold-light); }
+    .toc, article section, .risk, .final-cta {
+      border: 1px solid var(--line);
+      border-radius: 0.7rem;
+      background:
+        radial-gradient(circle at 92% 0%, rgba(216, 162, 74, 0.08), transparent 15rem),
+        linear-gradient(180deg, rgba(14, 18, 22, 0.92), rgba(7, 9, 11, 0.94));
+    }
+    .toc { margin-bottom: 1rem; padding: 1.35rem clamp(1.1rem, 3vw, 1.8rem); }
+    .toc strong { font-family: var(--display); font-size: 1.2rem; }
+    .toc ol { columns: 2; margin-bottom: 0; padding-left: 1.25rem; }
+    .toc li { break-inside: avoid; margin: 0.25rem 0; }
+    article { display: grid; gap: 1rem; padding-bottom: 4rem; }
+    article section { padding: clamp(1.3rem, 4vw, 2.2rem); scroll-margin-top: 1rem; }
+    article section > :last-child { margin-bottom: 0; }
+    ol, ul { padding-left: 1.45rem; }
+    li + li { margin-top: 0.5rem; }
+    strong { color: var(--text); }
+    .risk { border-color: rgba(241, 200, 120, 0.42); }
+    .risk h2 { color: var(--gold-light); }
+    .final-cta { text-align: left; }
+    footer { border-top: 1px solid var(--line); padding: 2rem 0; color: var(--muted); font-size: 0.86rem; }
+    footer .shell { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.75rem 1.5rem; }
+    @media (max-width: 620px) {
+      .toc ol { columns: 1; }
+      .brand img { height: 2.7rem; }
+      .nav-link { font-size: 0.78rem; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <nav class="shell" aria-label="Primary navigation">
+      <a class="brand" href="/" aria-label="Avalisa PO Bot home">
+        <img src="/images/brand/avalisa-signature-logo-gold.png" alt="Avalisa PO Bot">
+      </a>
+      <a class="nav-link" href="https://avalisabot.vercel.app/guide">Setup guide</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="hero shell">
+      <p class="kicker">How browser automation works</p>
+      <h1>How a Chrome Extension Automates Pocket Option Trading (Without Your Pocket Option Password)</h1>
+      <p class="lede">Avalisa PO Bot is a Chrome extension that runs your Pocket Option strategy inside the tab you already have open — clicking, staking and tracking trades mechanically, on schedule, without collecting your Pocket Option account details.</p>
+      <div class="quick-links">
+        <a class="button" href="https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa">Add to Chrome</a>
+        <a class="button secondary" href="https://avalisabot.vercel.app/guide">Open the setup guide</a>
+      </div>
+    </div>
+
+    <div class="shell">
+      <aside class="toc" aria-label="On this page">
+        <strong>On this page</strong>
+        <ol>
+          <li><a href="#why-extension">Why an extension, and why your password is never involved</a></li>
+          <li><a href="#what-it-does">What the bot does once it is running</a></li>
+          <li><a href="#setup">Practical steps to get set up</a></li>
+          <li><a href="#limits">What an extension like this cannot do</a></li>
+          <li><a href="#risk">Risk statement</a></li>
+          <li><a href="#faq">Frequently asked questions</a></li>
+          <li><a href="#start">Start today, on demo money</a></li>
+        </ol>
+      </aside>
+
+      <article>
+        <section id="why-extension">
+          <h2>Why an extension, and why your Pocket Option password is never involved</h2>
+          <p>Most trading tools ask you to hand over your broker login. That means your credentials sit in someone else's server or script. A browser extension takes a different path: it lives in <strong>your own Chrome</strong>, inside <strong>your own logged-in session</strong>.</p>
+          <p>What that actually means in practice:</p>
+          <ul>
+            <li>You log in to Pocket Option yourself, exactly as you always have.</li>
+            <li>The extension never sees, stores or transmits your Pocket Option password — there is no Pocket Option password field in the bot. The one password it does ask for is for your own Avalisa account, which holds your licence and settings and is unrelated to your Pocket Option login.</li>
+            <li>It works on the open trading page of the tab you keep on screen, placing trades with the same interface you would click by hand.</li>
+            <li>Because it runs locally in your browser, there is no middle-server that holds your broker account data between you and the broker's site.</li>
+          </ul>
+          <p>This matters because binary-options brokers are a place where people lose accounts to careless sharing of logins. Keeping your credentials yours is the first line of defence, before any settings talk.</p>
+        </section>
+
+        <section id="what-it-does">
+          <h2>What the bot does once it is running</h2>
+          <p>Once installed and linked to your Pocket Option ID, the panel in the extension lets you define a mechanical rule and leave the clicking to it:</p>
+          <ol>
+            <li><strong>Pick a strategy mode.</strong> Martingale mode is available from the free plan up; Avalisa Bot mode (a rule-based signal mode with Low/Mid/High intensity) requires the Pro plan.</li>
+            <li><strong>Set direction</strong> — always buy, always sell, or alternating.</li>
+            <li><strong>Set the behaviour after a loss.</strong> A multiplier (2x up to 3x) scales the next stake, and a "Martingale Steps" limit caps how many consecutive doublings are allowed. Limiting the step count is the real way to cap a losing streak: there is no separate stop-loss or daily-loss-limit setting, so the step cap is where that discipline lives. If the next stake would exceed your balance, the bot pauses instead of over-committing.</li>
+            <li><strong>Set the rest:</strong> trade timeframe (expiry), a minimum payout percentage filter, and pair scanning (current pair only, auto-scan favourites, or auto-switch favourite).</li>
+          </ol>
+          <p>The free Demo plan already gives you 10 automated Martingale trades, dashboard access and all supported timeframes, so you can feel exactly what the automation does before spending a dollar.</p>
+        </section>
+
+        <section id="setup">
+          <h2>Practical steps to get set up (starting safe)</h2>
+          <ol>
+            <li><strong>Create or reuse a DEMO Pocket Option account.</strong> Always test a strategy on demo money first; the extension works on demo and real accounts alike.</li>
+            <li><strong>Install the extension</strong> from the <a href="https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa">Chrome Web Store</a>.</li>
+            <li><strong>Link your Pocket Option ID</strong> in your Avalisa account — again, the ID, not a broker password. You can check whether an ID already has a plan on the <a href="https://avalisabot.vercel.app/guide">guide page</a>.</li>
+            <li><strong>Keep the Pocket Option tab visible while it trades.</strong> A backgrounded or minimised tab can delay trade-result detection, which shows up as trades appearing to misbehave. If something looks wrong, the first fix is almost always: bring the tab forward, reload the Pocket Option page, and press Start again.</li>
+            <li><strong>Start small and bounded:</strong> low multiplier, a hard step limit, and a demo balance you will not miss. Read the <a href="https://avalisabot.vercel.app/guide">setup guide</a> before going real.</li>
+          </ol>
+        </section>
+
+        <section id="limits">
+          <h2>What an extension like this cannot do — honestly</h2>
+          <ul>
+            <li>It does not make bad trades good. Automation executes a rule; it does not improve the rule. If the underlying strategy loses, the bot loses it faster and more consistently than you could by hand.</li>
+            <li>It does not watch your back while you sleep. It automates what runs in your browser; the tab and the machine have to be up.</li>
+            <li>Broker-side notes: Pocket Option's own blog says traders "can utilize automated strategies as long as they comply with platform rules," without naming third-party extensions specifically (that is their blog, not their formal Terms of Service, which we have not read). They state the explicit ban risk is for market manipulation, not for automation itself. Neither side should be read as a stamp of approval — verify your position with the broker.</li>
+          </ul>
+        </section>
+
+        <section id="risk" class="risk">
+          <h2>Risk statement — read this before anything else</h2>
+          <p>Trading binary options is <strong>high risk</strong>; most retail accounts lose money over time, and only ever use money you can afford to lose. This bot does <strong>not</strong> guarantee profit, and nobody should: Martingale doubles (or multiplies) the stake after each loss, so a run of losses compounds quickly, and our own large-sample measurements have found no setting that beats break-even over time. The honest use of the tool is discipline — fixed rules, step limits, payout filters and demo validation — not an expectation of earnings. If a vendor tells you a bot removes the risk, that vendor is selling you the bot's opposite.</p>
+        </section>
+
+        <section id="faq">
+          <h2>Frequently asked questions</h2>
+
+          <h3>Does the extension ask for my Pocket Option password?</h3>
+          <p>No. You log in to Pocket Option yourself as usual; the extension works inside your existing logged-in tab and only needs your Pocket Option ID to link your account. The only password in the product is the one for your own Avalisa account, which carries your licence and settings and has nothing to do with your broker login.</p>
+
+          <h3>Will it work on my demo account?</h3>
+          <p>Yes. The bot runs on demo and real accounts, and the recommended order is demo first: the free plan's 10 automated trades exist precisely so you can verify the mechanics before real money is involved.</p>
+
+          <h3>What happens if I have a long losing streak?</h3>
+          <p>Each step raises the next stake by your chosen multiplier, until either you hit your Martingale step limit or the next stake exceeds your balance, at which point the bot pauses. That pause behaviour is a feature: the step limit is your loss cap, and leaving it at "Infinite" on a real account removes your only ceiling.</p>
+
+          <h3>Does Pocket Option allow bots?</h3>
+          <p>Their blog says automated strategies are fine as long as they comply with platform rules, and names market manipulation — not automation — as the explicit ban risk. That is a blog statement, not their formal terms, so treat the question as "generally tolerated, verify yourself."</p>
+
+          <h3>Is there a free way to try it?</h3>
+          <p>Yes — install from the <a href="https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa">Chrome Web Store</a>, link a demo Pocket Option ID, and run the free Demo plan. Basic ($69) is a one-time, permanent purchase and never renews. Pro is offered two ways: $119 one-time, or $29/month, which is a real recurring subscription that renews until you cancel — you choose which one at <a href="https://avalisabot.vercel.app/pricing">checkout</a>.</p>
+        </section>
+
+        <section id="start" class="final-cta">
+          <h2>Start today, on demo money</h2>
+          <p>Install the <a href="https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa">Avalisa PO Bot extension from the Chrome Web Store</a>, open a <strong>demo</strong> Pocket Option account, and run your first bounded session: low multiplier, a step limit you would be glad existed after a bad run, payout filter on.</p>
+          <ul>
+            <li>Install from the Chrome Web Store: <a href="https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa">Avalisa PO Bot</a></li>
+            <li>Setup guide: <a href="https://avalisabot.vercel.app/guide">avalisabot.vercel.app/guide</a></li>
+            <li>Plans and checkout: <a href="https://avalisabot.vercel.app/pricing">avalisabot.vercel.app/pricing</a></li>
+          </ul>
+          <p>Read the <a href="https://avalisabot.vercel.app/guide">setup guide</a> if anything is unclear, and write to <a href="mailto:avalisapobot@gmail.com">avalisapobot@gmail.com</a> — the answer will be the mechanics, not a promise.</p>
+        </section>
+      </article>
+    </div>
+  </main>
+
+  <footer>
+    <div class="shell">
+      <span>© Avalisa PO Bot</span>
+      <a href="mailto:avalisapobot@gmail.com">avalisapobot@gmail.com</a>
+    </div>
+  </footer>
+</body>
+</html>
