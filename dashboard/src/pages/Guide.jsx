@@ -372,6 +372,12 @@ export default function Guide() {
               why a payout-percentage filter matters for the math
             </a>.
           </p>
+          <p>
+            Wondering about taking money out? Read{' '}
+            <a href="/guide/can-you-withdraw-funds-after-bot-trading.html">
+              whether using a bot changes how you withdraw from Pocket Option
+            </a>.
+          </p>
         </div>
         <aside>
           <BookOpen size={34} />
