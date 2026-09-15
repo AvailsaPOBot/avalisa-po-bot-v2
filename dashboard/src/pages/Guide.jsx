@@ -360,6 +360,12 @@ export default function Guide() {
               what a trading bot can and cannot do for you
             </a>.
           </p>
+          <p>
+            Thinking about a weekend session? Read{' '}
+            <a href="/guide/pocket-option-bot-otc-trading-guide.html">
+              what to know about OTC pairs before you automate weekend trading
+            </a>.
+          </p>
         </div>
         <aside>
           <BookOpen size={34} />
